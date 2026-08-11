@@ -40,7 +40,7 @@ public class SocialsWidget extends DraggableWidget {
         new SocialEntry(
             "GitHub",
             "Report bugs, suggest features or explore the source code",
-            "https://github.com/Dawn-of-Time-Project",
+            "https://github.com/Dawn-of-Time-Project/onceuponatown",
             0xFFCCCCCC)
     );
 
