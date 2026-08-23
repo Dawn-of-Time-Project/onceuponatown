@@ -6,6 +6,7 @@
   "category": "jobs",
   "weight": 2,
   "spawns_npc": "lumberjack",
+  "residents": 1,
 
   "required_buildings": [
     { "defId": "grove", "count": 1 },

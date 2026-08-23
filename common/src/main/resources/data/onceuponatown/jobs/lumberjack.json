@@ -2,9 +2,9 @@
   "walk_speed": 0.6,
   "chop_delay_ticks": 12,
   "wood_source_buildings": ["grove", "lake", "pig_field", "bee_field", "wild_spot", "lone_place", "lone_garden"],
+  "rest_buildings": ["lumberjack"],
   "bedtime": 13000,
   "wakeup_time": 1000,
-  "rest_buildings": ["lumberjack"],
 
   "secondary_activities": [
     {

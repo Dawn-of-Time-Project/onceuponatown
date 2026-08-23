@@ -24,6 +24,7 @@ import org.dawnoftime.onceuponatown.town.PlacedBuilding;
 import org.dawnoftime.onceuponatown.town.Town;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -55,21 +56,21 @@ public class LumberjackJob extends AbstractNpcJob {
 
     public LumberjackJob(Npc npc) {
         super(npc);
-        this.workController = new BuildingBlockController(npc, 3.0, 2.0);
-        // Scanner: find logs in the building; if found, populate chopList and return
-        // the building center so the controller skips APPROACHING (lumberjack works from center).
+        this.workController = new BuildingBlockController(npc, 4.0);
+        // Scanner: find logs in the building, populate chopList, return the lowest-Y log
+        // closest to the NPC as the navigation target (arrivalRadius 4.0 gives branch clearance).
         this.workScanner = (level, building) -> {
             List<BlockPos> logs = scanLogs(level, building.bb);
             if (logs.isEmpty()) return null;
-            chopList = logs;
+            chopList = new ArrayList<>(logs);
             chopCursor = 0;
             chopTickCounter = 0;
             npc.holdInMainHand(new ItemStack(Items.WOODEN_AXE));
-            return new BlockPos(
-                (building.bb.minX() + building.bb.maxX()) / 2,
-                building.bb.minY(),
-                (building.bb.minZ() + building.bb.maxZ()) / 2
-            );
+            int minY = logs.stream().mapToInt(BlockPos::getY).min().orElse(0);
+            return logs.stream()
+                .filter(p -> p.getY() == minY)
+                .min(Comparator.comparingDouble(p -> npc.distanceToSqr(p.getX() + 0.5, p.getY() + 0.5, p.getZ() + 0.5)))
+                .orElse(logs.get(logs.size() - 1));
         };
     }
 
@@ -89,6 +90,8 @@ public class LumberjackJob extends AbstractNpcJob {
         NpcSleepController.SleepCheck sc = sleepController.checkTick(dayTime, cfg, current == State.SLEEPING);
         if (sc == NpcSleepController.SleepCheck.RESYNC)   current = State.SLEEPING;
         if (sc == NpcSleepController.SleepCheck.TRIGGER)  enterSleep();
+
+        npc.setSuppressLookAtPlayer(current != State.IDLE && current != State.SLEEPING);
 
         switch (current) {
             case IDLE -> {

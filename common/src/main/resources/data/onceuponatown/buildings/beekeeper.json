@@ -5,6 +5,7 @@
   "icon_item": "minecraft:honey_bottle",
   "category": "jobs",
   "weight": 3,
+  "residents": 1,
 
   "required_buildings": [
     { "defId": "bee_field", "count": 1 }

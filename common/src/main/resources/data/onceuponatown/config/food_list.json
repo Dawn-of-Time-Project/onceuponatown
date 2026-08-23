@@ -1,4 +1,7 @@
 {
+  "units_per_resident": 1.0,
+  "units_per_animal":   2.0,
+
   "feeding_schedule": [5000, 15000],
 
   "resident_food": [
@@ -10,7 +13,6 @@
     { "item": "minecraft:cooked_porkchop", "fuv": 2 },
     { "item": "minecraft:baked_potato",    "fuv": 2 },
     { "item": "minecraft:bread",           "fuv": 2 }
-
   ],
 
   "herd_food": [

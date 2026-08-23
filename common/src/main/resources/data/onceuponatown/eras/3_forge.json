@@ -20,7 +20,7 @@
 
   "auto_upgrade_ids": ["settlement"],
 
-  "unlocked_building_ids": ["carpenter", "brownfield"],
+  "unlocked_building_ids": ["carpenter"],
 
   "next_orientation": "forge"
 }

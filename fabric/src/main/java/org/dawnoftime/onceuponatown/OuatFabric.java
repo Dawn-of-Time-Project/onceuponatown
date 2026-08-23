@@ -18,7 +18,9 @@ import org.dawnoftime.onceuponatown.datapack.BuilderConfigDataHandler;
 import org.dawnoftime.onceuponatown.datapack.BuildingDataHandler;
 import org.dawnoftime.onceuponatown.datapack.LumberjackConfigDataHandler;
 import org.dawnoftime.onceuponatown.datapack.MinerConfigDataHandler;
+import org.dawnoftime.onceuponatown.datapack.CowHerdConfigDataHandler;
 import org.dawnoftime.onceuponatown.datapack.ShepherdConfigDataHandler;
+import org.dawnoftime.onceuponatown.datapack.SwineherdConfigDataHandler;
 import org.dawnoftime.onceuponatown.datapack.BuildingListDataHandler;
 import org.dawnoftime.onceuponatown.datapack.EraTransitionDataHandler;
 import org.dawnoftime.onceuponatown.datapack.FoodListDataHandler;
@@ -33,14 +35,17 @@ import org.dawnoftime.onceuponatown.network.C2SContributeQuestPacket;
 import org.dawnoftime.onceuponatown.network.C2SVerifyClearancePacket;
 import org.dawnoftime.onceuponatown.network.C2SQueueBuildingPacket;
 import org.dawnoftime.onceuponatown.network.C2SRemoveQueuedBuildingPacket;
+import org.dawnoftime.onceuponatown.network.C2SRequestNbtPacket;
 import org.dawnoftime.onceuponatown.network.C2SRequestStockPacket;
 import org.dawnoftime.onceuponatown.network.C2SToggleChatBroadcastPacket;
 import org.dawnoftime.onceuponatown.network.C2SUpgradeBuildingPacket;
+import org.dawnoftime.onceuponatown.network.C2SRepairBuildingPacket;
 import org.dawnoftime.onceuponatown.network.S2CBuildingDefsPacket;
 import org.dawnoftime.onceuponatown.network.S2CBuildingListPacket;
 import org.dawnoftime.onceuponatown.network.S2CCitizenUpdatePacket;
 import org.dawnoftime.onceuponatown.network.S2CLogEntryPacket;
 import org.dawnoftime.onceuponatown.network.S2CEraUpdatePacket;
+import org.dawnoftime.onceuponatown.network.S2CNbtStructurePacket;
 import org.dawnoftime.onceuponatown.network.S2CQuestUpdatePacket;
 import org.dawnoftime.onceuponatown.network.S2CStockUpdatePacket;
 import org.dawnoftime.onceuponatown.registry.BlockRegistry;
@@ -68,9 +73,11 @@ public class OuatFabric implements ModInitializer {
             TownCommand.register(dispatcher, context));
         ServerLifecycleEvents.SERVER_STARTING.register(BeekeeperConfigDataHandler::reload);
         ServerLifecycleEvents.SERVER_STARTING.register(BuilderConfigDataHandler::reload);
+        ServerLifecycleEvents.SERVER_STARTING.register(CowHerdConfigDataHandler::reload);
         ServerLifecycleEvents.SERVER_STARTING.register(LumberjackConfigDataHandler::reload);
         ServerLifecycleEvents.SERVER_STARTING.register(MinerConfigDataHandler::reload);
         ServerLifecycleEvents.SERVER_STARTING.register(ShepherdConfigDataHandler::reload);
+        ServerLifecycleEvents.SERVER_STARTING.register(SwineherdConfigDataHandler::reload);
         ServerLifecycleEvents.SERVER_STARTING.register(BuildingDataHandler::reload);
         ServerLifecycleEvents.SERVER_STARTING.register(BuildingListDataHandler::reload);
         ServerLifecycleEvents.SERVER_STARTING.register(EraTransitionDataHandler::reload);
@@ -97,6 +104,11 @@ public class OuatFabric implements ModInitializer {
             (server, player, handler, buf, responseSender) -> {
                 C2SUpgradeBuildingPacket packet = C2SUpgradeBuildingPacket.decode(buf);
                 server.execute(() -> C2SUpgradeBuildingPacket.Handler.handle(packet, player));
+            });
+        ServerPlayNetworking.registerGlobalReceiver(C2SRepairBuildingPacket.ID,
+            (server, player, handler, buf, responseSender) -> {
+                C2SRepairBuildingPacket packet = C2SRepairBuildingPacket.decode(buf);
+                server.execute(() -> C2SRepairBuildingPacket.Handler.handle(packet, player));
             });
         ServerPlayNetworking.registerGlobalReceiver(C2SDepositPacket.ID,
             (server, player, handler, buf, responseSender) -> {
@@ -133,6 +145,11 @@ public class OuatFabric implements ModInitializer {
                 C2SToggleChatBroadcastPacket packet = C2SToggleChatBroadcastPacket.decode(buf);
                 server.execute(() -> C2SToggleChatBroadcastPacket.Handler.handle(packet, player));
             });
+        ServerPlayNetworking.registerGlobalReceiver(C2SRequestNbtPacket.ID,
+            (server, player, handler, buf, responseSender) -> {
+                C2SRequestNbtPacket packet = C2SRequestNbtPacket.decode(buf);
+                server.execute(() -> C2SRequestNbtPacket.Handler.handle(packet, player));
+            });
         NetworkHelper.sendBuildingDefsPacket = (player, data) -> {
             var buf = PacketByteBufs.create();
             new S2CBuildingDefsPacket(data).encode(buf);
@@ -167,6 +184,11 @@ public class OuatFabric implements ModInitializer {
             var buf = PacketByteBufs.create();
             new S2CLogEntryPacket(data).encode(buf);
             ServerPlayNetworking.send(player, S2CLogEntryPacket.ID, buf);
+        };
+        NetworkHelper.sendNbtStructurePacket = (player, data) -> {
+            var buf = PacketByteBufs.create();
+            S2CNbtStructurePacket.fromData(data).encode(buf);
+            ServerPlayNetworking.send(player, S2CNbtStructurePacket.ID, buf);
         };
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             var buf = PacketByteBufs.create();

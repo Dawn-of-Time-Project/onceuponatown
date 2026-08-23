@@ -36,16 +36,34 @@ public class SecondaryActivityController {
      */
     public boolean tryStart(Town town, Npc npc, List<ActivityDef> pool) {
         if (pool.isEmpty()) return false;
+        if (!(npc.level() instanceof ServerLevel level)) return false;
 
         List<ActivityDef> candidateDefs = new ArrayList<>();
         List<PlacedBuilding> candidateBuildings = new ArrayList<>();
         for (PlacedBuilding building : town.getBuildings()) {
             if (building.bb == null) continue;
             for (ActivityDef def : pool) {
-                if (def.requiredBuilding().equals(building.defId)) {
-                    candidateDefs.add(def);
-                    candidateBuildings.add(building);
+                if (!def.requiredBuilding().equals(building.defId)) continue;
+                // If the activity targets a specific block, verify it exists before committing to navigation.
+                // Activities with no targetBlock (NPC just walks to building center) are always valid.
+                if (def.targetBlock() != null) {
+                    Block block = BuiltInRegistries.BLOCK.getOptional(new ResourceLocation(def.targetBlock())).orElse(null);
+                    if (block == null) continue;
+                    boolean found = false;
+                    BoundingBox bb = building.bb;
+                    outer:
+                    for (int bx = bb.minX(); bx <= bb.maxX(); bx++)
+                        for (int by = bb.minY(); by <= bb.maxY(); by++)
+                            for (int bz = bb.minZ(); bz <= bb.maxZ(); bz++) {
+                                if (level.getBlockState(new BlockPos(bx, by, bz)).is(block)) {
+                                    found = true;
+                                    break outer;
+                                }
+                            }
+                    if (!found) continue;
                 }
+                candidateDefs.add(def);
+                candidateBuildings.add(building);
             }
         }
         if (candidateDefs.isEmpty()) return false;
@@ -54,13 +72,14 @@ public class SecondaryActivityController {
         ActivityDef def = candidateDefs.get(idx);
         PlacedBuilding building = candidateBuildings.get(idx);
 
-        current = new ActivityInstance(def, building, new BuildingBlockController(npc, 2.0, 1.5));
+        current = new ActivityInstance(def, building, new BuildingBlockController(npc, 2.0));
 
         if (!def.heldItem().equals("minecraft:air")) {
             BuiltInRegistries.ITEM.getOptional(new ResourceLocation(def.heldItem()))
                 .ifPresent(item -> npc.holdInMainHand(new ItemStack(item)));
         }
         performTicks = 0;
+        npc.setSuppressLookAtPlayer(true);
         return true;
     }
 
@@ -121,6 +140,7 @@ public class SecondaryActivityController {
         current.controller.reset();
         npc.freeHands();
         npc.getNavigation().stop();
+        npc.setSuppressLookAtPlayer(false);
         current = null;
         performTicks = 0;
     }

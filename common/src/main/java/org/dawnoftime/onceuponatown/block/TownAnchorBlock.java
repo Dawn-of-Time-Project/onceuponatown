@@ -4,6 +4,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
 import net.minecraft.world.level.block.RenderShape;
@@ -50,7 +51,7 @@ public class TownAnchorBlock extends BaseEntityBlock {
             if (be != null) {
                 Town town = LevelTowns.get((net.minecraft.server.level.ServerLevel) level).getTownAt(pos).orElse(null);
                 if (town == null) return InteractionResult.FAIL;
-                net.minecraft.nbt.CompoundTag hubData = town.getHubData(pos);
+                net.minecraft.nbt.CompoundTag hubData = town.getHubData(pos, (ServerLevel) level);
                 hubData.putBoolean("ChatSubscribed", town.isChatSubscriber(player.getUUID()));
                 NetworkHelper.sendTownHubPacket.accept((ServerPlayer) player, hubData);
                 player.openMenu(be);

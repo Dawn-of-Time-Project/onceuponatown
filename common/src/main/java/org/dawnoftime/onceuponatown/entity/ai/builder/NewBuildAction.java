@@ -129,7 +129,7 @@ public class NewBuildAction implements BuilderAction {
     }
 
     // Converts a raw SchematicBlock list into the unified ordered PlacementStep list:
-    //   1. Normal BlockSteps (Y-sorted snake, order preserved from SchematicReader)
+    //   1. Normal BlockSteps (Y-sorted snake, order preserved from SchematicReader) -- doors included
     //   2. Deferred BlockSteps (waterlogged=0, water=1, lily pads=2)
     //   3. EntitySteps (last, placed one-by-one by the NPC after all blocks are done)
     private List<PlacementStep> buildStepList(List<SchematicBlock> rawBlocks, StructureTemplate template) {

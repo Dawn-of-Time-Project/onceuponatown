@@ -41,7 +41,8 @@
       ],
       "output": "minecraft:leather_helmet",
       "output_amount": 1,
-      "output_capacity_stacks": 1
+      "output_capacity_stacks": 1,
+      "output_capacity_units": 1
     },
     {
       "inputs": [
@@ -49,7 +50,8 @@
       ],
       "output": "minecraft:leather_chestplate",
       "output_amount": 1,
-      "output_capacity_stacks": 1
+      "output_capacity_stacks": 1,
+      "output_capacity_units": 1
     },
     {
       "inputs": [
@@ -57,7 +59,8 @@
       ],
       "output": "minecraft:leather_leggings",
       "output_amount": 1,
-      "output_capacity_stacks": 1
+      "output_capacity_stacks": 1,
+      "output_capacity_units": 1
     },
     {
       "inputs": [
@@ -65,7 +68,8 @@
       ],
       "output": "minecraft:leather_boots",
       "output_amount": 1,
-      "output_capacity_stacks": 1
+      "output_capacity_stacks": 1,
+      "output_capacity_units": 1
     },
     {
       "inputs": [
@@ -74,7 +78,8 @@
       "output": "minecraft:leather_horse_armor",
       "output_amount": 1,
       "output_capacity_stacks": 1,
-      "unlock_at_level": 1
+      "unlock_at_level": 1,
+      "output_capacity_units": 1
     },
     {
       "inputs": [
@@ -83,6 +88,7 @@
       "output": "minecraft:saddle",
       "output_amount": 1,
       "output_capacity_stacks": 1,
+      "output_capacity_units": 1,
       "unlock_at_level": 1
     },
     {

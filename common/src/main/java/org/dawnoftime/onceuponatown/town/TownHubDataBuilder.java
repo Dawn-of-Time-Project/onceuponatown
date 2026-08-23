@@ -2,6 +2,7 @@ package org.dawnoftime.onceuponatown.town;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtUtils;
@@ -11,6 +12,8 @@ import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import org.dawnoftime.onceuponatown.datapack.BuildingDataHandler;
 import org.dawnoftime.onceuponatown.datapack.BuildingListDataHandler;
+import org.dawnoftime.onceuponatown.entity.Npc;
+import org.dawnoftime.onceuponatown.entity.ai.NpcJobRegistry;
 import org.dawnoftime.onceuponatown.datapack.EraTransitionDataHandler;
 import org.dawnoftime.onceuponatown.datapack.EraTransitionDef;
 import org.dawnoftime.onceuponatown.datapack.QuestDataHandler;
@@ -24,6 +27,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Stream;
 
 // Pure projection: reads Town state and serializes it into CompoundTag packets for the client.
@@ -31,9 +35,11 @@ import java.util.stream.Stream;
 public class TownHubDataBuilder {
 
     private final Town town;
+    private final ServerLevel level;
 
-    public TownHubDataBuilder(Town town) {
-        this.town = town;
+    public TownHubDataBuilder(Town town, ServerLevel level) {
+        this.town  = town;
+        this.level = level;
     }
 
     // Full hub packet: map + era + catalog + stock + queue + summary + quests.
@@ -95,6 +101,7 @@ public class TownHubDataBuilder {
         }
         hub.put("BuildingCatalog", catalogTag);
         hub.put("StockSnapshot", buildFullStockTag(inv));
+        hub.put("StockCapacity", buildStockCapacityTag(inv));
         hub.put("TradePrices", TradePriceDataHandler.buildPricesTag());
         hub.put("UpgradeBuildings", buildUpgradeBuildingsTag());
 
@@ -109,6 +116,7 @@ public class TownHubDataBuilder {
         summaryData.putInt("TotalFoodDemand", foodDemand);
         summaryData.putInt("TotalHerd", totalHerd);
         summaryData.putInt("ActiveHerd", activeHerd);
+        summaryData.put("Workers", buildWorkersTag());
         hub.put("SummaryData", summaryData);
         hub.putInt("TotalResidents", totalRes);
         hub.putInt("ActiveResidents", town.getActiveResidents());
@@ -123,10 +131,30 @@ public class TownHubDataBuilder {
 
     // Targeted stock snapshot: produced items first, then items needed for costs.
     public CompoundTag buildStockUpdateData(BlockPos anchorPos) {
+        TownInventory inv = town.getTownInventory();
         CompoundTag tag = new CompoundTag();
         tag.put("AnchorPos", NbtUtils.writeBlockPos(anchorPos));
-        tag.put("StockSnapshot", buildFullStockTag(town.getTownInventory()));
+        tag.put("StockSnapshot", buildFullStockTag(inv));
+        tag.put("StockCapacity", buildStockCapacityTag(inv));
         return tag;
+    }
+
+    // Per-item max units the village can hold, for all currently produced items.
+    private CompoundTag buildStockCapacityTag(TownInventory inv) {
+        CompoundTag cap = new CompoundTag();
+        Set<Item> produced = new LinkedHashSet<>();
+        for (PlacedBuilding b : town.getBuildings()) {
+            BuildingDataHandler.get(b.defId).ifPresent(def -> {
+                def.production.forEach(p -> produced.add(p.item()));
+                def.transformations.forEach(t -> produced.add(t.outputItem()));
+            });
+        }
+        produced.forEach(item -> {
+            int max = inv.getMaxStock(item);
+            if (max > 0)
+                cap.putInt(BuiltInRegistries.ITEM.getKey(item).toString(), max);
+        });
+        return cap;
     }
 
     // Full stock: produced items first, then cost items not already covered.
@@ -247,6 +275,26 @@ public class TownHubDataBuilder {
         tag.putInt("TotalFoodDemand", (int) Math.ceil(town.computeTotalFoodDemandFloat()) * FoodRegistry.getFeedingSchedule().size());
         tag.putInt("TotalHerd", town.getTotalHerd());
         tag.putInt("ActiveHerd", town.getActiveHerd());
+        tag.put("Workers", buildWorkersTag());
+        return tag;
+    }
+
+    private ListTag buildWorkersTag() {
+        ListTag tag = new ListTag();
+        if (level == null) return tag;
+        for (String jobId : NpcJobRegistry.ALL_JOB_IDS) {
+            for (UUID uuid : town.getNpcsByJob(jobId)) {
+                net.minecraft.world.entity.Entity entity = level.getEntity(uuid);
+                if (entity instanceof Npc npc && npc.isAlive()) {
+                    CompoundTag w = new CompoundTag();
+                    w.putString("JobId", jobId);
+                    w.putInt("PosX", npc.getBlockX());
+                    w.putInt("PosY", npc.getBlockY());
+                    w.putInt("PosZ", npc.getBlockZ());
+                    tag.add(w);
+                }
+            }
+        }
         return tag;
     }
 
@@ -413,17 +461,14 @@ public class TownHubDataBuilder {
         dt.putDouble("ProductionBonus", def.productionBonus);
         if (def.residents > 0) {
             dt.putInt("Residents", def.residents);
-            dt.putFloat("BaseConsumptionPerResident", def.consumptionPerResident);
             int maxLevel = def.upgrades.size();
             if (maxLevel > 0) {
                 BuildingDef.ResolvedBuildingStats maxStats = def.resolveAtLevel(maxLevel);
-                dt.putFloat("MaxConsumptionPerResident", maxStats.resolvedConsumptionPerResident());
                 dt.putInt("MaxResidents", maxStats.resolvedResidents());
             }
         }
         if (def.herd > 0) {
             dt.putInt("Herd", def.herd);
-            dt.putFloat("BaseConsumptionPerHerd", def.consumptionPerHerd);
         }
         if (def.requiredResidents > 0) {
             dt.putInt("RequiredResidents", def.requiredResidents);

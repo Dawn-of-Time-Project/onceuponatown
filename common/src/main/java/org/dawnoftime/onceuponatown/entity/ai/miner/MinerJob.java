@@ -32,7 +32,7 @@ public class MinerJob extends AbstractNpcJob {
 
     public MinerJob(Npc npc) {
         super(npc);
-        this.workController = new BuildingBlockController(npc, 3.0, 2.0);
+        this.workController = new BuildingBlockController(npc, 2.0);
     }
 
     @Override
@@ -51,6 +51,8 @@ public class MinerJob extends AbstractNpcJob {
         NpcSleepController.SleepCheck sc = sleepController.checkTick(dayTime, cfg, current == State.SLEEPING);
         if (sc == NpcSleepController.SleepCheck.RESYNC)   current = State.SLEEPING;
         if (sc == NpcSleepController.SleepCheck.TRIGGER)  enterSleep();
+
+        npc.setSuppressLookAtPlayer(current != State.IDLE && current != State.SLEEPING);
 
         switch (current) {
             case IDLE -> {

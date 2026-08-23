@@ -213,6 +213,7 @@ public class EraManager {
     private static String pickResidentBuilding(Town town, int deficit) {
         return BuildingDataHandler.getAll().stream()
             .filter(def -> def.residents > 0)
+            .filter(def -> !"town_center".equals(def.category))
             .filter(def -> meetsStructuralPrereqs(town, def.id))
             .min(java.util.Comparator.comparingInt(def -> {
                 int r = def.residents;
@@ -301,6 +302,10 @@ public class EraManager {
         boolean advanced = town.advanceEra(pathId);
         if (!advanced) return false;
         LevelTowns.get(level).markDirty();
+        TownLogEntry eraLog = new TownLogEntry(TownLogEntry.TownLogType.ERA_ADVANCED,
+            String.valueOf(town.getCurrentEra()), level.getGameTime());
+        town.addLogEntry(eraLog);
+        NetworkHelper.pushLogEntryToWatchers(level, town, anchorPos, eraLog);
         NetworkHelper.pushEraUpdateToWatchers(level, town, anchorPos);
         NetworkHelper.pushBuildingListToWatchers(level, town, anchorPos);
         NetworkHelper.pushStockToWatchers(level, town, anchorPos);

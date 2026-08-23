@@ -1,6 +1,6 @@
 {
   "walk_speed": 0.6,
-  "block_reach_distance": 7.5,
+  "block_reach_distance": 8,
   "block_delay_ticks": 4,
   "burst_pause_min_ticks": 10,
   "burst_pause_max_ticks": 18,
@@ -8,10 +8,9 @@
   "plan_read_chance": 0.03,
   "plan_read_min_ticks": 15,
   "plan_read_max_ticks": 35,
-
+  "rest_buildings": ["settlement", "settlement_2", "settlement_3"],
   "bedtime": 14000,
   "wakeup_time": 900,
-  "rest_buildings": ["settlement", "settlement_2", "settlement_3"],
 
   "secondary_activities": [
     {
@@ -21,13 +20,19 @@
       "target_block": "minecraft:stone"
     },
     {
-      "requiredBuilding": "workshop",
+      "requiredBuilding": "settlement",
       "heldItem": "minecraft:oak_planks",
       "animationType": "CRAFT",
       "target_block": "minecraft:crafting_table"
     },
     {
-      "requiredBuilding": "oven",
+      "requiredBuilding": "settlement_2",
+      "heldItem": "minecraft:oak_planks",
+      "animationType": "CRAFT",
+      "target_block": "minecraft:crafting_table"
+    },
+    {
+      "requiredBuilding": "settlement_3",
       "heldItem": "minecraft:oak_planks",
       "animationType": "CRAFT",
       "target_block": "minecraft:crafting_table"

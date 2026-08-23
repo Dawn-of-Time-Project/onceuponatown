@@ -21,7 +21,7 @@
   "auto_build_sequence": [{"defId": "grove", "count": 3}, {"defId": "wheat_field", "count": 2}, "wheat_farm"],
   "auto_upgrade_ids": ["settlement_3"],
 
-  "unlocked_building_ids": ["granary", "carpenter", "brownfield"],
+  "unlocked_building_ids": ["granary", "carpenter"],
 
   "next_orientation": "rural"
 }

@@ -1,9 +1,8 @@
 {
   "structures": [
-    {
-      "structure": "onceuponatown:plains_town",
-      "weight": 1
-    }
+    { "structure": "onceuponatown:plains_town_industrial", "weight": 1 },
+    { "structure": "onceuponatown:plains_town_pastoral", "weight": 1 },
+    { "structure": "onceuponatown:plains_town_agricultural", "weight": 1 }
   ],
   "placement": {
     "type": "minecraft:random_spread",

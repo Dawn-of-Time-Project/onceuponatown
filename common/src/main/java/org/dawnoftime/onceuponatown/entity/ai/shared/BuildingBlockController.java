@@ -34,23 +34,19 @@ public class BuildingBlockController {
         @Nullable BlockPos scan(ServerLevel level, PlacedBuilding building);
     }
 
-    private enum Phase { IDLE, TRAVELING, APPROACHING, PERFORMING }
+    private enum Phase { IDLE, NAVIGATING, PERFORMING }
 
     private final Npc npc;
-    private final double buildingArrivalRadius;
     private final double blockArrivalRadius;
 
     private Phase phase = Phase.IDLE;
     private int buildingCursor = 0;
     private PlacedBuilding currentBuilding = null;
-    private BlockPos buildingCenter = null;
-    private GoToPosition travelNav = null;
-    private GoToPosition approachNav = null;
+    private GoToPosition nav = null;
     private BlockPos targetBlockPos = null;
 
-    public BuildingBlockController(Npc npc, double buildingArrivalRadius, double blockArrivalRadius) {
+    public BuildingBlockController(Npc npc, double blockArrivalRadius) {
         this.npc = npc;
-        this.buildingArrivalRadius = buildingArrivalRadius;
         this.blockArrivalRadius = blockArrivalRadius;
     }
 
@@ -63,40 +59,33 @@ public class BuildingBlockController {
         if (phase == Phase.IDLE) {
             PlacedBuilding building = eligible.get(buildingCursor % eligible.size());
             if (building.bb == null) return Result.NOT_FOUND;
+            BlockPos scanned = scanner.scan(level, building);
+            if (scanned == null) {
+                advanceCursor(town, workBuildings);
+                return Result.NOT_FOUND;
+            }
             currentBuilding = building;
-            buildingCenter = new BlockPos(
+            targetBlockPos = scanned;
+            // Scanner returns building center when the job handles its own per-target navigation.
+            BlockPos center = new BlockPos(
                 (building.bb.minX() + building.bb.maxX()) / 2,
                 building.bb.minY(),
                 (building.bb.minZ() + building.bb.maxZ()) / 2
             );
-            travelNav = new GoToPosition(npc, buildingCenter, walkSpeed, buildingArrivalRadius);
-            phase = Phase.TRAVELING;
-            return Result.SEARCHING;
-        }
-
-        if (phase == Phase.TRAVELING) {
-            if (!travelNav.tick()) return Result.SEARCHING;
-            travelNav = null;
-            BlockPos scannedPos = scanner.scan(level, currentBuilding);
-            if (scannedPos == null) {
-                advanceCursor(town, workBuildings);
-                return Result.NOT_FOUND;
-            }
-            // Scanner returned building center: no per-block approach needed.
-            if (scannedPos.equals(buildingCenter)) {
-                targetBlockPos = null;
+            if (scanned.equals(center)) {
                 phase = Phase.PERFORMING;
                 return Result.PERFORMING;
             }
-            targetBlockPos = scannedPos;
-            approachNav = new GoToPosition(npc, scannedPos, walkSpeed, blockArrivalRadius);
-            phase = Phase.APPROACHING;
+            BlockPos standingPos = StandingPositionFinder.find(level, scanned, blockArrivalRadius);
+            BlockPos navTarget = standingPos != null ? standingPos : scanned;
+            nav = new GoToPosition(npc, navTarget, walkSpeed, blockArrivalRadius);
+            phase = Phase.NAVIGATING;
             return Result.SEARCHING;
         }
 
-        if (phase == Phase.APPROACHING) {
-            if (!approachNav.tick()) return Result.SEARCHING;
-            approachNav = null;
+        if (phase == Phase.NAVIGATING) {
+            if (!nav.tick()) return Result.SEARCHING;
+            nav = null;
             npc.getNavigation().stop();
             phase = Phase.PERFORMING;
             return Result.PERFORMING;
@@ -123,9 +112,7 @@ public class BuildingBlockController {
     public void reset() {
         phase = Phase.IDLE;
         currentBuilding = null;
-        buildingCenter = null;
-        travelNav = null;
-        approachNav = null;
+        nav = null;
         targetBlockPos = null;
     }
 

@@ -15,6 +15,7 @@ import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.util.FastColor;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.inventory.tooltip.TooltipComponent;
 import org.dawnoftime.onceuponatown.town.MapCategory;
 
@@ -43,6 +44,8 @@ public class TownMapWidget extends AbstractWidget {
     private static final int UPGRADE_BLACK  = 0xAA1E1E1E;
     private static final int STRIPE_SPACING = 7;
     private static final int STRIPE_WIDTH   = 3;
+    private static final ResourceLocation ICONS_TEXTURE =
+        new ResourceLocation("onceuponatown", "textures/gui/icons.png");
 
     private static final int MAP_MARGIN = 6;
     private int xDrag;
@@ -55,6 +58,8 @@ public class TownMapWidget extends AbstractWidget {
     private int mapWindowBottomBound;
     private BiConsumer<Long, String> onBuildingClicked = null;
     private Consumer<Long> onBuildingRightClicked = null;
+    private boolean repairMode = false;
+    private Consumer<Long> onBuildingRepairClicked = pos -> {};
     private final List<MapElement> mapElements = new ArrayList<>();
     private int mapInitialWidth;
     private int mapInitialHeight;
@@ -75,6 +80,10 @@ public class TownMapWidget extends AbstractWidget {
 
     public void setOnBuildingRightClicked(Consumer<Long> callback) {
         this.onBuildingRightClicked = callback;
+    }
+
+    public void setOnBuildingRepairClicked(Consumer<Long> callback) {
+        this.onBuildingRepairClicked = callback;
     }
 
     public void reposition(int newX, int newY, int newW, int newH) {
@@ -115,7 +124,7 @@ public class TownMapWidget extends AbstractWidget {
 
     private MapElement createRoadMapElement(CompoundTag tag, BlockPos nwCorner) {
         String buildType = tag.getString("BuildType");
-        Component name = Component.translatable("onceuponatown.building." + buildType);
+        Component name = Component.translatableWithFallback("onceuponatown.building." + buildType, formatBuildingId(buildType));
 
         BlockPos originPos = NbtUtils.readBlockPos(tag.getCompound("OriginPos"));
         int sizeX = tag.getInt("SizeX");
@@ -143,7 +152,7 @@ public class TownMapWidget extends AbstractWidget {
         int minX = originPos.getX() - nwCorner.getX();
         int minZ = originPos.getZ() - nwCorner.getZ();
         List<Component> desc = List.of(
-            Component.translatable("onceuponatown.building." + buildType),
+            Component.translatableWithFallback("onceuponatown.building." + buildType, formatBuildingId(buildType)),
             Component.translatable("onceuponatown.tooltip.under_construction")
                 .withStyle(net.minecraft.ChatFormatting.YELLOW)
         );
@@ -155,7 +164,7 @@ public class TownMapWidget extends AbstractWidget {
         String buildType = tag.getString("BuildType");
         double instanceBonus = tag.getDouble("InstanceBonus");
         // Append a gold star to the name for orientation-boosted buildings.
-        MutableComponent name = Component.translatable("onceuponatown.building." + buildType);
+        MutableComponent name = Component.translatableWithFallback("onceuponatown.building." + buildType, formatBuildingId(buildType));
         if (instanceBonus > 0) {
             name = name.append(Component.literal(" ★").withStyle(ChatFormatting.GOLD));
         }
@@ -245,7 +254,7 @@ public class TownMapWidget extends AbstractWidget {
                         mouseOver ? 245 : alpha, rgb);
                     net.minecraft.client.gui.Font font = Minecraft.getInstance().font;
                     if (mapElement.isUpgrading()) {
-                        drawUpgradePattern(graphics, clampedMinX, clampedMaxX, clampedMinZ, clampedMaxZ);
+                        drawUnderConstructionPattern(graphics, clampedMinX, clampedMaxX, clampedMinZ, clampedMaxZ);
                         // Draw "UP" centered on the building.
                         String label = "UP";
                         int textW = font.width(label);
@@ -280,6 +289,22 @@ public class TownMapWidget extends AbstractWidget {
             }
             alpha -= 5;
             if (alpha < 245) alpha = 248;
+        }
+
+        // Repair button: 12x12 icon in bottom-right corner of the map window.
+        int repBtnX = mapWindowRightBound - 14;
+        int repBtnY = mapWindowBottomBound - 14;
+        graphics.blit(ICONS_TEXTURE, repBtnX, repBtnY, 12, 12, 2f, 34f, 12, 12, 64, 64);
+        if (repairMode) {
+            graphics.fill(repBtnX, repBtnY, repBtnX + 12, repBtnY + 12, 0x66FFFFFF);
+        }
+        boolean repHover = mouseX >= repBtnX && mouseX < repBtnX + 12
+            && mouseY >= repBtnY && mouseY < repBtnY + 12;
+        if (repHover) {
+            graphics.renderComponentTooltip(Minecraft.getInstance().font, List.of(
+                Component.translatable("onceuponatown.ui.repair_button.tooltip"),
+                Component.translatable("onceuponatown.ui.repair_button.tooltip.sub").withStyle(ChatFormatting.GRAY)
+            ), mouseX, mouseY);
         }
     }
 
@@ -398,10 +423,23 @@ public class TownMapWidget extends AbstractWidget {
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (isHovered()) {
+            // Repair button hit test.
+            int repBtnX = mapWindowRightBound - 14;
+            int repBtnY = mapWindowBottomBound - 14;
+            if (mouseX >= repBtnX && mouseX < repBtnX + 12 && mouseY >= repBtnY && mouseY < repBtnY + 12) {
+                repairMode = !repairMode;
+                return true;
+            }
+
             MapElement hit = getBuildingAt((int) mouseX, (int) mouseY);
             if (hit != null) {
                 if (button == 0 && Screen.hasShiftDown()) {
                     PingRenderer.addPing(BlockPos.of(hit.centerPosLong()));
+                    return true;
+                }
+                if (button == 0 && repairMode && hit.worldPosLong() != 0L) {
+                    onBuildingRepairClicked.accept(hit.worldPosLong());
+                    repairMode = false;
                     return true;
                 }
                 if (button == 0 && onBuildingClicked != null) {
@@ -451,6 +489,17 @@ public class TownMapWidget extends AbstractWidget {
 
     @Override
     protected void updateWidgetNarration(NarrationElementOutput narrationElementOutput) {}
+
+    private static String formatBuildingId(String id) {
+        if (id == null || id.isEmpty()) return id;
+        String[] parts = id.split("_");
+        StringBuilder sb = new StringBuilder();
+        for (String part : parts) {
+            if (!sb.isEmpty()) sb.append(" ");
+            if (!part.isEmpty()) sb.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1));
+        }
+        return sb.toString();
+    }
 
     private record MapElement(byte category, String buildingCategory, String defId,
                                List<Component> description, Optional<TooltipComponent> productionTooltip,

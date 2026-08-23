@@ -5,6 +5,7 @@
   "icon_item": "minecraft:campfire",
   "category": "town_center",
   "weight": 0,
+  "residents": 1,
 
   "initial_stock": [
     { "item": "minecraft:oak_log", "amount": 5 },

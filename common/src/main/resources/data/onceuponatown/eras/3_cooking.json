@@ -21,7 +21,7 @@
   "auto_build_sequence": [{"defId": "grove", "count": 3}, "kitchen", "bee_field"],
   "auto_upgrade_ids": ["settlement_2"],
 
-  "unlocked_building_ids": ["beekeeper", "carpenter", "brownfield"],
+  "unlocked_building_ids": ["beekeeper", "carpenter"],
 
   "next_orientation": "cooking"
 }

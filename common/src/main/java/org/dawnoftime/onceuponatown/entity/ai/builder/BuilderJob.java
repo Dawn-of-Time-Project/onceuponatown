@@ -100,7 +100,7 @@ public class BuilderJob extends AbstractNpcJob {
             if (sc == NpcSleepController.SleepCheck.TRIGGER)  enterSleep();
         }
 
-        npc.setSuppressLookAtPlayer(current == State.BUILD);
+        npc.setSuppressLookAtPlayer(current != State.IDLE && current != State.SLEEPING);
 
         switch (current) {
             case IDLE     -> tickIdle();
@@ -121,7 +121,20 @@ public class BuilderJob extends AbstractNpcJob {
                 if (saved != null) {
                     BuildGoal resumed = BuildGoal.fromActiveBuildState(saved, npc, resumeTown, resumeLevel);
                     if (resumed != null) {
-                        if (saved.fromLevel() >= 0) {
+                        if (saved.fromLevel() == -2) {
+                            // Repair resume: locate the queue entry by its stored entryId and re-claim it.
+                            int idx = resumeTown.findQueueIndex(saved.queueEntryId());
+                            QueueEntry found = (idx >= 0) ? resumeTown.getConstructionQueue().get(idx) : null;
+                            if (found instanceof QueueEntry.Repair r && resumeTown.claimQueueEntry(idx, npc.getUUID())) {
+                                activeBuild = resumed;
+                                activeQueueEntry = r;
+                                current = State.BUILD;
+                                return;
+                            } else {
+                                resumeTown.clearActiveBuild(mySlot);
+                                LevelTowns.get(resumeLevel).markDirty();
+                            }
+                        } else if (saved.fromLevel() >= 0) {
                             // Upgrade resume: locate the queue entry by its stored entryId and re-claim it.
                             int idx = resumeTown.findQueueIndex(saved.queueEntryId());
                             QueueEntry found = (idx >= 0) ? resumeTown.getConstructionQueue().get(idx) : null;
@@ -291,6 +304,42 @@ public class BuilderJob extends AbstractNpcJob {
                 town.addLogEntry(upgradeStartLog);
                 LevelTowns.get(serverLevel).markDirty();
                 NetworkHelper.pushLogEntryToWatchers(serverLevel, town, npc.getTownAnchorPos(), upgradeStartLog);
+                NetworkHelper.pushBuildingListToWatchers(serverLevel, town, npc.getTownAnchorPos());
+                return QueueScanResult.STARTED_BUILD;
+            }
+
+            // Repair entries.
+            if (entry instanceof QueueEntry.Repair repairEntry) {
+                PlacedBuilding building = town.getBuildings().stream()
+                    .filter(b -> b.worldPos.equals(repairEntry.buildingWorldPos()))
+                    .findFirst().orElse(null);
+                BuildingDef def = BuildingDataHandler.get(repairEntry.defId()).orElse(null);
+
+                if (building == null || def == null) {
+                    town.releaseQueueClaim(i, myId);
+                    town.consumeQueueEntry(entry);
+                    LevelTowns.get(serverLevel).markDirty();
+                    return QueueScanResult.STARTED_BUILD;
+                }
+
+                if (town.isUnderUpgrade(repairEntry.buildingWorldPos())) {
+                    queueCursor = i + 1;
+                    continue;
+                }
+
+                town.claimQueueEntry(i, myId);
+                int mySlotR = town.getNpcSlot("builder", myId);
+                if (mySlotR >= 0) {
+                    town.setActiveBuild(mySlotR, new ActiveBuildState(
+                        repairEntry.defId(), building.worldPos, building.rotation,
+                        BlockPos.ZERO, Direction.NORTH, "", BlockPos.ZERO,
+                        List.of(), null, repairEntry.entryId(), -2));
+                    LevelTowns.get(serverLevel).markDirty();
+                }
+                activeBuild = new BuildGoal(npc, new RepairAction(building, def, town));
+                activeQueueEntry = entry;
+                current = State.BUILD;
+                LevelTowns.get(serverLevel).markDirty();
                 NetworkHelper.pushBuildingListToWatchers(serverLevel, town, npc.getTownAnchorPos());
                 return QueueScanResult.STARTED_BUILD;
             }
@@ -715,7 +764,9 @@ public class BuilderJob extends AbstractNpcJob {
                 NetworkHelper.pushStockToWatchers(sl, town, anchor);
                 if (completedEntry instanceof QueueEntry.NewBuild nb) {
                     org.dawnoftime.onceuponatown.datapack.BuildingDataHandler.get(nb.defId()).ifPresent(def -> {
-                        if (def.residents > 0) NetworkHelper.pushCitizenUpdateToWatchers(sl, town, anchor);
+                        if (def.residents > 0 || def.spawnsNpcJob != null) {
+                            NetworkHelper.pushCitizenUpdateToWatchers(sl, town, anchor);
+                        }
                     });
                 }
             } else {

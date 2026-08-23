@@ -20,4 +20,7 @@ public class FoodRegistry {
     public static List<Long> getFeedingSchedule() {
         return FoodListDataHandler.getFeedingSchedule();
     }
+
+    public static float getUnitsPerResident() { return FoodListDataHandler.getUnitsPerResident(); }
+    public static float getUnitsPerAnimal()   { return FoodListDataHandler.getUnitsPerAnimal(); }
 }

@@ -15,7 +15,7 @@
 
   "required_residents": 6,
 
-  "auto_build_sequence": ["carpenter"],
+  "auto_build_sequence": [],
   "auto_upgrade_ids": ["settlement"],
 
   "unlocked_building_ids": ["house_slot"],

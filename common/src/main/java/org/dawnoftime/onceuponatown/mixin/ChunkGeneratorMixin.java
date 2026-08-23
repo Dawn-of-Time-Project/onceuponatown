@@ -2,8 +2,6 @@ package org.dawnoftime.onceuponatown.mixin;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.ChunkPos;
@@ -15,7 +13,6 @@ import net.minecraft.world.level.levelgen.structure.PoolElementStructurePiece;
 import net.minecraft.world.level.levelgen.structure.StructurePiece;
 import net.minecraft.world.level.levelgen.structure.StructureStart;
 import net.minecraft.world.level.block.Rotation;
-import org.dawnoftime.onceuponatown.Ouat;
 import org.dawnoftime.onceuponatown.blockentity.TownAnchorBlockEntity;
 import org.dawnoftime.onceuponatown.building.schematic.ConnectorReader;
 import org.dawnoftime.onceuponatown.datapack.BuildingDataHandler;
@@ -47,22 +44,6 @@ public class ChunkGeneratorMixin {
                                     ChunkGenerator generator, RandomSource random,
                                     BoundingBox chunkBB, ChunkPos chunkPos, CallbackInfo ci) {
         StructureStart self = (StructureStart)(Object)this;
-
-        ResourceLocation structureKey = level.registryAccess()
-            .registryOrThrow(Registries.STRUCTURE)
-            .getKey(self.getStructure());
-
-        if (structureKey == null) return;
-        var structureTagKey = net.minecraft.tags.TagKey.create(
-            Registries.STRUCTURE,
-            new ResourceLocation(Ouat.MOD_ID, "town_structures")
-        );
-        var structureRegistry = level.registryAccess().registryOrThrow(Registries.STRUCTURE);
-        var structureHolder = structureRegistry.getHolder(
-            net.minecraft.resources.ResourceKey.create(Registries.STRUCTURE, structureKey)
-        ).orElse(null);
-        boolean isTownStructure = structureHolder != null && structureHolder.is(structureTagKey);
-        if (!isTownStructure) return;
 
         // Use the starter piece (first in list) as anchor reference.
         // The full structure BB shifts with random growth; the starter piece is always the settlement.

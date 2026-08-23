@@ -5,9 +5,10 @@
   "icon_item": "minecraft:cooked_porkchop",
   "category": "jobs",
   "weight": 3,
+  "spawns_npc": "swineherd",
+  "residents": 1,
 
   "herd": 2,
-  "consumption_per_herd": 1.0,
   "required_buildings": [
     { "defId": "pig_field", "count": 2 }
   ],
@@ -40,31 +41,23 @@
   "transformations": [
     {
       "inputs": [
-        { "item": "minecraft:log", "amount": 1 }
-      ],
-      "output": "minecraft:charcoal",
-      "output_amount": 1,
-      "output_capacity_stacks": 1
-    },
-    {
-      "inputs": [
-        { "item": "minecraft:porkchop", "amount": 1 },
+        { "item": "minecraft:porkchop", "amount": 3 },
         { "item": "minecraft:charcoal", "amount": 1 }
       ],
       "output": "minecraft:cooked_porkchop",
-      "output_amount": 1,
-      "output_capacity_stacks": 1
+      "output_amount": 3,
+      "output_capacity_stacks": 1,
+      "unlock_at_level": 1
     }
   ],
   "upgrades": [
     {
       "capacity_stacks_add": 1,
+      "unlocks_display": ["minecraft:cooked_pork"],
       "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 20 }]
     },
     {
-      "herd_add": 1,
-      "consumption_per_herd_add": 1.0,
-      "amount_add": 1,
+      "max_herds": 3,
       "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 30 }]
     },
     {
@@ -72,28 +65,18 @@
       "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 40 }]
     },
     {
+      "max_herds": 4,
       "cadence_multiplier": 0.10,
       "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 60 }]
     },
     {
-      "herd_add": 1,
-      "consumption_per_herd_add": 1.0,
-      "amount_add": 1,
+      "max_herds": 5,
       "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 80 }]
     },
     {
+      "max_herds": 6,
       "capacity_stacks_add": 1,
       "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 100 }]
-    },
-    {
-      "cadence_multiplier": 0.10,
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 120 }]
-    },
-    {
-      "herd_add": 1,
-      "consumption_per_herd_add": 1.0,
-      "amount_add": 1,
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 140 }]
     }
   ],
   "nbt_levels": [
@@ -102,8 +85,6 @@
     "onceuponatown:plains/jobs/pig_farm_lvl3",
     "onceuponatown:plains/jobs/pig_farm_lvl4",
     "onceuponatown:plains/jobs/pig_farm_lvl5",
-    "onceuponatown:plains/jobs/pig_farm_lvl6",
-    "onceuponatown:plains/jobs/pig_farm_lvl7",
-    "onceuponatown:plains/jobs/pig_farm_lvl8"
+    "onceuponatown:plains/jobs/pig_farm_lvl6"
   ]
 }

@@ -36,7 +36,7 @@ public class FoodManager {
             int res = stats.resolvedResidents();
             if (res > 0) {
                 totalResidentsCounted += res;
-                totalFoodDemandFloat += res * stats.resolvedConsumptionPerResident();
+                totalFoodDemandFloat += res * FoodRegistry.getUnitsPerResident();
             }
         }
         int foodUnitsToDrain = (int) Math.ceil(totalFoodDemandFloat);
@@ -93,9 +93,10 @@ public class FoodManager {
             BuildingDef def = BuildingDataHandler.get(building.getDefId()).orElse(null);
             if (def == null) continue;
             BuildingDef.ResolvedBuildingStats stats = def.resolveAtLevel(building.getUpgradeLevel());
-            if (stats.resolvedHerd() <= 0) continue;
+            int effectiveAnimals = stats.resolvedMaxHerds() > 0 ? stats.resolvedMaxHerds() : stats.resolvedHerd();
+            if (effectiveAnimals <= 0) continue;
             boolean wasFed = building.isHerdFed();
-            int demand = (int) Math.ceil(stats.resolvedHerd() * stats.resolvedConsumptionPerHerd());
+            int demand = (int) Math.ceil(effectiveAnimals * FoodRegistry.getUnitsPerAnimal());
             if (demand == 0) {
                 building.setHerdFed(true);
             } else if (availableHerdFoodUnits >= demand) {

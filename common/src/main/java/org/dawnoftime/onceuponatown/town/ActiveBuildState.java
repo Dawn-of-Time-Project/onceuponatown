@@ -17,5 +17,5 @@ public record ActiveBuildState(
     List<ItemCost> cost,
     String queueDefId,
     long queueEntryId,
-    int fromLevel  // -1 for NewBuild, >= 0 for Upgrade (the level being upgraded from)
+    int fromLevel  // -2 = Repair, -1 = NewBuild, >= 0 = Upgrade (the level being upgraded from)
 ) {}

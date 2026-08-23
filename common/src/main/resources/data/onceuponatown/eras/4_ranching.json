@@ -15,13 +15,13 @@
 
   "required_residents": 6,
   "required_buildings": [
-    { "defId": "leather_workshop", "count": 1 }
+    { "defId": "cow_farm", "count": 1 }
   ],
 
-  "auto_build_sequence": [{"defId": "cow_field", "count": 2}, "leather_workshop", "carpenter"],
+  "auto_build_sequence": [{"defId": "cow_field", "count": 2}, "cow_farm"],
   "auto_upgrade_ids": ["settlement_2"],
 
-  "unlocked_building_ids": ["house_slot"],
+  "unlocked_building_ids": ["leather_workshop", "house_slot"],
 
   "next_orientation": "ranching"
 }

@@ -20,8 +20,9 @@ public class TownInventory {
             + reserve.getOrDefault(item, 0);
     }
 
-    // Sum of capacity_stacks * 64 for this item across all placed buildings with that production entry.
-    // Each producing slot also receives the town-wide stock bonus (extra stacks from granaries etc.).
+    // Sum of capacity_stacks * 64 for this item across all placed buildings.
+    // Covers both direct production entries and transformation outputs.
+    // Each slot also receives the town-wide stock bonus (extra stacks from granaries etc.).
     public int getMaxStock(Item item) {
         int townStockBonus = buildings.stream()
             .mapToInt(b -> {
@@ -33,12 +34,19 @@ public class TownInventory {
             .mapToInt(b -> {
                 BuildingDef def = BuildingDataHandler.get(b.getDefId()).orElse(null);
                 if (def == null) return 0;
-                return def.production.stream()
+                int fromProduction = def.production.stream()
                     .filter(p -> p.item() == item)
                     .mapToInt(p -> p.capacityUnits() >= 0
                         ? p.capacityUnits()
                         : (p.capacityStacks() + townStockBonus) * 64)
                     .sum();
+                int fromTransformations = def.transformations.stream()
+                    .filter(t -> t.outputItem() == item)
+                    .mapToInt(t -> t.outputCapacityUnits() >= 0
+                        ? t.outputCapacityUnits()
+                        : (t.outputCapacityStacks() + townStockBonus) * 64)
+                    .sum();
+                return fromProduction + fromTransformations;
             })
             .sum();
     }

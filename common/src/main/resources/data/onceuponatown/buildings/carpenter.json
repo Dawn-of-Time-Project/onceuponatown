@@ -5,6 +5,7 @@
   "icon_item": "minecraft:chiseled_bookshelf",
   "category": "jobs",
   "weight": 3,
+  "residents": 1,
 
   "required_buildings": [
     { "defId": "grove", "count": 3 },

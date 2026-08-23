@@ -21,7 +21,7 @@
   "auto_build_sequence": [{"defId": "grove", "count": 3}, {"defId": "pig_field", "count": 2}, "cow_field", "pig_farm"],
   "auto_upgrade_ids": ["settlement_2"],
 
-  "unlocked_building_ids": ["leather_workshop", "carpenter", "brownfield"],
+  "unlocked_building_ids": ["cow_farm", "carpenter"],
 
   "next_orientation": "ranching"
 }

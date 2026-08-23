@@ -129,14 +129,10 @@ public class BuildingDataHandler {
                 int capAdd    = u.has("capacity_stacks_add") ? u.get("capacity_stacks_add").getAsInt() : 0;
                 int amountAdd = u.has("amount_add") ? u.get("amount_add").getAsInt() : 0;
                 int residentsAdd = u.has("residents_add") ? u.get("residents_add").getAsInt() : 0;
-                float consumptionAdd = u.has("consumption_per_resident_add")
-                    ? u.get("consumption_per_resident_add").getAsFloat() : 0f;
                 double productionBonusAdd = u.has("production_bonus_add")
                     ? u.get("production_bonus_add").getAsDouble() : 0.0;
                 int stockBonusAdd = u.has("stock_bonus_add") ? u.get("stock_bonus_add").getAsInt() : 0;
-                int herdAdd = u.has("herd_add") ? u.get("herd_add").getAsInt() : 0;
-                float consumptionPerHerdAdd = u.has("consumption_per_herd_add")
-                    ? u.get("consumption_per_herd_add").getAsFloat() : 0f;
+                int maxHerdsTarget = u.has("max_herds") ? u.get("max_herds").getAsInt() : 0;
                 List<String> unlockedDisplay = new ArrayList<>();
                 if (u.has("unlocks_display")) {
                     for (JsonElement de : u.getAsJsonArray("unlocks_display")) {
@@ -151,8 +147,8 @@ public class BuildingDataHandler {
                         upgradeCost.add(new ItemCost(costItem, c.get("amount").getAsInt()));
                     }
                 }
-                upgrades.add(new BuildingDef.UpgradeLevel(cadenceMult, capAdd, amountAdd, residentsAdd, consumptionAdd,
-                    productionBonusAdd, stockBonusAdd, herdAdd, consumptionPerHerdAdd, unlockedDisplay, upgradeCost));
+                upgrades.add(new BuildingDef.UpgradeLevel(cadenceMult, capAdd, amountAdd, residentsAdd,
+                    productionBonusAdd, stockBonusAdd, maxHerdsTarget, unlockedDisplay, upgradeCost));
             }
         }
 
@@ -181,12 +177,8 @@ public class BuildingDataHandler {
             }
         }
 
-        float consumptionPerResident = json.has("consumption_per_resident")
-            ? json.get("consumption_per_resident").getAsFloat() : 0f;
-
         int herd = json.has("herd") ? json.get("herd").getAsInt() : 0;
-        float consumptionPerHerd = json.has("consumption_per_herd")
-            ? json.get("consumption_per_herd").getAsFloat() : 0f;
+        int maxHerds = json.has("max_herds") ? json.get("max_herds").getAsInt() : 0;
         int weight = json.has("weight") ? json.get("weight").getAsInt() : 1;
 
         List<String> obstacleBlocks = new ArrayList<>();
@@ -219,8 +211,8 @@ public class BuildingDataHandler {
         return new BuildingDef(id, namespace, nbt, entryPool, production, costs, terrainMatching, iconItem, category, footprint,
             transformations, transformInputRatio, transformEveryTicks,
             productionBonus, stockBonus, residents, upgrades, nbtLevels,
-            requiredResidents, requiredBuildings, consumptionPerResident, initialStock,
-            herd, consumptionPerHerd, weight, obstacleBlocks, spawnsNpcJob, playerCost);
+            requiredResidents, requiredBuildings, initialStock,
+            herd, maxHerds, weight, obstacleBlocks, spawnsNpcJob, playerCost);
     }
 
     // Builds the NBT payload sent to the client on player join (upgrade info only).
@@ -234,7 +226,7 @@ public class BuildingDataHandler {
             dt.putInt("BaseCapacity", def.production.isEmpty() ? 0 : def.production.get(0).capacityStacks());
             dt.putInt("BaseAmount", def.production.isEmpty() ? 0 : def.production.get(0).amount());
             dt.putInt("BaseResidents", def.residents);
-            dt.putFloat("BaseConsumption", def.consumptionPerResident);
+            dt.putInt("BaseHerd", def.herd);
             dt.putDouble("BaseProductionBonus", def.productionBonus);
             dt.putInt("BaseStockBonus", def.stockBonus);
             ListTag upgsTag = new ListTag();
@@ -244,11 +236,9 @@ public class BuildingDataHandler {
                 ut.putInt("CapAdd", upg.capacityStacksAdd());
                 ut.putInt("AmountAdd", upg.amountAdd());
                 ut.putInt("ResidentsAdd", upg.residentsAdd());
-                ut.putFloat("ConsumptionAdd", upg.consumptionPerResidentAdd());
                 ut.putDouble("ProductionBonusAdd", upg.productionBonusAdd());
                 ut.putInt("StockBonusAdd", upg.stockBonusAdd());
-                ut.putInt("HerdAdd", upg.herdAdd());
-                ut.putFloat("HerdConsumptionAdd", upg.consumptionPerHerdAdd());
+                ut.putInt("MaxHerdsTarget", upg.maxHerdsTarget());
                 ListTag unlocksTag = new ListTag();
                 for (String itemId : upg.unlockedDisplay()) {
                     unlocksTag.add(net.minecraft.nbt.StringTag.valueOf(itemId));

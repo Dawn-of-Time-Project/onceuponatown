@@ -23,8 +23,6 @@ class TownHubTypes {
                          int requiredResidents,
                          List<ReqBuildingEntry> requiredBuildings,
                          double productionBonus,
-                         float baseConsumption,
-                         float maxConsumption,
                          int maxResidents,
                          boolean nextEra,
                          String nbtPath,
@@ -35,7 +33,7 @@ class TownHubTypes {
 
     record CostEntry(String itemId, int amount) {}
     record ReqBuildingEntry(String defId, int required, int have) {}
-    record ProductionCell(Item item, int amount, boolean locked) {}
+    record ProductionCell(Item item, int amount, int seconds, boolean locked) {}
 
     record UpgradeBuildingEntry(String defId, long worldPosLong, int upgradeLevel,
                                 String category, String iconItem) {}
@@ -43,6 +41,7 @@ class TownHubTypes {
     record ClientQueueEntry(String type, String defId, long buildingWorldPos,
                             boolean locked, boolean residentTrack) {
         boolean isUpgrade()       { return "upgrade".equals(type); }
+        boolean isRepair()        { return "repair".equals(type); }
         boolean isResidentTrack() { return residentTrack; }
     }
 

@@ -9,8 +9,11 @@ import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
+import org.dawnoftime.onceuponatown.building.schematic.SchematicBlock;
+import org.dawnoftime.onceuponatown.building.schematic.SchematicReader;
 import org.dawnoftime.onceuponatown.datapack.BuildingDataHandler;
 import org.dawnoftime.onceuponatown.datapack.EraDef;
 import org.dawnoftime.onceuponatown.datapack.EraTransitionDataHandler;
@@ -18,7 +21,9 @@ import org.dawnoftime.onceuponatown.datapack.EraTransitionDef;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
 import java.util.ArrayDeque;
+import java.util.Optional;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -279,20 +284,31 @@ public class Town {
     public void consumeQueueEntry(QueueEntry entry)             { queueState.consumeQueueEntry(entry); }
     public String getNextAutoBuildTarget(List<EraTransitionDef.AutoBuildEntry> seq) { return queueState.getNextAutoBuildTarget(seq, buildings); }
 
+    // Returns false if the NewBuild entry cannot be added: queue full, weight cap exceeded,
+    // prerequisites unmet, or insufficient stock (depending on which checks are requested).
+    private boolean canAddNewBuild(BuildingDef def, boolean checkWeight, boolean checkPrereqs, boolean checkStock) {
+        if (queueState.getConstructionQueue().size() >= TownQueueState.QUEUE_CAPACITY) return false;
+        if (checkWeight && getCurrentWeight() + def.weight > getCurrentMaxWeight()) return false;
+        if (checkPrereqs && !meetsPrerequisites(def)) return false;
+        if (checkStock && !getTownInventory().hasStock(def.constructionCost)) return false;
+        return true;
+    }
+
+    // Deducts cost from inventory (unless planned), reserves it in the queue slot, and appends a NewBuild entry.
+    private void enqueueNewBuild(BuildingDef def, boolean locked, boolean planned, boolean residentTrack) {
+        if (!planned) {
+            getTownInventory().removeStock(def.constructionCost);
+            queueState.reserveStock(def.constructionCost);
+        }
+        queueState.addEntry(new QueueEntry.NewBuild(queueState.nextEntryId(), def.id, locked, planned, residentTrack));
+    }
+
     // Checks affordability (available stock minus already-reserved amounts), reserves resources,
     // and appends a NewBuild entry to the queue. Returns false if unaffordable or queue is full.
     public boolean tryAddToConstructionQueue(String defId) {
         BuildingDef def = BuildingDataHandler.get(defId).orElse(null);
-        if (def == null || queueState.getConstructionQueue().size() >= TownQueueState.QUEUE_CAPACITY) return false;
-        // Weight cap: block new builds (not upgrades) that would exceed the era limit.
-        if (getCurrentWeight() + def.weight > getCurrentMaxWeight()) return false;
-        TownInventory inv = getTownInventory();
-        for (ItemCost cost : def.constructionCost) {
-            if (inv.getStock(cost.item()) < cost.amount()) return false;
-        }
-        inv.removeStock(def.constructionCost);
-        queueState.reserveStock(def.constructionCost);
-        queueState.addEntry(new QueueEntry.NewBuild(queueState.nextEntryId(), defId, false, false, false));
+        if (def == null || !canAddNewBuild(def, true, false, true)) return false;
+        enqueueNewBuild(def, false, false, false);
         return true;
     }
 
@@ -300,15 +316,8 @@ public class Town {
     // Locked entries cannot be removed by the player and are tracked by EraManager.
     public boolean tryAddToConstructionQueueLocked(String defId) {
         BuildingDef def = BuildingDataHandler.get(defId).orElse(null);
-        if (def == null || queueState.getConstructionQueue().size() >= TownQueueState.QUEUE_CAPACITY) return false;
-        if (getCurrentWeight() + def.weight > getCurrentMaxWeight()) return false;
-        TownInventory inv = getTownInventory();
-        for (ItemCost cost : def.constructionCost) {
-            if (inv.getStock(cost.item()) < cost.amount()) return false;
-        }
-        inv.removeStock(def.constructionCost);
-        queueState.reserveStock(def.constructionCost);
-        queueState.addEntry(new QueueEntry.NewBuild(queueState.nextEntryId(), defId, true, false, false));
+        if (def == null || !canAddNewBuild(def, true, false, true)) return false;
+        enqueueNewBuild(def, true, false, false);
         return true;
     }
 
@@ -316,10 +325,8 @@ public class Town {
     // The builder will skip it; EraManager promotes it once resources become available.
     public boolean tryAddPlannedEntry(String defId) {
         BuildingDef def = BuildingDataHandler.get(defId).orElse(null);
-        if (def == null || queueState.getConstructionQueue().size() >= TownQueueState.QUEUE_CAPACITY) return false;
-        if (getCurrentWeight() + def.weight > getCurrentMaxWeight()) return false;
-        if (!meetsPrerequisites(def)) return false;
-        queueState.addEntry(new QueueEntry.NewBuild(queueState.nextEntryId(), defId, true, true, false));
+        if (def == null || !canAddNewBuild(def, true, true, false)) return false;
+        enqueueNewBuild(def, true, true, false);
         return true;
     }
 
@@ -329,9 +336,7 @@ public class Town {
         BuildingDef def = BuildingDataHandler.get(defId).orElse(null);
         if (def == null) return false;
         TownInventory inv = getTownInventory();
-        for (ItemCost cost : def.constructionCost) {
-            if (inv.getStock(cost.item()) < cost.amount()) return false;
-        }
+        if (!inv.hasStock(def.constructionCost)) return false;
         if (!queueState.promotePlannedEntry(defId)) return false;
         inv.removeStock(def.constructionCost);
         queueState.reserveStock(def.constructionCost);
@@ -353,38 +358,23 @@ public class Town {
     // Reserves stock and injects a resident-track locked entry (slot R, stock ready).
     public boolean tryAddLockedResidentEntry(String defId) {
         BuildingDef def = BuildingDataHandler.get(defId).orElse(null);
-        if (def == null || queueState.getConstructionQueue().size() >= TownQueueState.QUEUE_CAPACITY) return false;
-        if (getCurrentWeight() + def.weight > getCurrentMaxWeight()) return false;
-        if (!meetsPrerequisites(def)) return false;
-        TownInventory inv = getTownInventory();
-        if (!inv.hasStock(def.constructionCost)) return false;
-        inv.removeStock(def.constructionCost);
-        queueState.reserveStock(def.constructionCost);
-        queueState.addEntry(new QueueEntry.NewBuild(queueState.nextEntryId(), defId, true, false, true));
+        if (def == null || !canAddNewBuild(def, true, true, true)) return false;
+        enqueueNewBuild(def, true, false, true);
         return true;
     }
 
     // Injects a resident-track planned entry (slot R, stock not yet available).
     public boolean tryAddPlannedResidentEntry(String defId) {
         BuildingDef def = BuildingDataHandler.get(defId).orElse(null);
-        if (def == null || queueState.getConstructionQueue().size() >= TownQueueState.QUEUE_CAPACITY) return false;
-        if (getCurrentWeight() + def.weight > getCurrentMaxWeight()) return false;
-        if (!meetsPrerequisites(def)) return false;
-        queueState.addEntry(new QueueEntry.NewBuild(queueState.nextEntryId(), defId, true, true, true));
+        if (def == null || !canAddNewBuild(def, true, true, false)) return false;
+        enqueueNewBuild(def, true, true, true);
         return true;
     }
 
     // Promotes a resident-planned entry for defId once stock is available.
+    // Structurally identical to tryPromotePlannedEntry -- delegates to it.
     public boolean tryPromoteResidentEntry(String defId) {
-        BuildingDef def = BuildingDataHandler.get(defId).orElse(null);
-        if (def == null) return false;
-        TownInventory inv = getTownInventory();
-        for (ItemCost cost : def.constructionCost)
-            if (inv.getStock(cost.item()) < cost.amount()) return false;
-        if (!queueState.promotePlannedEntry(defId)) return false;
-        inv.removeStock(def.constructionCost);
-        queueState.reserveStock(def.constructionCost);
-        return true;
+        return tryPromotePlannedEntry(defId);
     }
 
     public QueueEntry.NewBuild getPlannedResidentEntry()  { return queueState.findPlannedResidentEntry(); }
@@ -499,6 +489,44 @@ public class Town {
         return true;
     }
 
+    // Queues a repair task for a building whose world state diverges from its stored template.
+    // Free (no cost). Returns false if: not found, under upgrade, already has repair/upgrade queued,
+    // queue full, or world scan finds zero mismatches.
+    public boolean tryQueueRepair(BlockPos worldPos, ServerLevel level) {
+        PlacedBuilding building = buildings.stream()
+            .filter(b -> b.worldPos.equals(worldPos)).findFirst().orElse(null);
+        if (building == null) return false;
+
+        BuildingDef def = BuildingDataHandler.get(building.defId).orElse(null);
+        if (def == null) return false;
+
+        if (isUnderUpgrade(worldPos)) return false;
+
+        for (QueueEntry entry : queueState.getConstructionQueue()) {
+            if (entry instanceof QueueEntry.Repair r && r.buildingWorldPos().equals(worldPos)) return false;
+            if (entry instanceof QueueEntry.Upgrade u && u.buildingWorldPos().equals(worldPos)) return false;
+        }
+
+        if (queueState.getConstructionQueue().size() >= TownQueueState.QUEUE_CAPACITY) return false;
+
+        int upgradeLevel = building.getUpgradeLevel();
+        ResourceLocation nbtPath = (upgradeLevel == 0)
+            ? def.nbt
+            : (upgradeLevel - 1 < def.nbtLevels.size() ? def.nbtLevels.get(upgradeLevel - 1).nbt() : null);
+        if (nbtPath == null) return false;
+
+        Optional<StructureTemplate> templateOpt = level.getStructureManager().get(nbtPath);
+        if (templateOpt.isEmpty()) return false;
+
+        List<SchematicBlock> templateBlocks = SchematicReader.readSortedBlocks(templateOpt.get(), building.rotation);
+        boolean anyMismatch = templateBlocks.stream().anyMatch(b ->
+            !level.getBlockState(building.worldPos.offset(b.localPos())).equals(b.state()));
+        if (!anyMismatch) return false;
+
+        queueState.addEntry(new QueueEntry.Repair(queueState.nextEntryId(), def.id, worldPos));
+        return true;
+    }
+
     // Free upgrade bypassing resource check -- cost absorbed by era transition.
     // Still verifies: building exists, not at max level, queue not full.
     public boolean forceQueueUpgrade(BlockPos worldPos) {
@@ -563,10 +591,11 @@ public class Town {
             if (def == null) continue;
             BuildingDef.ResolvedBuildingStats stats = def.resolveAtLevel(b.getUpgradeLevel());
             if (stats.resolvedResidents() > 0) {
-                total += stats.resolvedResidents() * stats.resolvedConsumptionPerResident();
+                total += stats.resolvedResidents() * FoodRegistry.getUnitsPerResident();
             }
-            if (stats.resolvedHerd() > 0) {
-                total += stats.resolvedHerd() * stats.resolvedConsumptionPerHerd();
+            int effectiveAnimals = stats.resolvedMaxHerds() > 0 ? stats.resolvedMaxHerds() : stats.resolvedHerd();
+            if (effectiveAnimals > 0) {
+                total += effectiveAnimals * FoodRegistry.getUnitsPerAnimal();
             }
         }
         return total;
@@ -610,8 +639,8 @@ public class Town {
     }
 
     // Returns hub data: map + era + catalog + stock + queue + summary + quests.
-    public CompoundTag getHubData(BlockPos anchorPos) {
-        return new TownHubDataBuilder(this).buildHubData(anchorPos);
+    public CompoundTag getHubData(BlockPos anchorPos, ServerLevel level) {
+        return new TownHubDataBuilder(this, level).buildHubData(anchorPos);
     }
 
     // -------------------------------------------------------------------------
@@ -619,23 +648,23 @@ public class Town {
     // -------------------------------------------------------------------------
 
     public CompoundTag getStockUpdateData(BlockPos anchorPos) {
-        return new TownHubDataBuilder(this).buildStockUpdateData(anchorPos);
+        return new TownHubDataBuilder(this, null).buildStockUpdateData(anchorPos);
     }
 
     public CompoundTag getBuildingListData(BlockPos anchorPos) {
-        return new TownHubDataBuilder(this).buildBuildingListData(anchorPos);
+        return new TownHubDataBuilder(this, null).buildBuildingListData(anchorPos);
     }
 
     public CompoundTag getQuestUpdateData(BlockPos anchorPos) {
-        return new TownHubDataBuilder(this).buildQuestUpdateData(anchorPos);
+        return new TownHubDataBuilder(this, null).buildQuestUpdateData(anchorPos);
     }
 
     public CompoundTag getEraUpdateData(BlockPos anchorPos) {
-        return new TownHubDataBuilder(this).buildEraUpdateData(anchorPos);
+        return new TownHubDataBuilder(this, null).buildEraUpdateData(anchorPos);
     }
 
-    public CompoundTag getCitizenUpdateData(BlockPos anchorPos) {
-        return new TownHubDataBuilder(this).buildCitizenUpdateData(anchorPos);
+    public CompoundTag getCitizenUpdateData(BlockPos anchorPos, ServerLevel level) {
+        return new TownHubDataBuilder(this, level).buildCitizenUpdateData(anchorPos);
     }
 
     // -------------------------------------------------------------------------

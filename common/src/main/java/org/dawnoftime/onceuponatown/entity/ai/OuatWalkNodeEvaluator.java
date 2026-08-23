@@ -1,7 +1,11 @@
 package org.dawnoftime.onceuponatown.entity.ai;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.FenceBlock;
 import net.minecraft.world.level.block.FenceGateBlock;
 import net.minecraft.world.level.block.LadderBlock;
@@ -13,9 +17,14 @@ import net.minecraft.world.level.pathfinder.WalkNodeEvaluator;
 
 public class OuatWalkNodeEvaluator extends WalkNodeEvaluator {
 
-    // Fence gates are treated as wooden doors by the pathfinder so the NPC routes through
-    // them instead of treating them as solid walls. The reactive OpenFenceGateGoal still
-    // handles the physical open/close; this evaluator only teaches the route planner.
+    // Datapack-driven blocklist: any block tagged onceuponatown:npc_blocked is treated as a
+    // full solid for pathfinding. Datapack creators add their blocks to this tag to fix NPC
+    // navigation issues caused by partial-collision blocks from other mods.
+    private static final TagKey<Block> NPC_BLOCKED =
+            TagKey.create(Registries.BLOCK, new ResourceLocation("onceuponatown", "npc_blocked"));
+
+    // Fence gates are treated as walkable floor so the pathfinder routes through them.
+    // The reactive OpenDoorGoal handles the physical open/close for both gates and doors.
     //
     // Wooden fences are marked BLOCKED because their actual collision height (1.5) exceeds
     // the NPC jump height, but vanilla returns FENCE which the pathfinder may still attempt.
@@ -26,6 +35,9 @@ public class OuatWalkNodeEvaluator extends WalkNodeEvaluator {
     @Override
     public BlockPathTypes getBlockPathType(BlockGetter level, int x, int y, int z) {
         BlockState state = level.getBlockState(new BlockPos(x, y, z));
+        if (state.is(NPC_BLOCKED)) {
+            return BlockPathTypes.BLOCKED;
+        }
         if (state.getBlock() instanceof FenceGateBlock) {
             return BlockPathTypes.WALKABLE;
         }

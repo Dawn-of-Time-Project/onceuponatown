@@ -9,9 +9,11 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.properties.BedPart;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.phys.Vec3;
 import org.dawnoftime.onceuponatown.building.schematic.BlockStep;
@@ -45,7 +47,7 @@ import java.util.UUID;
 //   DONE     -- task complete (success or failure)
 //
 // The PlacementStep list from prepareSteps() is ordered:
-//   normal blocks (Y-sorted snake) -> deferred blocks (water, lily pads) -> entities
+//   normal blocks including doors (Y-sorted snake) -> deferred blocks (water, lily pads) -> entities
 // All steps go through the same burst rhythm, navigation, and arm-swing logic.
 //
 // For instant (terrain-matched) builds the BUILDING phase is skipped:
@@ -76,7 +78,7 @@ public class BuildGoal implements BuildTask {
     private GoToPosition buildGoTo = null;
     private BlockPos currentBuildTarget = null;
     private BlockPos standingTarget = null;
-    private int navStuckTicks = 0;
+
 
     public BuildGoal(Npc npc, BuilderAction action) {
         this.npc = npc;
@@ -159,9 +161,7 @@ public class BuildGoal implements BuildTask {
                 BlockPos navTarget = standingTarget != null ? standingTarget : nextWorldPos;
                 double arrivalRadius = standingTarget != null ? 1.5 : reachDist();
                 buildGoTo = new GoToPosition(npc, navTarget, BuilderConfigDataHandler.get().walkSpeed, arrivalRadius);
-                navStuckTicks = 0;
             }
-            navStuckTicks++;
             buildGoTo.tick();
             return false;
         }
@@ -197,6 +197,20 @@ public class BuildGoal implements BuildTask {
                 for (int k = buildProgress + 1; k < steps.size(); k++) {
                     if (steps.get(k) instanceof BlockStep upper && upper.worldPos().equals(upperPos)) {
                         sl.setBlock(upper.worldPos(), upper.state(), Block.UPDATE_ALL);
+                        steps.remove(k);
+                        break;
+                    }
+                }
+            }
+
+            // Beds are 2-block-wide structures. Place the head half immediately when placing the foot
+            // half so the bed is never left in a broken single-block state.
+            if (bs.state().getBlock() instanceof BedBlock &&
+                    bs.state().getValue(BedBlock.PART) == BedPart.FOOT) {
+                BlockPos headPos = bs.worldPos().relative(bs.state().getValue(BedBlock.FACING));
+                for (int k = buildProgress + 1; k < steps.size(); k++) {
+                    if (steps.get(k) instanceof BlockStep head && head.worldPos().equals(headPos)) {
+                        sl.setBlock(head.worldPos(), head.state(), Block.UPDATE_ALL);
                         steps.remove(k);
                         break;
                     }
@@ -252,6 +266,14 @@ public class BuildGoal implements BuildTask {
     public static BuildGoal fromActiveBuildState(ActiveBuildState state, Npc npc, Town town, ServerLevel level) {
         BuildingDef def = BuildingDataHandler.get(state.defId()).orElse(null);
         if (def == null) return null;
+
+        if (state.fromLevel() == -2) {
+            // Repair resume.
+            PlacedBuilding building = town.getBuildings().stream()
+                .filter(b -> b.worldPos.equals(state.placementPos())).findFirst().orElse(null);
+            if (building == null) return null;
+            return new BuildGoal(npc, new RepairAction(building, def, town));
+        }
 
         if (state.fromLevel() >= 0) {
             // Upgrade resume: find the placed building by worldPos and reconstruct with skipDiff.

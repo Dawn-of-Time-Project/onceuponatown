@@ -6,6 +6,7 @@
   "category": "jobs",
   "weight": 2,
   "spawns_npc": "miner",
+  "residents": 1,
 
   "construction_cost": [
     {

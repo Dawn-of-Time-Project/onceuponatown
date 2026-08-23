@@ -27,8 +27,7 @@ import org.dawnoftime.onceuponatown.entity.ai.OuatWalkNodeEvaluator;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
-import org.dawnoftime.onceuponatown.entity.ai.shared.OpenFenceGateGoal;
-import org.dawnoftime.onceuponatown.entity.ai.shared.OpenWoodDoorGoal;
+import org.dawnoftime.onceuponatown.entity.ai.shared.OpenDoorGoal;
 import org.dawnoftime.onceuponatown.entity.ai.NpcJob;
 import org.dawnoftime.onceuponatown.entity.ai.NpcJobRegistry;
 import org.dawnoftime.onceuponatown.entity.ai.builder.BuilderJob;
@@ -92,8 +91,7 @@ public class Npc extends PathfinderMob {
 
     @Override
     protected void registerGoals() {
-        this.goalSelector.addGoal(1, new OpenWoodDoorGoal(this));
-        this.goalSelector.addGoal(2, new OpenFenceGateGoal(this));
+        this.goalSelector.addGoal(1, new OpenDoorGoal(this));
         this.goalSelector.addGoal(10, new LookAtPlayerGoal(this, Player.class, 8.0f) {
             @Override public boolean canUse()         { return !suppressLookAtPlayer && super.canUse(); }
             @Override public boolean canContinueToUse() { return !suppressLookAtPlayer && super.canContinueToUse(); }

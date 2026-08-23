@@ -16,9 +16,11 @@ public class NpcClothesLayer<T extends Npc, M extends NpcModel<T>> extends Rende
     private static final Map<String, ResourceLocation> CLOTHES_BY_JOB = Map.of(
         "beekeeper",  new ResourceLocation(Ouat.MOD_ID, "textures/entity/npc/beekeeper_clothes.png"),
         "builder",    new ResourceLocation(Ouat.MOD_ID, "textures/entity/npc/builder_clothes.png"),
+        "cowherd",    new ResourceLocation(Ouat.MOD_ID, "textures/entity/npc/cowherd_clothes.png"),
         "lumberjack", new ResourceLocation(Ouat.MOD_ID, "textures/entity/npc/lumberjack_clothes.png"),
         "miner",      new ResourceLocation(Ouat.MOD_ID, "textures/entity/npc/miner_clothes.png"),
-        "shepherd",   new ResourceLocation(Ouat.MOD_ID, "textures/entity/npc/shepherd_clothes.png")
+        "shepherd",   new ResourceLocation(Ouat.MOD_ID, "textures/entity/npc/shepherd_clothes.png"),
+        "swineherd",  new ResourceLocation(Ouat.MOD_ID, "textures/entity/npc/swineherd_clothes.png")
     );
 
     @SuppressWarnings("unchecked")

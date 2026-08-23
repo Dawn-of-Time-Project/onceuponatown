@@ -16,13 +16,12 @@
   "required_residents": 4,
   "required_buildings": [
     { "defId": "oven", "count": 1 },
-    { "defId": "pig_field", "count": 1 }
+    { "defId": "sheep_farm", "count": 1 }
   ],
 
-  "auto_build_sequence": [{"defId": "grove", "count": 2}, "carrot_field", "oven", "pig_field", "lumberjack"],
+  "auto_build_sequence": [{"defId": "grove", "count": 2}, "carrot_field", "oven", "pig_field", "lumberjack", "sheep_farm"],
 
-
-  "unlocked_building_ids": ["lone_place", "fisherman", "cow_field", "pig_farm"],
+  "unlocked_building_ids": ["lone_place", "fisherman", "cow_field", "pig_farm", "brownfield"],
   "unlock_npc_counts": { "builder": 1 },
   "auto_upgrade_ids": ["settlement_2"],
 

@@ -22,6 +22,9 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 
+import org.dawnoftime.onceuponatown.network.NetworkHelper;
+
+import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -66,12 +69,17 @@ public class NbtPreviewWidget {
     private boolean dragging = false;
     private double lastDragX;
 
+    private BlockPos anchorPos = null;
+    private String pendingPath = null;
+
     public NbtPreviewWidget(int x, int y, int width, int height) {
         this.x = x;
         this.y = y;
         this.width = width;
         this.height = height;
     }
+
+    public void setAnchorPos(BlockPos anchorPos) { this.anchorPos = anchorPos; }
 
     public int getX() { return x; }
     public int getY() { return y; }
@@ -89,55 +97,86 @@ public class NbtPreviewWidget {
         if (CACHE.containsKey(nbtPath)) {
             blocks = CACHE.get(nbtPath);
             loadFailed = false;
+            pendingPath = null;
             return;
         }
         blocks = null;
         loadFailed = false;
+
+        // Try jar classpath first (built-in OUAT structures load instantly without network)
+        InputStream stream = null;
         try {
             ResourceLocation defLoc = new ResourceLocation(nbtPath);
             String classLoaderPath = "/data/" + defLoc.getNamespace()
                 + "/structures/" + defLoc.getPath() + ".nbt";
-            InputStream stream = NbtPreviewWidget.class.getResourceAsStream(classLoaderPath);
-            if (stream == null) throw new java.io.IOException("NBT not found: " + classLoaderPath);
-            CompoundTag nbt = NbtIo.readCompressed(stream);
-            stream.close();
-
-            ListTag paletteTag = nbt.getList("palette", Tag.TAG_COMPOUND);
-            BlockState[] palette = new BlockState[paletteTag.size()];
-            for (int i = 0; i < paletteTag.size(); i++) {
-                try {
-                    palette[i] = NbtUtils.readBlockState(
-                        BuiltInRegistries.BLOCK.asLookup(),
-                        paletteTag.getCompound(i)
-                    );
-                } catch (Exception ex) {
-                    palette[i] = Blocks.AIR.defaultBlockState();
-                }
+            stream = NbtPreviewWidget.class.getResourceAsStream(classLoaderPath);
+            if (stream != null) {
+                CompoundTag nbt = NbtIo.readCompressed(stream);
+                List<BlockData> parsed = parseNbt(nbt);
+                blocks = parsed;
+                sortedBlocks = null;
+                CACHE.put(nbtPath, parsed);
+                pendingPath = null;
+                return;
             }
-
-            List<BlockData> parsed = new ArrayList<>();
-            ListTag blocksTag = nbt.getList("blocks", Tag.TAG_COMPOUND);
-            for (int i = 0; i < blocksTag.size(); i++) {
-                CompoundTag bt = blocksTag.getCompound(i);
-                ListTag posTag = bt.getList("pos", Tag.TAG_INT);
-                int bx = posTag.getInt(0);
-                int by = posTag.getInt(1);
-                int bz = posTag.getInt(2);
-                int stateIdx = bt.getInt("state");
-                if (stateIdx >= 0 && stateIdx < palette.length) {
-                    BlockState state = palette[stateIdx];
-                    if (!EXCLUDED.contains(state.getBlock())) {
-                        parsed.add(new BlockData(new BlockPos(bx, by, bz), state));
-                    }
-                }
-            }
-            blocks = parsed;
-            sortedBlocks = null;
-            CACHE.put(nbtPath, parsed);
         } catch (Exception e) {
             loadFailed = true;
             blocks = List.of();
+            return;
+        } finally {
+            if (stream != null) {
+                try { stream.close(); } catch (Exception ignored) {}
+            }
         }
+
+        // Classpath miss: request raw NBT from server (datapack structures)
+        if (anchorPos == null || nbtPath.equals(pendingPath)) return;
+        pendingPath = nbtPath;
+        NetworkHelper.sendRequestNbtPacket.accept(anchorPos, nbtPath);
+    }
+
+    // Called by S2CNbtStructurePacket.Handler on the main thread when the server responds.
+    // Receives the raw compressed .nbt bytes to bypass FriendlyByteBuf's 2MB NBT cap.
+    public static void receiveStructure(String nbtPath, byte[] compressedBytes) {
+        try {
+            CompoundTag nbt = NbtIo.readCompressed(new ByteArrayInputStream(compressedBytes));
+            List<BlockData> parsed = parseNbt(nbt);
+            CACHE.put(nbtPath, parsed);
+        } catch (Exception e) {
+            // Parse failed; widget stays on "..."
+        }
+    }
+
+    private static List<BlockData> parseNbt(CompoundTag nbt) {
+        ListTag paletteTag = nbt.getList("palette", Tag.TAG_COMPOUND);
+        BlockState[] palette = new BlockState[paletteTag.size()];
+        for (int i = 0; i < paletteTag.size(); i++) {
+            try {
+                palette[i] = NbtUtils.readBlockState(
+                    BuiltInRegistries.BLOCK.asLookup(),
+                    paletteTag.getCompound(i)
+                );
+            } catch (Exception ex) {
+                palette[i] = Blocks.AIR.defaultBlockState();
+            }
+        }
+        List<BlockData> parsed = new ArrayList<>();
+        ListTag blocksTag = nbt.getList("blocks", Tag.TAG_COMPOUND);
+        for (int i = 0; i < blocksTag.size(); i++) {
+            CompoundTag bt = blocksTag.getCompound(i);
+            ListTag posTag = bt.getList("pos", Tag.TAG_INT);
+            int bx = posTag.getInt(0);
+            int by = posTag.getInt(1);
+            int bz = posTag.getInt(2);
+            int stateIdx = bt.getInt("state");
+            if (stateIdx >= 0 && stateIdx < palette.length) {
+                BlockState state = palette[stateIdx];
+                if (!EXCLUDED.contains(state.getBlock())) {
+                    parsed.add(new BlockData(new BlockPos(bx, by, bz), state));
+                }
+            }
+        }
+        return parsed;
     }
 
     // Painter's algorithm sort: back-to-front by view-projected depth.
@@ -159,6 +198,13 @@ public class NbtPreviewWidget {
     }
 
     public void render(GuiGraphics g, int mouseX, int mouseY, float delta) {
+        // Polling: pick up server response if it arrived since last frame
+        if (pendingPath != null && CACHE.containsKey(pendingPath)) {
+            blocks = CACHE.get(pendingPath);
+            sortedBlocks = null;
+            pendingPath = null;
+        }
+
         if (loadFailed) {
             String msg = "Load error";
             var font = Minecraft.getInstance().font;

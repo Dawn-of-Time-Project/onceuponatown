@@ -51,8 +51,9 @@ public final class SchematicConstants {
 
     // Priority table for blocks deferred until after the main build loop.
     // Order: waterlogged blocks (0) -> water (1) -> lily pads (2).
-    // Waterlogged blocks must be placed before water so the block occupies the space first;
-    // water fills the cell after, and lily pads float on top last.
+    // Waterlogged blocks before water so the block occupies the space first; water fills after; lily pads float last.
+    // Doors are NOT deferred: BuildGoal places the lower half in template order and immediately
+    // places the upper half so the door is always complete in a single tick.
     private static final Map<Block, Integer> DEFERRED_PLACEMENT_PRIORITY;
     static {
         Map<Block, Integer> m = new HashMap<>();
@@ -62,7 +63,7 @@ public final class SchematicConstants {
     }
 
     // Returns the deferred placement priority for a block state, or empty if the block should not be deferred.
-    // Waterlogged states get priority 0 (before water), specific blocks use the priority table.
+    // Waterlogged states: 0 | water: 1 | lily pads: 2.
     public static OptionalInt getDeferredPriority(BlockState state) {
         if (state.hasProperty(BlockStateProperties.WATERLOGGED) && state.getValue(BlockStateProperties.WATERLOGGED)) {
             return OptionalInt.of(0);

@@ -3,6 +3,7 @@ package org.dawnoftime.onceuponatown.entity.ai.shared;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.block.TrapDoorBlock;
 
 public final class StandingPositionFinder {
     private StandingPositionFinder() {}
@@ -26,8 +27,16 @@ public final class StandingPositionFinder {
                     if (!level.getBlockState(below).isFaceSturdy(level, below, Direction.UP)) continue;
                     if (level.getBlockState(c).isSolid()) continue;
                     if (level.getBlockState(c.above()).isSolid()) continue;
+                    // Trapdoors are excluded: they can close while the NPC stands in them.
+                    if (level.getBlockState(c).getBlock() instanceof TrapDoorBlock) continue;
+                    if (level.getBlockState(c.above()).getBlock() instanceof TrapDoorBlock) continue;
 
-                    double d = c.distSqr(target);
+                    // Penalize positions at or above the target block. The penalty (100)
+                    // exceeds the maximum possible distSq within the reach sphere (~49),
+                    // so any ground-level candidate always beats any elevated candidate.
+                    // An elevated position is only chosen when no ground position exists.
+                    double heightPenalty = dy >= 0 ? 100.0 : 0.0;
+                    double d = c.distSqr(target) + heightPenalty;
                     if (d < bestDistSq) {
                         bestDistSq = d;
                         best = c;

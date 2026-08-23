@@ -7,7 +7,7 @@ import net.minecraft.nbt.CompoundTag;
  * A single entry in the player construction queue.
  * Either a new building placement or a visual+stat upgrade of a placed building.
  */
-public sealed interface QueueEntry permits QueueEntry.NewBuild, QueueEntry.Upgrade {
+public sealed interface QueueEntry permits QueueEntry.NewBuild, QueueEntry.Upgrade, QueueEntry.Repair {
 
     long entryId();
     String defId();
@@ -24,6 +24,11 @@ public sealed interface QueueEntry permits QueueEntry.NewBuild, QueueEntry.Upgra
      */
     record Upgrade(long entryId, String defId, BlockPos buildingWorldPos, int fromLevel, boolean locked, boolean planned) implements QueueEntry {}
 
+    /** A repair task: re-places blocks that diverge from the current-level template. Free, never locked. */
+    record Repair(long entryId, String defId, BlockPos buildingWorldPos) implements QueueEntry {
+        @Override public boolean locked() { return false; }
+    }
+
     static CompoundTag serialize(QueueEntry entry) {
         CompoundTag tag = new CompoundTag();
         tag.putLong("EntryId", entry.entryId());
@@ -34,6 +39,10 @@ public sealed interface QueueEntry permits QueueEntry.NewBuild, QueueEntry.Upgra
             tag.putLong("BuildingWorldPos", u.buildingWorldPos().asLong());
             tag.putInt("FromLevel", u.fromLevel());
             tag.putBoolean("Planned", u.planned());
+        } else if (entry instanceof Repair r) {
+            tag.putString("Type", "repair");
+            tag.putString("DefId", r.defId());
+            tag.putLong("BuildingWorldPos", r.buildingWorldPos().asLong());
         } else if (entry instanceof NewBuild nb) {
             tag.putString("Type", "new_build");
             tag.putString("DefId", nb.defId());
@@ -50,6 +59,9 @@ public sealed interface QueueEntry permits QueueEntry.NewBuild, QueueEntry.Upgra
         if ("upgrade".equals(tag.getString("Type"))) {
             boolean planned = tag.contains("Planned") && tag.getBoolean("Planned");
             return new Upgrade(entryId, defId, BlockPos.of(tag.getLong("BuildingWorldPos")), tag.getInt("FromLevel"), locked, planned);
+        }
+        if ("repair".equals(tag.getString("Type"))) {
+            return new Repair(entryId, defId, BlockPos.of(tag.getLong("BuildingWorldPos")));
         }
         boolean planned       = tag.contains("Planned")       && tag.getBoolean("Planned");
         boolean residentTrack = tag.contains("ResidentTrack") && tag.getBoolean("ResidentTrack");

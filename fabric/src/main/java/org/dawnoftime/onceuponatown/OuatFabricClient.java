@@ -31,15 +31,18 @@ import org.dawnoftime.onceuponatown.network.C2SContributeQuestPacket;
 import org.dawnoftime.onceuponatown.network.C2SVerifyClearancePacket;
 import org.dawnoftime.onceuponatown.network.C2SQueueBuildingPacket;
 import org.dawnoftime.onceuponatown.network.C2SRemoveQueuedBuildingPacket;
+import org.dawnoftime.onceuponatown.network.C2SRequestNbtPacket;
 import org.dawnoftime.onceuponatown.network.C2SRequestStockPacket;
 import org.dawnoftime.onceuponatown.network.C2SToggleChatBroadcastPacket;
 import org.dawnoftime.onceuponatown.network.C2SUpgradeBuildingPacket;
+import org.dawnoftime.onceuponatown.network.C2SRepairBuildingPacket;
 import org.dawnoftime.onceuponatown.network.NetworkHelper;
 import org.dawnoftime.onceuponatown.network.S2CBuildingDefsPacket;
 import org.dawnoftime.onceuponatown.network.S2CBuildingListPacket;
 import org.dawnoftime.onceuponatown.network.S2CCitizenUpdatePacket;
 import org.dawnoftime.onceuponatown.network.S2CLogEntryPacket;
 import org.dawnoftime.onceuponatown.network.S2CEraUpdatePacket;
+import org.dawnoftime.onceuponatown.network.S2CNbtStructurePacket;
 import org.dawnoftime.onceuponatown.network.S2CQuestUpdatePacket;
 import org.dawnoftime.onceuponatown.network.S2CStockUpdatePacket;
 import org.dawnoftime.onceuponatown.network.S2CTownHubPacket;
@@ -94,6 +97,11 @@ public class OuatFabricClient implements ClientModInitializer {
                 S2CLogEntryPacket packet = S2CLogEntryPacket.decode(buf);
                 S2CLogEntryPacket.Handler.handle(packet);
             });
+        ClientPlayNetworking.registerGlobalReceiver(S2CNbtStructurePacket.ID,
+            (client, handler, buf, responseSender) -> {
+                S2CNbtStructurePacket packet = S2CNbtStructurePacket.decode(buf);
+                S2CNbtStructurePacket.Handler.handle(packet);
+            });
         ClientTickEvents.END_CLIENT_TICK.register(client -> PingRenderer.tick());
         WorldRenderEvents.LAST.register(context -> {
             com.mojang.blaze3d.vertex.PoseStack poseStack = context.matrixStack();
@@ -125,6 +133,11 @@ public class OuatFabricClient implements ClientModInitializer {
             var buf = PacketByteBufs.create();
             new C2SUpgradeBuildingPacket(pos, worldPosLong).encode(buf);
             ClientPlayNetworking.send(C2SUpgradeBuildingPacket.ID, buf);
+        };
+        NetworkHelper.sendRepairBuildingPacket = (pos, worldPosLong) -> {
+            var buf = PacketByteBufs.create();
+            new C2SRepairBuildingPacket(pos, worldPosLong).encode(buf);
+            ClientPlayNetworking.send(C2SRepairBuildingPacket.ID, buf);
         };
         NetworkHelper.sendSelectEraPathPacket = (pos, pathId) -> {
             var buf = PacketByteBufs.create();
@@ -160,6 +173,11 @@ public class OuatFabricClient implements ClientModInitializer {
             var buf = PacketByteBufs.create();
             new C2SToggleChatBroadcastPacket(pos).encode(buf);
             ClientPlayNetworking.send(C2SToggleChatBroadcastPacket.ID, buf);
+        };
+        NetworkHelper.sendRequestNbtPacket = (pos, path) -> {
+            var buf = PacketByteBufs.create();
+            new C2SRequestNbtPacket(pos, path).encode(buf);
+            ClientPlayNetworking.send(C2SRequestNbtPacket.ID, buf);
         };
     }
 }

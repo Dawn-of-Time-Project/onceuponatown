@@ -1,7 +1,11 @@
 package org.dawnoftime.onceuponatown.client.gui.widgets;
 
+import com.mojang.blaze3d.systems.RenderSystem;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -13,13 +17,17 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
+import org.dawnoftime.onceuponatown.client.renderer.PingRenderer;
 import org.dawnoftime.onceuponatown.town.TownLogEntry;
 
+import java.io.InputStreamReader;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class TownSummaryWidget extends DraggableWidget {
 
@@ -41,7 +49,23 @@ public class TownSummaryWidget extends DraggableWidget {
     private static final int COLOR_ORIENT_TEXT  = 0xFFEECC66;
     private static final int COLOR_CONTENT_BG   = 0xF51A1A1A;
 
+    private static final ResourceLocation ICONS_TEXTURE =
+        new ResourceLocation("onceuponatown", "textures/gui/icons.png");
+
     private static final String[] TAB_LABELS = {"Info", "Log"};
+
+    private static final List<String> TRADE_PRICE_ORDER = loadTradePriceOrder();
+
+    private static List<String> loadTradePriceOrder() {
+        List<String> order = new ArrayList<>();
+        try (var stream = TownSummaryWidget.class.getResourceAsStream("/data/onceuponatown/config/trade_prices.json")) {
+            if (stream == null) return order;
+            var json = com.google.gson.JsonParser.parseReader(new InputStreamReader(stream)).getAsJsonObject();
+            for (var elem : json.getAsJsonArray("prices"))
+                order.add(elem.getAsJsonObject().get("item").getAsString());
+        } catch (Exception ignored) {}
+        return order;
+    }
 
     // Active tab (session-only): false = Info, true = Log
     static boolean showLogs = false;
@@ -53,15 +77,19 @@ public class TownSummaryWidget extends DraggableWidget {
     // Activity log entries: newest first (index 0 = most recent)
     private final ArrayDeque<TownLogEntry> logEntries = new ArrayDeque<>();
 
-    private enum RowType { ITEM, SECTION_HEADER, PROD_GRID, TRANSFORM_GRID }
-    private record Row(ItemStack icon, Component text, RowType type) {}
+    private enum RowType { WORKERS_ROW, ITEM, SECTION_HEADER, PROD_GRID, TRANSFORM_GRID }
+    private record Row(ItemStack icon, Component text, RowType type, List<Component> tooltip) {
+        Row(ItemStack icon, Component text, RowType type) { this(icon, text, type, null); }
+    }
 
     // Grid cells for production and transformation sections
-    private record GridCell(ItemStack stack, boolean locked) {}
+    private record GridCell(ItemStack stack, boolean locked, int perMin) {}
+    private record WorkerEntry(String jobId, BlockPos pos) {}
 
-    private final List<Row>      rows            = new ArrayList<>();
-    private final List<GridCell> productionCells = new ArrayList<>();
-    private final List<GridCell> transformCells  = new ArrayList<>();
+    private final List<Row>         rows            = new ArrayList<>();
+    private final List<GridCell>    productionCells = new ArrayList<>();
+    private final List<GridCell>    transformCells  = new ArrayList<>();
+    private final List<WorkerEntry> workerEntries   = new ArrayList<>();
 
     private int scrollPx = 0;
     private int totalH   = 0;
@@ -70,6 +98,11 @@ public class TownSummaryWidget extends DraggableWidget {
     private boolean draggingScrollbar = false;
     private double  dragStartMouseY   = 0;
     private int     dragStartScrollPx = 0;
+
+    // Deferred tooltip (set during scissored render, drawn after disableScissor)
+    private List<Component> pendingTooltipLines = null;
+    private int             pendingTooltipX     = 0;
+    private int             pendingTooltipY     = 0;
 
     private CompoundTag cachedMapData;
     private CompoundTag cachedSummaryData;
@@ -83,12 +116,13 @@ public class TownSummaryWidget extends DraggableWidget {
     }
 
     public void updateCitizenData(int totalResidents, int activeResidents, int totalFoodDemand,
-                                   int totalHerd, int activeHerd) {
+                                   int totalHerd, int activeHerd, ListTag workersTag) {
         cachedSummaryData.putInt("TotalResidents", totalResidents);
         cachedSummaryData.putInt("ActiveResidents", activeResidents);
         cachedSummaryData.putInt("TotalFoodDemand", totalFoodDemand);
         cachedSummaryData.putInt("TotalHerd", totalHerd);
         cachedSummaryData.putInt("ActiveHerd", activeHerd);
+        cachedSummaryData.put("Workers", workersTag);
         rows.clear();
         buildRows(cachedMapData, cachedSummaryData);
     }
@@ -204,33 +238,6 @@ public class TownSummaryWidget extends DraggableWidget {
         }
     }
 
-    private static int logColor(TownLogEntry.TownLogType type) {
-        return switch (type) {
-            case BUILD_START, UPGRADE_START -> 0xFFAAAAFF;
-            case BUILD_DONE, UPGRADE_DONE   -> 0xFF55FF55;
-            case FOOD_CONSUMED              -> 0xFFDDDDDD;
-            case VILLAGE_FULL               -> 0xFFFF5555;
-            case AUTONOMY_PLANNED           -> 0xFFFFAA55;
-            case RESIDENT_PLANNED           -> 0xFFFFAA55;
-        };
-    }
-
-    private Component logEntryToComponent(TownLogEntry entry) {
-        String param = entry.param();
-        String resolved = param.isEmpty() ? "" : Component.translatable("onceuponatown.building." + param).getString();
-        String text = switch (entry.type()) {
-            case BUILD_START      -> "Builder: starting " + resolved;
-            case BUILD_DONE       -> "Builder: " + resolved + " built";
-            case UPGRADE_START    -> "Builder: upgrading " + resolved;
-            case UPGRADE_DONE     -> "Builder: " + resolved + " upgraded";
-            case FOOD_CONSUMED    -> "Village: consumed " + param + " food units";
-            case VILLAGE_FULL     -> "Village: no space left to expand";
-            case AUTONOMY_PLANNED -> "Village: plans to build " + resolved;
-            case RESIDENT_PLANNED -> "Village: plans housing " + resolved;
-        };
-        int color = logColor(entry.type());
-        return Component.literal(text).withStyle(s -> s.withColor(color));
-    }
 
     // -------------------------------------------------------------------------
     // Row building
@@ -239,13 +246,14 @@ public class TownSummaryWidget extends DraggableWidget {
     private void buildRows(CompoundTag mapData, CompoundTag summaryData) {
         productionCells.clear();
         transformCells.clear();
+        workerEntries.clear();
 
         if (showLogs) {
             if (logEntries.isEmpty()) {
                 rows.add(new Row(null, Component.literal("No activity yet.").withStyle(s -> s.withColor(0xFF888888)), RowType.ITEM));
             } else {
                 for (TownLogEntry e : logEntries) {
-                    rows.add(new Row(null, logEntryToComponent(e), RowType.ITEM));
+                    rows.add(new Row(null, e.toComponent(), RowType.ITEM));
                 }
             }
             totalH = PADDING;
@@ -275,7 +283,12 @@ public class TownSummaryWidget extends DraggableWidget {
                 .withStyle(s -> s.withColor(0xFFCCCCCC))
                 .append(Component.literal(String.valueOf(activeResidents)).withStyle(s -> s.withColor(resColor)))
                 .append(Component.literal(" / " + totalResidents).withStyle(s -> s.withColor(0xFFCCCCCC)));
-            rows.add(new Row(new ItemStack(egg), txt, RowType.ITEM));
+            List<Component> resTooltip = List.of(
+                Component.literal("Buildings increase the total number of").withStyle(s -> s.withColor(0xFFFFFFFF)),
+                Component.literal("residents. The active count updates").withStyle(s -> s.withColor(0xFFFFFFFF)),
+                Component.literal("each time the village is fed.").withStyle(s -> s.withColor(0xFFFFFFFF))
+            );
+            rows.add(new Row(new ItemStack(egg), txt, RowType.ITEM, resTooltip));
         }
 
         if (totalHerd > 0) {
@@ -287,13 +300,34 @@ public class TownSummaryWidget extends DraggableWidget {
                 .withStyle(s -> s.withColor(0xFFCCCCCC))
                 .append(Component.literal(String.valueOf(activeHerd)).withStyle(s -> s.withColor(herdColor)))
                 .append(Component.literal(" / " + totalHerd).withStyle(s -> s.withColor(0xFFCCCCCC)));
-            rows.add(new Row(new ItemStack(pig), txt, RowType.ITEM));
+            List<Component> herdTooltip = List.of(
+                Component.literal("Buildings increase the total size of the").withStyle(s -> s.withColor(0xFFFFFFFF)),
+                Component.literal("herd. The active count updates each time").withStyle(s -> s.withColor(0xFFFFFFFF)),
+                Component.literal("the village has food they can consume.").withStyle(s -> s.withColor(0xFFFFFFFF))
+            );
+            rows.add(new Row(new ItemStack(pig), txt, RowType.ITEM, herdTooltip));
         }
 
         if (totalFoodDemand > 0) {
             rows.add(new Row(new ItemStack(Items.BREAD),
                 Component.literal(totalFoodDemand + " food units / day").withStyle(s -> s.withColor(0xFFDDDDDD)),
                 RowType.ITEM));
+        }
+
+        ListTag workersTag = summaryData.getList("Workers", Tag.TAG_COMPOUND);
+        for (Tag rawW : workersTag) {
+            CompoundTag w = (CompoundTag) rawW;
+            workerEntries.add(new WorkerEntry(
+                w.getString("JobId"),
+                new BlockPos(w.getInt("PosX"), w.getInt("PosY"), w.getInt("PosZ"))
+            ));
+        }
+        if (!workerEntries.isEmpty()) {
+            rows.add(new Row(null,
+                Component.translatable("onceuponatown.summary.workers")
+                    .withStyle(s -> s.withColor(COLOR_SECTION_TEXT)),
+                RowType.SECTION_HEADER));
+            rows.add(new Row(null, null, RowType.WORKERS_ROW));
         }
 
         Map<String, int[]> prodData         = new LinkedHashMap<>();
@@ -340,32 +374,46 @@ public class TownSummaryWidget extends DraggableWidget {
         if (!prodData.isEmpty() || !lockedProdData.isEmpty()) {
             rows.add(new Row(null, Component.literal("Produces / min").withStyle(s -> s.withColor(COLOR_SECTION_TEXT)), RowType.SECTION_HEADER));
             rows.add(new Row(null, null, RowType.PROD_GRID));
-            for (Map.Entry<String, int[]> e : prodData.entrySet()) {
-                Item item = BuiltInRegistries.ITEM.get(new ResourceLocation(e.getKey()));
-                int displayCount = perMinCount(e.getValue()[0], e.getValue()[1]);
-                productionCells.add(new GridCell(new ItemStack(item, displayCount), false));
+            Set<String> sortedProd = new LinkedHashSet<>();
+            for (String id : TRADE_PRICE_ORDER) { if (prodData.containsKey(id)) sortedProd.add(id); }
+            sortedProd.addAll(prodData.keySet());
+            for (String itemId : sortedProd) {
+                int[] val = prodData.get(itemId);
+                Item item = BuiltInRegistries.ITEM.get(new ResourceLocation(itemId));
+                int perMin = perMinCount(val[0], val[1]);
+                productionCells.add(new GridCell(new ItemStack(item, perMin), false, perMin));
             }
-            for (Map.Entry<String, int[]> e : lockedProdData.entrySet()) {
-                if (prodData.containsKey(e.getKey())) continue;
-                Item item = BuiltInRegistries.ITEM.get(new ResourceLocation(e.getKey()));
-                int displayCount = perMinCount(e.getValue()[0], e.getValue()[1]);
-                productionCells.add(new GridCell(new ItemStack(item, displayCount), true));
+            Set<String> sortedLockedProd = new LinkedHashSet<>();
+            for (String id : TRADE_PRICE_ORDER) { if (lockedProdData.containsKey(id) && !prodData.containsKey(id)) sortedLockedProd.add(id); }
+            for (String id : lockedProdData.keySet()) { if (!prodData.containsKey(id)) sortedLockedProd.add(id); }
+            for (String itemId : sortedLockedProd) {
+                int[] val = lockedProdData.get(itemId);
+                Item item = BuiltInRegistries.ITEM.get(new ResourceLocation(itemId));
+                int perMin = perMinCount(val[0], val[1]);
+                productionCells.add(new GridCell(new ItemStack(item, perMin), true, perMin));
             }
         }
 
         if (!transforms.isEmpty() || !lockedTransforms.isEmpty()) {
             rows.add(new Row(null, Component.literal("Transforms / min").withStyle(s -> s.withColor(COLOR_SECTION_TEXT)), RowType.SECTION_HEADER));
             rows.add(new Row(null, null, RowType.TRANSFORM_GRID));
-            for (Map.Entry<String, int[]> e : transforms.entrySet()) {
-                Item item = BuiltInRegistries.ITEM.get(new ResourceLocation(e.getKey()));
-                int displayCount = perMinCount(e.getValue()[0], e.getValue()[1]);
-                transformCells.add(new GridCell(new ItemStack(item, displayCount), false));
+            Set<String> sortedTransforms = new LinkedHashSet<>();
+            for (String id : TRADE_PRICE_ORDER) { if (transforms.containsKey(id)) sortedTransforms.add(id); }
+            sortedTransforms.addAll(transforms.keySet());
+            for (String itemId : sortedTransforms) {
+                int[] val = transforms.get(itemId);
+                Item item = BuiltInRegistries.ITEM.get(new ResourceLocation(itemId));
+                int perMin = perMinCount(val[0], val[1]);
+                transformCells.add(new GridCell(new ItemStack(item, perMin), false, perMin));
             }
-            for (Map.Entry<String, int[]> e : lockedTransforms.entrySet()) {
-                if (transforms.containsKey(e.getKey())) continue;
-                Item item = BuiltInRegistries.ITEM.get(new ResourceLocation(e.getKey()));
-                int displayCount = perMinCount(e.getValue()[0], e.getValue()[1]);
-                transformCells.add(new GridCell(new ItemStack(item, displayCount), true));
+            Set<String> sortedLockedTransforms = new LinkedHashSet<>();
+            for (String id : TRADE_PRICE_ORDER) { if (lockedTransforms.containsKey(id) && !transforms.containsKey(id)) sortedLockedTransforms.add(id); }
+            for (String id : lockedTransforms.keySet()) { if (!transforms.containsKey(id)) sortedLockedTransforms.add(id); }
+            for (String itemId : sortedLockedTransforms) {
+                int[] val = lockedTransforms.get(itemId);
+                Item item = BuiltInRegistries.ITEM.get(new ResourceLocation(itemId));
+                int perMin = perMinCount(val[0], val[1]);
+                transformCells.add(new GridCell(new ItemStack(item, perMin), true, perMin));
             }
         }
 
@@ -383,6 +431,7 @@ public class TownSummaryWidget extends DraggableWidget {
 
     private int rowHeight(Row r) {
         return switch (r.type()) {
+            case WORKERS_ROW    -> gridHeight(workerEntries.size());
             case SECTION_HEADER -> HEADER_H;
             case PROD_GRID      -> gridHeight(productionCells.size());
             case TRANSFORM_GRID -> gridHeight(transformCells.size());
@@ -403,6 +452,7 @@ public class TownSummaryWidget extends DraggableWidget {
     protected void renderContent(GuiGraphics g, int cx, int cy, int cw, int ch,
                                   int mx, int my, float delta) {
         g.fill(cx, cy, cx + cw, cy + ch, COLOR_CONTENT_BG);
+        pendingTooltipLines = null;
 
         boolean hasScroll = totalH > ch;
         int contentW = hasScroll ? cw - SCROLLBAR_W : cw;
@@ -416,18 +466,26 @@ public class TownSummaryWidget extends DraggableWidget {
             int rh = rowHeight(row);
             if (rowY + rh > cy && rowY < cy + ch) {
                 switch (row.type()) {
+                    case WORKERS_ROW    -> renderWorkersRow(g, cx, rowY, mx, my);
                     case SECTION_HEADER -> {
                         g.fill(cx, rowY, cx + contentW, rowY + rh, COLOR_HEADER_BG);
                         g.drawString(font, row.text(), cx + 4, rowY + 2, 0xFFFFFFFF, false);
                     }
-                    case PROD_GRID      -> renderGrid(g, productionCells, cx, rowY, contentW);
-                    case TRANSFORM_GRID -> renderGrid(g, transformCells,  cx, rowY, contentW);
+                    case PROD_GRID      -> renderGrid(g, productionCells, cx, rowY, contentW, mx, my);
+                    case TRANSFORM_GRID -> renderGrid(g, transformCells,  cx, rowY, contentW, mx, my);
                     case ITEM           -> {
                         if (row.icon() != null && !row.icon().isEmpty()) {
                             g.renderFakeItem(row.icon(), cx + 2, rowY);
                             g.drawString(font, row.text(), cx + 20, rowY + 4, 0xFFFFFFFF, false);
                         } else {
                             g.drawString(font, row.text(), cx + 4, rowY + 2, 0xFFFFFFFF, false);
+                        }
+                        if (row.tooltip() != null
+                                && mx >= cx && mx < cx + contentW
+                                && my >= rowY && my < rowY + ITEM_H) {
+                            pendingTooltipLines = row.tooltip();
+                            pendingTooltipX = mx;
+                            pendingTooltipY = my;
                         }
                     }
                 }
@@ -436,6 +494,11 @@ public class TownSummaryWidget extends DraggableWidget {
         }
 
         g.disableScissor();
+
+        if (pendingTooltipLines != null) {
+            g.renderComponentTooltip(Minecraft.getInstance().font,
+                pendingTooltipLines, pendingTooltipX, pendingTooltipY);
+        }
 
         if (hasScroll) {
             int maxScroll = totalH - ch;
@@ -455,13 +518,24 @@ public class TownSummaryWidget extends DraggableWidget {
         }
     }
 
-    private void renderGrid(GuiGraphics g, List<GridCell> cells, int cx, int rowY, int contentW) {
+    private void renderGrid(GuiGraphics g, List<GridCell> cells, int cx, int rowY, int contentW, int mx, int my) {
         for (int i = 0; i < cells.size(); i++) {
             int col   = i % MAX_COLS;
             int row   = i / MAX_COLS;
             int cellX = cx + col * CELL_SIZE;
             int cellY = rowY + row * CELL_SIZE;
             GridCell cell = cells.get(i);
+            boolean hover = mx >= cellX + 1 && mx < cellX + 17
+                         && my >= cellY + 1 && my < cellY + 17;
+            if (hover) {
+                g.fill(cellX + 1, cellY + 1, cellX + 17, cellY + 17, 0x40FFFFFF);
+                pendingTooltipLines = List.of(
+                    cell.stack().getHoverName().copy().withStyle(s -> s.withColor(0xFFFFFFFF)),
+                    Component.literal(cell.perMin() + " / min").withStyle(ChatFormatting.DARK_GRAY)
+                );
+                pendingTooltipX = mx;
+                pendingTooltipY = my;
+            }
             g.renderFakeItem(cell.stack(), cellX + 1, cellY + 1);
             g.renderItemDecorations(Minecraft.getInstance().font, cell.stack(), cellX + 1, cellY + 1);
             if (cell.locked()) {
@@ -473,12 +547,58 @@ public class TownSummaryWidget extends DraggableWidget {
         }
     }
 
+    private void renderWorkersRow(GuiGraphics g, int cx, int rowY, int mx, int my) {
+        for (int i = 0; i < workerEntries.size(); i++) {
+            int col   = i % MAX_COLS;
+            int row   = i / MAX_COLS;
+            int iconX = cx + col * CELL_SIZE + 1;
+            int iconY = rowY + row * CELL_SIZE + 1;
+            boolean hover = mx >= iconX && mx < iconX + 16 && my >= iconY && my < iconY + 16;
+            if (hover) {
+                g.fill(iconX, iconY, iconX + 16, iconY + 16, 0x40FFFFFF);
+                String jobId = workerEntries.get(i).jobId();
+                pendingTooltipLines = List.of(
+                    Component.translatable("onceuponatown.job." + jobId)
+                        .withStyle(s -> s.withColor(0xFFFFFFFF)),
+                    Component.literal("Shift+click: locate")
+                        .withStyle(ChatFormatting.DARK_GRAY)
+                );
+                pendingTooltipX = mx;
+                pendingTooltipY = my;
+            }
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+            g.blit(ICONS_TEXTURE, iconX, iconY, 16, 16, 48f, 0f, 16, 16, 64, 64);
+            RenderSystem.disableBlend();
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Scrollbar interaction
     // -------------------------------------------------------------------------
 
     @Override
     protected boolean contentMouseClicked(double mouseX, double mouseY, int button) {
+        if (button == 0 && Screen.hasShiftDown()) {
+            int testY = y + TITLE_BAR_H + PADDING - scrollPx;
+            for (Row row : rows) {
+                if (row.type() == RowType.WORKERS_ROW) {
+                    for (int i = 0; i < workerEntries.size(); i++) {
+                        int col   = i % MAX_COLS;
+                        int rowI  = i / MAX_COLS;
+                        int iconX = x + col * CELL_SIZE + 1;
+                        int iconY = testY + rowI * CELL_SIZE + 1;
+                        if (mouseX >= iconX && mouseX < iconX + 16
+                                && mouseY >= iconY && mouseY < iconY + 16) {
+                            PingRenderer.addPing(workerEntries.get(i).pos());
+                            return true;
+                        }
+                    }
+                    break;
+                }
+                testY += rowHeight(row);
+            }
+        }
         if (button == 0 && totalH > VISIBLE_H) {
             int cx = x;
             int cy = y + TITLE_BAR_H;
@@ -542,4 +662,5 @@ public class TownSummaryWidget extends DraggableWidget {
         if (s == null || s.isEmpty()) return "Unknown";
         return Character.toUpperCase(s.charAt(0)) + s.substring(1).toLowerCase();
     }
+
 }

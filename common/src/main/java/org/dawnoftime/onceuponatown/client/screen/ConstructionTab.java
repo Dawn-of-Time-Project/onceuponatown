@@ -6,6 +6,8 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.locale.Language;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -21,7 +23,9 @@ import org.dawnoftime.onceuponatown.client.gui.widgets.EraProgressDraggableWidge
 import org.dawnoftime.onceuponatown.client.gui.widgets.NbtPreviewWidget;
 import org.dawnoftime.onceuponatown.network.NetworkHelper;
 
+import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +37,22 @@ class ConstructionTab {
 
     private static final ResourceLocation TEXTURE_CONSTRUCTION =
         new ResourceLocation("onceuponatown", "textures/gui/town_construction.png");
+
+    private static final ResourceLocation ICONS_TEXTURE =
+        new ResourceLocation("onceuponatown", "textures/gui/icons.png");
+
+    private static final List<String> TRADE_PRICE_ORDER = loadTradePriceOrder();
+
+    private static List<String> loadTradePriceOrder() {
+        List<String> order = new ArrayList<>();
+        try (var stream = ConstructionTab.class.getResourceAsStream("/data/onceuponatown/config/trade_prices.json")) {
+            if (stream == null) return order;
+            var json = com.google.gson.JsonParser.parseReader(new InputStreamReader(stream)).getAsJsonObject();
+            for (var elem : json.getAsJsonArray("prices"))
+                order.add(elem.getAsJsonObject().get("item").getAsString());
+        } catch (Exception ignored) {}
+        return order;
+    }
 
     private static final int PANEL_W            = 176;
     private static final int QUEUE_GRID_X       = 8;
@@ -56,6 +76,10 @@ class ConstructionTab {
     private String selectedCatalogBuildingId = null;
     private NbtPreviewWidget constructionPreview = null;
 
+    private List<Component> pendingGridTooltip = null;
+    private int pendingGridTooltipX, pendingGridTooltipY;
+    private boolean hoveredInfoIcon = false;
+
     private boolean expandedViewOpen = false;
     private NbtPreviewWidget expandedWidget = null;
     private int expandedViewLevel = 0;
@@ -69,11 +93,12 @@ class ConstructionTab {
     String getSelectedBuildingId() { return selectedCatalogBuildingId; }
     List<BuildingEntry> getBuildingCatalog() { return buildingCatalog; }
 
-    void selectBuilding(String defId, int leftPos, int topPos, List<TownHubTypes.UpgradeBuildingEntry> upgradedBuildings) {
+    void selectBuilding(String defId, int leftPos, int topPos, List<TownHubTypes.UpgradeBuildingEntry> upgradedBuildings,
+                        BlockPos anchorPos) {
         BuildingEntry entry = findCatalogEntry(defId);
         if (entry != null) {
             selectedCatalogBuildingId = defId;
-            updateConstructionPreview(entry, leftPos, topPos, upgradedBuildings);
+            updateConstructionPreview(entry, leftPos, topPos, upgradedBuildings, anchorPos);
         }
     }
 
@@ -119,7 +144,7 @@ class ConstructionTab {
                     }
                     text = text.withStyle(ChatFormatting.GRAY);
                     productionRows.add(new BuildingProductionTooltip.Row(new ItemStack(item), text, locked));
-                    productionCells.add(new ProductionCell(item, amount, locked));
+                    productionCells.add(new ProductionCell(item, amount, seconds, locked));
                 }
             }
             ListTag transforms = dt.getList("Transformations", Tag.TAG_COMPOUND);
@@ -143,7 +168,7 @@ class ConstructionTab {
                     }
                     text = text.withStyle(ChatFormatting.GRAY);
                     productionRows.add(new BuildingProductionTooltip.Row(new ItemStack(outputItem), text, locked));
-                    productionCells.add(new ProductionCell(outputItem, outputAmount, locked));
+                    productionCells.add(new ProductionCell(outputItem, outputAmount, seconds, locked));
                 }
             }
             double productionBonus = dt.getDouble("ProductionBonus");
@@ -154,7 +179,7 @@ class ConstructionTab {
                 productionRows.add(new BuildingProductionTooltip.Row(new ItemStack(Items.NETHER_STAR),
                     Component.translatable("onceuponatown.tooltip.production_bonus", percent)
                         .withStyle(ChatFormatting.GRAY)));
-                productionCells.add(new ProductionCell(Items.NETHER_STAR, percent, false));
+                productionCells.add(new ProductionCell(Items.NETHER_STAR, percent, 0, false));
             }
             int residents = dt.getInt("Residents");
             if (residents > 0) {
@@ -165,7 +190,6 @@ class ConstructionTab {
                 productionRows.add(new BuildingProductionTooltip.Row(new ItemStack(villagerEgg),
                     Component.translatable("onceuponatown.tooltip.residents", residents)
                         .withStyle(ChatFormatting.GRAY)));
-                productionCells.add(new ProductionCell(villagerEgg, residents, false));
             }
             int herd = dt.getInt("Herd");
             if (herd > 0) {
@@ -177,7 +201,6 @@ class ConstructionTab {
                 productionRows.add(new BuildingProductionTooltip.Row(new ItemStack(pigEgg),
                     Component.translatable("onceuponatown.tooltip.herd", herd)
                         .withStyle(ChatFormatting.GRAY)));
-                productionCells.add(new ProductionCell(pigEgg, herd, false));
             }
 
             int requiredResidents = dt.getInt("RequiredResidents");
@@ -188,9 +211,7 @@ class ConstructionTab {
                     req.getString("DefId"), req.getInt("Count"), req.getInt("Have")));
             });
 
-            float baseConsumption = dt.getFloat("BaseConsumptionPerResident");
-            float maxConsumption  = dt.getFloat("MaxConsumptionPerResident");
-            int maxResidents      = dt.getInt("MaxResidents");
+            int maxResidents = dt.getInt("MaxResidents");
             boolean nextEra       = dt.getBoolean("NextEra");
             String nbtPath        = dt.getString("Nbt");
             boolean hasBuilt      = dt.getBoolean("HasBuilt");
@@ -199,9 +220,16 @@ class ConstructionTab {
             dt.getList("NbtLevels", Tag.TAG_STRING).forEach(t -> nbtLevels.add(t.getAsString()));
             int weight            = dt.contains("Weight") ? dt.getInt("Weight") : 1;
 
+            Map<String, Integer> sortIndex = new HashMap<>();
+            for (int i = 0; i < TRADE_PRICE_ORDER.size(); i++) sortIndex.put(TRADE_PRICE_ORDER.get(i), i);
+            productionCells.sort((a, b) -> Integer.compare(
+                sortIndex.getOrDefault(BuiltInRegistries.ITEM.getKey(a.item()).toString(), Integer.MAX_VALUE),
+                sortIndex.getOrDefault(BuiltInRegistries.ITEM.getKey(b.item()).toString(), Integer.MAX_VALUE)
+            ));
+
             buildingCatalog.add(new BuildingEntry(id, category, iconItem, cost, playerCost, productionRows,
                 productionCells, requiredResidents, requiredBuildings,
-                productionBonus, baseConsumption, maxConsumption, maxResidents, nextEra,
+                productionBonus, maxResidents, nextEra,
                 nbtPath, hasBuilt, nbtLevels, builtCount, weight));
         });
         // Do NOT rebuild visible catalog here; TownHubScreen calls tickEraPathChange after
@@ -229,6 +257,8 @@ class ConstructionTab {
     void render(GuiGraphics g, int leftPos, int topPos, int mx, int my, TownHubTabContext ctx) {
         hoveredQueueSlot = -1;
         hoveredCatalogSlot = -1;
+        pendingGridTooltip = null;
+        hoveredInfoIcon = false;
 
         // Zone C: queue row
         for (int col = 0; col < QUEUE_COLS; col++) {
@@ -245,7 +275,14 @@ class ConstructionTab {
                     g.pose().pushPose();
                     g.pose().translate(0, 0, 300);
                     String badge = "UP";
-                    g.drawString(ctx.font(), badge, sx + CELL - 2 - ctx.font().width(badge) - 1, sy + CELL - 10, 0xFF55FFFF, true);
+                    g.drawString(ctx.font(), badge, sx + CELL - 2 - ctx.font().width(badge) - 1, sy + CELL - 10, 0xFFFFFFFF, true);
+                    g.pose().popPose();
+                }
+                if (qe.isRepair()) {
+                    g.pose().pushPose();
+                    g.pose().translate(0, 0, 300);
+                    String badge = "FIX";
+                    g.drawString(ctx.font(), badge, sx + CELL - 2 - ctx.font().width(badge) - 1, sy + CELL - 10, 0xFFFFFFFF, true);
                     g.pose().popPose();
                 }
                 if (qe.locked()) {
@@ -367,7 +404,7 @@ class ConstructionTab {
 
         String label = Component.translatable("onceuponatown.catalog.space_remaining").getString()
                 + " : " + ctx.currentWeight() + "/" + ctx.maxWeight();
-        g.drawString(ctx.font(), label, barX + 3, barY + 1, 0xFFCCCCCC, false);
+        g.drawString(ctx.font(), label, barX + 3, barY + 1, 0xFFFFFFFF, false);
     }
 
     void renderTooltips(GuiGraphics g, int leftPos, int topPos, int mx, int my, TownHubTabContext ctx) {
@@ -375,9 +412,11 @@ class ConstructionTab {
             ClientQueueEntry qe = ctx.constructionQueue().get(hoveredQueueSlot);
             List<Component> lines = new ArrayList<>();
             if (qe.isUpgrade()) {
-                lines.add(Component.literal("Upgrade: " + TownHubTypes.formatId(qe.defId())).withStyle(s -> s.withBold(true)));
+                lines.add(Component.literal("Upgrade: " + TownHubTypes.formatId(qe.defId())));
+            } else if (qe.isRepair()) {
+                lines.add(Component.literal("Repair: " + TownHubTypes.formatId(qe.defId())));
             } else {
-                lines.add(Component.literal(TownHubTypes.formatId(qe.defId())).withStyle(s -> s.withBold(true)));
+                lines.add(Component.literal(TownHubTypes.formatId(qe.defId())));
             }
             if (qe.locked()) {
                 lines.add(Component.literal("Village-locked").withStyle(s -> s.withColor(0xFFAA00)));
@@ -388,7 +427,9 @@ class ConstructionTab {
         } else if (hoveredCatalogSlot >= 0 && hoveredCatalogSlot < visibleCatalog.size()) {
             BuildingEntry entry = visibleCatalog.get(hoveredCatalogSlot);
             List<Component> lines = new ArrayList<>();
-            lines.add(Component.literal(TownHubTypes.formatId(entry.id())).withStyle(s -> s.withBold(true)));
+            lines.add(Component.literal(TownHubTypes.formatId(entry.id())));
+            int catColor = TownHubTypes.categoryColor(entry.category()) & 0x00FFFFFF;
+            lines.add(Component.literal(TownHubTypes.formatId(entry.category())).withStyle(s -> s.withColor(catColor)));
             if (entry.nextEra()) {
                 lines.add(Component.literal("Unlocks at next era").withStyle(s -> s.withColor(0xAAAAAA)));
                 g.renderComponentTooltip(ctx.font(), lines, mx, my);
@@ -437,6 +478,16 @@ class ConstructionTab {
             boolean weightOk = ctx.currentWeight() + wCost <= ctx.maxWeight();
             lines.add(Component.literal(wCost + " weight")
                 .withStyle(s -> s.withColor(weightOk ? 0x55FF55 : 0xFF5555)));
+            g.renderComponentTooltip(ctx.font(), lines, mx, my);
+        } else if (pendingGridTooltip != null) {
+            g.renderComponentTooltip(ctx.font(), pendingGridTooltip, pendingGridTooltipX, pendingGridTooltipY);
+        } else if (hoveredInfoIcon && selectedCatalogBuildingId != null) {
+            String descKey = "onceuponatown.building." + selectedCatalogBuildingId + ".description";
+            String raw = Language.getInstance().getOrDefault(descKey);
+            List<Component> lines = new ArrayList<>();
+            for (String line : raw.split("\n")) {
+                lines.add(Component.literal(line));
+            }
             g.renderComponentTooltip(ctx.font(), lines, mx, my);
         }
     }
@@ -502,7 +553,7 @@ class ConstructionTab {
         if (button == 0 && hoveredCatalogSlot >= 0 && hoveredCatalogSlot < visibleCatalog.size()) {
             BuildingEntry catalogEntry = visibleCatalog.get(hoveredCatalogSlot);
             selectedCatalogBuildingId = catalogEntry.id();
-            updateConstructionPreview(catalogEntry, leftPos, topPos, ctx.upgradedBuildings());
+            updateConstructionPreview(catalogEntry, leftPos, topPos, ctx.upgradedBuildings(), ctx.anchorPos());
             return true;
         }
         // Construct button: left-click queues the selected building
@@ -618,6 +669,9 @@ class ConstructionTab {
         BuildingEntry sel = selectedCatalogBuildingId != null ? findCatalogEntry(selectedCatalogBuildingId) : null;
 
         if (sel != null) {
+            g.drawString(ctx.font(), "Preview", leftPos + 8,  topPos + 44, 0x404040, false);
+            g.drawString(ctx.font(), "Produces", leftPos + 80, topPos + 44, 0x404040, false);
+
             // 3D NBT preview fills the left zone
             if (constructionPreview != null) {
                 constructionPreview.render(g, mx, my, 0f);
@@ -633,13 +687,29 @@ class ConstructionTab {
                 for (int col = 0; col < 5; col++) {
                     if (cellIdx >= cells.size()) break outer;
                     ProductionCell cell = cells.get(cellIdx++);
+                    int cx = colXs[col];
+                    int cy = rowYs[row];
+                    boolean hover = mx >= cx && mx < cx + 16 && my >= cy && my < cy + 16;
+                    if (hover) {
+                        g.fill(cx, cy, cx + 16, cy + 16, 0x40FFFFFF);
+                        List<Component> tip = new ArrayList<>();
+                        tip.add(cell.item().getDefaultInstance().getHoverName().copy()
+                            .withStyle(s -> s.withColor(0xFFFFFFFF)));
+                        if (cell.seconds() > 0) {
+                            tip.add(Component.literal(cell.amount() + " / " + cell.seconds() + "s")
+                                .withStyle(ChatFormatting.DARK_GRAY));
+                        }
+                        pendingGridTooltip = tip;
+                        pendingGridTooltipX = mx;
+                        pendingGridTooltipY = my;
+                    }
                     ItemStack stack = new ItemStack(cell.item(), cell.amount());
-                    g.renderFakeItem(stack, colXs[col], rowYs[row]);
-                    g.renderItemDecorations(ctx.font(), stack, colXs[col], rowYs[row]);
+                    g.renderFakeItem(stack, cx, cy);
+                    g.renderItemDecorations(ctx.font(), stack, cx, cy);
                     if (cell.locked()) {
                         g.pose().pushPose();
                         g.pose().translate(0, 0, 200);
-                        NbtPreviewWidget.drawPadlockIcon(g, colXs[col], rowYs[row]);
+                        NbtPreviewWidget.drawPadlockIcon(g, cx, cy);
                         g.pose().popPose();
                     }
                 }
@@ -672,10 +742,25 @@ class ConstructionTab {
             RenderSystem.defaultBlendFunc();
             g.blit(TEXTURE_CONSTRUCTION, expBtnX, expBtnY, 16, 16, 177f, 1f, 16, 16, 256, 256);
         }
+
+        // Info icon: top-left of preview zone, 2px padding from border
+        if (sel != null) {
+            String descKey = "onceuponatown.building." + sel.id() + ".description";
+            if (Language.getInstance().has(descKey)) {
+                int iconX = leftPos + 10;
+                int iconY = topPos + 56;
+                hoveredInfoIcon = mx >= iconX && mx < iconX + 8 && my >= iconY && my < iconY + 8;
+                if (hoveredInfoIcon) g.fill(iconX, iconY, iconX + 8, iconY + 8, 0x30FFFFFF);
+                RenderSystem.enableBlend();
+                RenderSystem.defaultBlendFunc();
+                g.blit(ICONS_TEXTURE, iconX, iconY, 8, 8, 20f, 36f, 8, 8, 64, 64);
+            }
+        }
     }
 
     private void updateConstructionPreview(BuildingEntry entry, int leftPos, int topPos,
-                                           List<TownHubTypes.UpgradeBuildingEntry> upgradedBuildings) {
+                                           List<TownHubTypes.UpgradeBuildingEntry> upgradedBuildings,
+                                           BlockPos anchorPos) {
         if (constructionPreview == null) {
             constructionPreview = new NbtPreviewWidget(leftPos + 8, topPos + 44, 76, 82);
         }
@@ -683,6 +768,7 @@ class ConstructionTab {
             constructionPreview = null;
             return;
         }
+        constructionPreview.setAnchorPos(anchorPos);
         int maxUnlocked = getMaxUnlockedForSelected(entry, upgradedBuildings);
         int totalLevels = 1 + entry.nbtLevels().size();
         int previewLevel = entry.hasBuilt() ? Math.min(maxUnlocked, totalLevels - 1) : 0;
@@ -737,6 +823,7 @@ class ConstructionTab {
         expandedPanelX = (screenW - expandedPanelSize) / 2;
         expandedPanelY = (screenH - expandedPanelSize) / 2 - 15;
         expandedWidget = new NbtPreviewWidget(expandedPanelX, expandedPanelY, expandedPanelSize, expandedPanelSize);
+        expandedWidget.setAnchorPos(ctx.anchorPos());
         expandedWidget.setScale(expandedPanelSize / 10.0f);
         cachedUpgradedBuildings = ctx.upgradedBuildings();
         int maxUnlocked = getMaxUnlockedForSelected(sel, cachedUpgradedBuildings);

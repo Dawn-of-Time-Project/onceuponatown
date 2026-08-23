@@ -47,12 +47,12 @@ public class TownHubScreen extends AbstractContainerScreen<TownHubMenu> {
     private static int savedMapX = -1, savedMapY = -1;
     private static int savedSummaryX = -1, savedSummaryY = -1;
     private static int savedEraX = -1, savedEraY = -1;
-    private static boolean savedMapOpen = true;
-    private static boolean savedSummaryOpen = true;
+    private static boolean savedMapOpen = false;
+    private static boolean savedSummaryOpen = false;
     private static boolean savedEraOpen = false;
     private static int     savedQuestHubX    = -1;
     private static int     savedQuestHubY    = -1;
-    private static boolean savedQuestHubOpen = true;
+    private static boolean savedQuestHubOpen = false;
     private static int     savedSocialsX     = -1;
     private static int     savedSocialsY     = -1;
     private static boolean savedSocialsOpen  = false;
@@ -146,9 +146,11 @@ public class TownHubScreen extends AbstractContainerScreen<TownHubMenu> {
                 MapDraggableWidget mapWidget = new MapDraggableWidget(startX, startY, initialW, mapInitialHeight, freeZoneW, this.height, hub.getCompound("MapData"));
                 mapWidget.setOnBuildingClicked((pos, defId) -> {
                     activeTab = 1;
-                    constructionTab.selectBuilding(defId, leftPos, topPos, upgradeBuildingsList);
+                    constructionTab.selectBuilding(defId, leftPos, topPos, upgradeBuildingsList, anchorPos);
                 });
                 mapWidget.setOnBuildingRightClicked(pos -> { activeTab = 2; upgradeTab.setSelectedBuilding(pos); });
+                mapWidget.setOnBuildingRepairClicked(pos ->
+                    NetworkHelper.sendRepairBuildingPacket.accept(anchorPos, pos));
                 newWidgets.add(mapWidget);
             }
             if (hub.contains("SummaryData") && savedSummaryOpen) {
@@ -232,7 +234,7 @@ public class TownHubScreen extends AbstractContainerScreen<TownHubMenu> {
             CompoundTag qt = (CompoundTag) raw;
             String type = qt.getString("Type");
             String defId = qt.getString("DefId");
-            long worldPos = "upgrade".equals(type) ? qt.getLong("BuildingWorldPos") : 0L;
+            long worldPos = ("upgrade".equals(type) || "repair".equals(type)) ? qt.getLong("BuildingWorldPos") : 0L;
             boolean locked        = qt.contains("Locked")        && qt.getBoolean("Locked");
             boolean residentTrack = qt.contains("ResidentTrack") && qt.getBoolean("ResidentTrack");
             constructionQueueClient.add(new TownHubTypes.ClientQueueEntry(type, defId, worldPos, locked, residentTrack));
@@ -251,6 +253,7 @@ public class TownHubScreen extends AbstractContainerScreen<TownHubMenu> {
         hub.getList("BoostedBuildings", Tag.TAG_STRING).forEach(t -> boostedBuildingIds.add(t.getAsString()));
 
         stockTab.parseTradePrices(hub);
+        stockTab.updateCapacity(hub.getCompound("StockCapacity"));
         stockTab.applyStockData(hub.getCompound("StockSnapshot"), this.menu);
 
         upgradeBuildingsList.clear();
@@ -276,15 +279,8 @@ public class TownHubScreen extends AbstractContainerScreen<TownHubMenu> {
                 eraWidget.applyServerPreselection(lastKnownAutonomyChosenTransitionId);
             }
         }
-        // Play firework sound when era advances
         if (lastKnownEra >= 0 && currentEra > prevEra) {
             ClientSessionState.selectedEraPathId = null;
-            var mc = net.minecraft.client.Minecraft.getInstance();
-            if (mc.level != null && mc.player != null) {
-                mc.level.playLocalSound(mc.player.blockPosition(),
-                    net.minecraft.sounds.SoundEvents.FIREWORK_ROCKET_BLAST,
-                    net.minecraft.sounds.SoundSource.PLAYERS, 1.0f, 1.0f, false);
-            }
         }
         lastKnownEra = currentEra;
 
@@ -455,6 +451,7 @@ public class TownHubScreen extends AbstractContainerScreen<TownHubMenu> {
             stockSnapshot.put(key, stockTag.getInt(key));
         }
         if (cachedHubData != null) cachedHubData.put("StockSnapshot", stockTag);
+        stockTab.updateCapacity(data.getCompound("StockCapacity"));
         stockTab.applyStockData(stockTag, this.menu);
         refreshEraWidgetFromStock();
     }
@@ -477,7 +474,7 @@ public class TownHubScreen extends AbstractContainerScreen<TownHubMenu> {
             CompoundTag qt = (CompoundTag) raw;
             String type = qt.getString("Type");
             String defId = qt.getString("DefId");
-            long worldPos = "upgrade".equals(type) ? qt.getLong("BuildingWorldPos") : 0L;
+            long worldPos = ("upgrade".equals(type) || "repair".equals(type)) ? qt.getLong("BuildingWorldPos") : 0L;
             boolean locked        = qt.contains("Locked")        && qt.getBoolean("Locked");
             boolean residentTrack = qt.contains("ResidentTrack") && qt.getBoolean("ResidentTrack");
             constructionQueueClient.add(new TownHubTypes.ClientQueueEntry(type, defId, worldPos, locked, residentTrack));
@@ -540,12 +537,6 @@ public class TownHubScreen extends AbstractContainerScreen<TownHubMenu> {
         }
         if (lastKnownEra >= 0 && currentEra > prevEra) {
             ClientSessionState.selectedEraPathId = null;
-            var mc = net.minecraft.client.Minecraft.getInstance();
-            if (mc.level != null && mc.player != null) {
-                mc.level.playLocalSound(mc.player.blockPosition(),
-                    net.minecraft.sounds.SoundEvents.FIREWORK_ROCKET_BLAST,
-                    net.minecraft.sounds.SoundSource.PLAYERS, 1.0f, 1.0f, false);
-            }
         }
         lastKnownEra = currentEra;
         if (cachedHubData != null) {
@@ -574,10 +565,13 @@ public class TownHubScreen extends AbstractContainerScreen<TownHubMenu> {
             summary.putInt("TotalFoodDemand", totalFoodDemand);
             summary.putInt("TotalHerd", totalHerd);
             summary.putInt("ActiveHerd", activeHerd);
+            net.minecraft.nbt.ListTag wt = data.getList("Workers", net.minecraft.nbt.Tag.TAG_COMPOUND);
+            summary.put("Workers", wt);
         }
+        net.minecraft.nbt.ListTag workersTag = data.getList("Workers", net.minecraft.nbt.Tag.TAG_COMPOUND);
         for (DraggableWidget w : layer1Widgets) {
             if (w instanceof TownSummaryWidget sw) {
-                sw.updateCitizenData(totalResidents, activeResidents, totalFoodDemand, totalHerd, activeHerd);
+                sw.updateCitizenData(totalResidents, activeResidents, totalFoodDemand, totalHerd, activeHerd, workersTag);
                 break;
             }
         }
@@ -742,9 +736,11 @@ public class TownHubScreen extends AbstractContainerScreen<TownHubMenu> {
                     MapDraggableWidget reopenedMap = new MapDraggableWidget(startX, startY, Math.min(160, freeZoneW - 20), mapInitialHeight, freeZoneW, this.height, cachedHubData.getCompound("MapData"));
                     reopenedMap.setOnBuildingClicked((pos, defId) -> {
                         activeTab = 1;
-                        constructionTab.selectBuilding(defId, leftPos, topPos, upgradeBuildingsList);
+                        constructionTab.selectBuilding(defId, leftPos, topPos, upgradeBuildingsList, anchorPos);
                     });
                     reopenedMap.setOnBuildingRightClicked(pos -> { activeTab = 2; upgradeTab.setSelectedBuilding(pos); });
+                    reopenedMap.setOnBuildingRepairClicked(pos ->
+                        NetworkHelper.sendRepairBuildingPacket.accept(anchorPos, pos));
                     layer1Widgets.add(0, reopenedMap);
                     savedMapOpen = true;
                     mapClosed = false;

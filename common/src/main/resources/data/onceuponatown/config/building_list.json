@@ -14,11 +14,14 @@
     "potato_field",
     "granary",
 
+    "sheep_field",
+    "sheep_farm",
+
     "pig_field",
     "pig_farm",
-    "sheep_field",
 
     "cow_field",
+    "cow_farm",
     "leather_workshop",
 
     "wild_bee",
@@ -40,6 +43,7 @@
 
     "merchant_shop",
 
+    "house",
     "house_2",
     "house_3",
 

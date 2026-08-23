@@ -2,9 +2,10 @@
   "walk_speed": 0.6,
   "harvest_delay_ticks": 20,
   "bee_buildings": ["bee_field", "beekeeper"],
+  "rest_buildings": ["beekeeper", "house", "house_2", "house_3"],
   "bedtime": 13000,
   "wakeup_time": 1000,
-  "rest_buildings": ["beekeeper", "house", "house_2", "house_3"],
+
   "secondary_activities": [
     {
       "requiredBuilding": "workshop",

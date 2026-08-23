@@ -12,6 +12,7 @@
     { "item": "minecraft:oak_fence_gate",     "buy": 2, "sell": 1, "quantity": 20 },
     { "item": "minecraft:oak_trapdoor",       "buy": 2, "sell": 1, "quantity": 20 },
     { "item": "minecraft:oak_door",           "buy": 2, "sell": 1, "quantity": 20 },
+    { "item": "minecraft:chiseled_bookshelf", "buy": 4, "sell": 2, "quantity": 15 },
 
     { "item": "minecraft:stick",              "buy": 2, "sell": 1, "quantity": 25 },
     { "item": "minecraft:charcoal",           "buy": 2, "sell": 1, "quantity": 15 },
@@ -50,12 +51,20 @@
     { "item": "minecraft:cooked_chicken",     "buy": 3, "sell": 2, "quantity": 10 },
     { "item": "minecraft:egg",                "buy": 4, "sell": 3, "quantity": 16  },
 
-
-
     { "item": "minecraft:white_wool",         "buy": 5, "sell": 3, "quantity": 10 },
     { "item": "minecraft:white_bed",          "buy": 3, "sell": 2, "quantity": 1 },
+
     { "item": "minecraft:honeycomb",          "buy": 5, "sell": 3, "quantity": 8  },
+
+    { "item": "minecraft:item_frame",         "buy": 5, "sell": 3, "quantity": 5  },
     { "item": "minecraft:leather",            "buy": 5, "sell": 3, "quantity": 8  },
-    { "item": "minecraft:item_frame",         "buy": 5, "sell": 3, "quantity": 5  }
+    { "item": "minecraft:leather_helmet",     "buy": 7, "sell": 4, "quantity": 1  },
+    { "item": "minecraft:leather_chestplate", "buy": 7, "sell": 4, "quantity": 1  },
+    { "item": "minecraft:leather_leggings",   "buy": 7, "sell": 4, "quantity": 1  },
+    { "item": "minecraft:leather_boots",      "buy": 7, "sell": 4, "quantity": 1  },
+    { "item": "minecraft:leather_horse_armor","buy": 9, "sell": 5, "quantity": 1  },
+    { "item": "minecraft:saddle",             "buy": 18, "sell": 9, "quantity": 1  },
+
+    { "item": "minecraft:name_tag",           "buy": 21, "sell": 13, "quantity": 1  }
   ]
 }

@@ -3,7 +3,6 @@ package org.dawnoftime.onceuponatown.network;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import org.dawnoftime.onceuponatown.screen.TownHubMenu;
@@ -15,7 +14,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
+import java.util.function.Function;
 
 public class NetworkHelper {
     // S2C delegates (set by each platform server-side init)
@@ -33,6 +32,7 @@ public class NetworkHelper {
     public static BiConsumer<BlockPos, String>  sendQueueBuildingPacket        = (pos, defId)     -> {};
     public static BiConsumer<BlockPos, Integer> sendRemoveQueuedBuildingPacket = (pos, index)     -> {};
     public static BiConsumer<BlockPos, Long>    sendUpgradeBuildingPacket      = (pos, worldPos)  -> {};
+    public static BiConsumer<BlockPos, Long>    sendRepairBuildingPacket       = (pos, worldPos)  -> {};
     public static BiConsumer<BlockPos, String>  sendSelectEraPathPacket        = (pos, pathId)    -> {};
     public static Consumer<BlockPos>            sendDepositPacket              = pos              -> {};
     public static BiConsumer<BlockPos, String>  sendContributeQuestPacket      = (pos, questId)   -> {};
@@ -40,50 +40,39 @@ public class NetworkHelper {
     public static Consumer<BlockPos>            sendRequestStockPacket         = pos              -> {};
     // Carries requested items for BUY mode: List<(itemId, count)> encoded via C2SBuyPacket
     public static BiConsumer<BlockPos, List<C2SBuyPacket.Entry>> sendBuyPacket = (pos, items) -> {};
+    // C2S: client requests raw NBT for a structure path (datapack support)
+    public static BiConsumer<BlockPos, String> sendRequestNbtPacket = (pos, path) -> {};
+    // S2C: server pushes raw NBT to a specific player
+    public static BiConsumer<ServerPlayer, CompoundTag> sendNbtStructurePacket = (player, data) -> {};
 
-    // Sends a targeted stock update to every watcher.
     public static void pushStockToWatchers(ServerLevel level, Town town, BlockPos anchorPos) {
-        if (anchorPos == null) return;
-        List<ServerPlayer> watchers = getWatchers(level, anchorPos);
-        if (watchers.isEmpty()) return;
-        CompoundTag data = town.getStockUpdateData(anchorPos);
-        for (ServerPlayer w : watchers) sendStockUpdatePacket.accept(w, data);
+        pushToWatchers(level, town, anchorPos, t -> t.getStockUpdateData(anchorPos), sendStockUpdatePacket);
     }
 
-    // Sends a targeted building list update (map + queue + upgrades) to every watcher.
     public static void pushBuildingListToWatchers(ServerLevel level, Town town, BlockPos anchorPos) {
-        if (anchorPos == null) return;
-        List<ServerPlayer> watchers = getWatchers(level, anchorPos);
-        if (watchers.isEmpty()) return;
-        CompoundTag data = town.getBuildingListData(anchorPos);
-        for (ServerPlayer w : watchers) sendBuildingListPacket.accept(w, data);
+        pushToWatchers(level, town, anchorPos, t -> t.getBuildingListData(anchorPos), sendBuildingListPacket);
     }
 
-    // Sends a quest update to every player watching this town's hub (mirrors all other push methods).
     public static void pushQuestUpdateToWatchers(ServerLevel level, Town town, BlockPos anchorPos) {
-        if (anchorPos == null) return;
-        List<ServerPlayer> watchers = getWatchers(level, anchorPos);
-        if (watchers.isEmpty()) return;
-        CompoundTag data = town.getQuestUpdateData(anchorPos);
-        for (ServerPlayer w : watchers) sendQuestUpdatePacket.accept(w, data);
+        pushToWatchers(level, town, anchorPos, t -> t.getQuestUpdateData(anchorPos), sendQuestUpdatePacket);
     }
 
-    // Sends a targeted era update to every watcher.
     public static void pushEraUpdateToWatchers(ServerLevel level, Town town, BlockPos anchorPos) {
-        if (anchorPos == null) return;
-        List<ServerPlayer> watchers = getWatchers(level, anchorPos);
-        if (watchers.isEmpty()) return;
-        CompoundTag data = town.getEraUpdateData(anchorPos);
-        for (ServerPlayer w : watchers) sendEraUpdatePacket.accept(w, data);
+        pushToWatchers(level, town, anchorPos, t -> t.getEraUpdateData(anchorPos), sendEraUpdatePacket);
     }
 
-    // Sends a targeted citizen update to every watcher.
     public static void pushCitizenUpdateToWatchers(ServerLevel level, Town town, BlockPos anchorPos) {
+        pushToWatchers(level, town, anchorPos, t -> t.getCitizenUpdateData(anchorPos, level), sendCitizenUpdatePacket);
+    }
+
+    private static void pushToWatchers(ServerLevel level, Town town, BlockPos anchorPos,
+                                       Function<Town, CompoundTag> dataFn,
+                                       BiConsumer<ServerPlayer, CompoundTag> sender) {
         if (anchorPos == null) return;
         List<ServerPlayer> watchers = getWatchers(level, anchorPos);
         if (watchers.isEmpty()) return;
-        CompoundTag data = town.getCitizenUpdateData(anchorPos);
-        for (ServerPlayer w : watchers) sendCitizenUpdatePacket.accept(w, data);
+        CompoundTag data = dataFn.apply(town);
+        for (ServerPlayer w : watchers) sender.accept(w, data);
     }
 
     // Sends a log entry to every player watching this town's hub, and sends a
@@ -102,37 +91,13 @@ public class NetworkHelper {
 
         Set<UUID> subscribers = town.getChatSubscribers();
         if (!subscribers.isEmpty()) {
-            Set<UUID> watcherIds = watchers.stream().map(ServerPlayer::getUUID).collect(Collectors.toSet());
-            Component chatMsg = formatLogEntryForChat(entry);
+            Component chatMsg = entry.toComponent();
             for (ServerPlayer player : level.players()) {
-                if (subscribers.contains(player.getUUID()) && !watcherIds.contains(player.getUUID())) {
+                if (subscribers.contains(player.getUUID())) {
                     player.sendSystemMessage(chatMsg);
                 }
             }
         }
-    }
-
-    private static Component formatLogEntryForChat(TownLogEntry entry) {
-        String param = entry.param();
-        MutableComponent body = switch (entry.type()) {
-            case BUILD_START      -> Component.literal("Builder: starting ").append(Component.translatable("onceuponatown.building." + param));
-            case BUILD_DONE       -> Component.literal("Builder: ").append(Component.translatable("onceuponatown.building." + param)).append(" built");
-            case UPGRADE_START    -> Component.literal("Builder: upgrading ").append(Component.translatable("onceuponatown.building." + param));
-            case UPGRADE_DONE     -> Component.literal("Builder: ").append(Component.translatable("onceuponatown.building." + param)).append(" upgraded");
-            case FOOD_CONSUMED    -> Component.literal("Village: consumed " + param + " food units");
-            case VILLAGE_FULL     -> Component.literal("Village: no space left to expand");
-            case AUTONOMY_PLANNED -> Component.literal("Village: plans to build ").append(Component.translatable("onceuponatown.building." + param));
-            case RESIDENT_PLANNED -> Component.literal("Village: plans housing " + param);
-        };
-        int color = switch (entry.type()) {
-            case BUILD_START, UPGRADE_START -> 0xAAAAFF;
-            case BUILD_DONE, UPGRADE_DONE   -> 0x55FF55;
-            case FOOD_CONSUMED              -> 0xDDDDDD;
-            case VILLAGE_FULL               -> 0xFF5555;
-            case AUTONOMY_PLANNED           -> 0xFFAA55;
-            case RESIDENT_PLANNED           -> 0xFFAA55;
-        };
-        return body.withStyle(s -> s.withColor(color));
     }
 
     private static List<ServerPlayer> getWatchers(ServerLevel level, BlockPos anchorPos) {
@@ -140,4 +105,5 @@ public class NetworkHelper {
             .filter(p -> p.containerMenu instanceof TownHubMenu m && anchorPos.equals(m.getAnchorPos()))
             .toList();
     }
+
 }

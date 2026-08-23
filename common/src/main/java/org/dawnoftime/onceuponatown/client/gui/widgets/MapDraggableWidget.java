@@ -27,6 +27,10 @@ public class MapDraggableWidget extends DraggableWidget {
         mapWidget.setOnBuildingRightClicked(callback);
     }
 
+    public void setOnBuildingRepairClicked(Consumer<Long> callback) {
+        mapWidget.setOnBuildingRepairClicked(callback);
+    }
+
     @Override
     protected void onMoved() {
         mapWidget.reposition(x, y + TITLE_BAR_H, width, height - TITLE_BAR_H);

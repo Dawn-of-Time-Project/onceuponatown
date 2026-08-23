@@ -7,7 +7,6 @@
   "weight": 2,
 
   "herd": 2,
-  "consumption_per_herd": 1.0,
   "required_buildings": [
     { "defId": "carrot_field", "count": 1 }
   ],

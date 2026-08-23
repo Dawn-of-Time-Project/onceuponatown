@@ -1,0 +1,29 @@
+{
+  "walk_speed": 0.6,
+  "breed_delay_ticks": 40,
+  "pig_buildings": ["pig_field", "pig_farm"],
+  "rest_buildings": ["pig_farm"],
+  "bedtime": 13000,
+  "wakeup_time": 1000,
+
+  "secondary_activities": [
+    {
+      "requiredBuilding": "pig_farm",
+      "heldItem": "minecraft:porkchop",
+      "animationType": "SMELT",
+      "target_block": "minecraft:furnace"
+    },
+    {
+      "requiredBuilding": "pig_farm",
+      "heldItem": "minecraft:porkchop",
+      "animationType": "SMELT",
+      "target_block": "minecraft:smoker"
+    },
+    {
+      "requiredBuilding": "oven",
+      "heldItem": "minecraft:porkchop",
+      "animationType": "SMELT",
+      "target_block": "minecraft:furnace"
+    }
+  ]
+}

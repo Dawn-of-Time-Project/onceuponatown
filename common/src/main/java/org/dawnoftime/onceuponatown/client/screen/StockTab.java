@@ -1,12 +1,21 @@
 package org.dawnoftime.onceuponatown.client.screen;
 
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.BufferUploader;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.Tesselator;
+import com.mojang.blaze3d.vertex.VertexFormat;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.Item;
@@ -19,22 +28,46 @@ import org.dawnoftime.onceuponatown.screen.TownHubMenu;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 // Scroll zone: x=leftPos+151, y=topPos+17, 18x72 px. Slider travels 57 px (72-15).
 // Slider UV: enabled=41, disabled=58 at U=177 in town_hub.png.
 
 class StockTab {
 
+    // Order from trade_prices.json — loaded once from the jar classpath.
+    // Items in the stock not present in this list fall back to the end.
+    private static final List<String> TRADE_PRICE_ORDER = loadTradePriceOrder();
+
+    private static List<String> loadTradePriceOrder() {
+        List<String> order = new ArrayList<>();
+        try (var stream = StockTab.class.getResourceAsStream("/data/onceuponatown/config/trade_prices.json")) {
+            if (stream == null) return order;
+            var json = com.google.gson.JsonParser.parseReader(new java.io.InputStreamReader(stream)).getAsJsonObject();
+            for (var elem : json.getAsJsonArray("prices"))
+                order.add(elem.getAsJsonObject().get("item").getAsString());
+        } catch (Exception ignored) {}
+        return order;
+    }
+
     private static final ResourceLocation TEXTURE =
         new ResourceLocation("onceuponatown", "textures/gui/town_hub.png");
+
+    private static final String GHOST_TAG = "OuatGhost";
+
+    // Persists across screen open/close within the same game session; resets on game restart.
+    private static boolean showGhostSlots = true;
 
     private boolean buyMode = false;
     private final Map<String, int[]> tradePrices = new HashMap<>();
     private final LinkedHashMap<Item, Integer> buyRequest = new LinkedHashMap<>();
 
     private final List<ItemStack> allStockItems = new ArrayList<>();
+    private final Map<String, Integer> stockCapacity = new HashMap<>();
+    private CompoundTag lastStockTag = null;
     private int scrollOffset = 0;
     private boolean isDraggingSlider = false;
     private float dragAnchorScreenY = 0;
@@ -50,25 +83,73 @@ class StockTab {
         }
     }
 
+    void updateCapacity(CompoundTag capTag) {
+        stockCapacity.clear();
+        for (String key : capTag.getAllKeys())
+            stockCapacity.put(key, capTag.getInt(key));
+    }
+
     void applyStockData(CompoundTag stockTag, TownHubMenu menu) {
+        lastStockTag = stockTag.copy();
         buildAllStockItems(stockTag);
-        menu.loadVisibleWindow(allStockItems, scrollOffset);
+        loadMenuWindow(menu);
+    }
+
+    // Loads the visible window into menu slots, replacing ghost stacks with EMPTY
+    // so they don't appear as real items in the container.
+    private void loadMenuWindow(TownHubMenu menu) {
+        List<ItemStack> forMenu = new ArrayList<>(allStockItems.size());
+        for (ItemStack s : allStockItems)
+            forMenu.add(isGhost(s) ? ItemStack.EMPTY : s);
+        menu.loadVisibleWindow(forMenu, scrollOffset);
+    }
+
+    static boolean isGhost(ItemStack stack) {
+        return !stack.isEmpty() && stack.hasTag() && stack.getOrCreateTag().getBoolean(GHOST_TAG);
     }
 
     private void buildAllStockItems(CompoundTag stockTag) {
         allStockItems.clear();
+
+        Map<String, Integer> counts = new HashMap<>();
         for (String itemId : stockTag.getAllKeys()) {
             int count = stockTag.getInt(itemId);
-            if (count <= 0) continue;
+            if (count > 0) counts.put(itemId, count);
+        }
+
+        // Build ordered set: trade_prices.json order first, unknowns appended at the end.
+        Set<String> sorted = new LinkedHashSet<>();
+        for (String id : TRADE_PRICE_ORDER) { if (counts.containsKey(id)) sorted.add(id); }
+        sorted.addAll(counts.keySet());
+
+        for (String itemId : sorted) {
             ResourceLocation rl = ResourceLocation.tryParse(itemId);
             if (rl == null) continue;
             Item item = BuiltInRegistries.ITEM.get(rl);
             if (item == null || item == Items.AIR) continue;
-            int remaining = count;
+
+            int currentCount = counts.get(itemId);
+            int stackMax = item.getMaxStackSize();
+
+            // Real stacks
+            int remaining = currentCount;
             while (remaining > 0) {
-                int stackSize = Math.min(remaining, item.getMaxStackSize());
+                int stackSize = Math.min(remaining, stackMax);
                 allStockItems.add(new ItemStack(item, stackSize));
                 remaining -= stackSize;
+            }
+
+            if (showGhostSlots) {
+                int maxCount = stockCapacity.getOrDefault(itemId, 0);
+                if (maxCount > currentCount) {
+                    int usedStacks = (int) Math.ceil((double) currentCount / stackMax);
+                    int maxStacks  = (int) Math.ceil((double) maxCount    / stackMax);
+                    for (int i = usedStacks; i < maxStacks; i++) {
+                        ItemStack ghost = new ItemStack(item, 1);
+                        ghost.getOrCreateTag().putBoolean(GHOST_TAG, true);
+                        allStockItems.add(ghost);
+                    }
+                }
             }
         }
         scrollOffset = Math.max(0, Math.min(scrollOffset, computeMaxScroll()));
@@ -93,7 +174,7 @@ class StockTab {
         float newSliderY = dragAnchorSliderY + delta;
         scrollOffset = Math.round(newSliderY / 55f * max);
         scrollOffset = Math.max(0, Math.min(scrollOffset, max));
-        menu.loadVisibleWindow(allStockItems, scrollOffset);
+        loadMenuWindow(menu);
         return true;
     }
 
@@ -107,12 +188,59 @@ class StockTab {
         if (max <= 0) return false;
         scrollOffset -= (int) Math.signum(delta);
         scrollOffset = Math.max(0, Math.min(scrollOffset, max));
-        menu.loadVisibleWindow(allStockItems, scrollOffset);
+        loadMenuWindow(menu);
         return true;
     }
 
     void render(GuiGraphics g, int leftPos, int topPos, int mx, int my,
                 TownHubTypes.TownHubTabContext ctx, TownHubMenu menu) {
+        // Ghost slots: drawn over empty container slots, at 25% alpha, no count label.
+        // Called after super.render() in TownHubScreen, so they appear on top of the slot bg.
+        // setShaderColor must be active when the buffer flushes, so flush() is called after the
+        // loop — not inside — to batch all ghost items in one pass before resetting the color.
+        // Ghost slots: two passes.
+        // Pass 1 — render all ghost items at full opacity.
+        // Pass 2 — overlay a 75% opaque slot-colored fill with depth test disabled so it
+        //          draws on top of items (GUI items render at z=200, fills default to z=0).
+        //          Net result: item appears at ~25% visibility for all render types (2D + 3D).
+        int startIndex = scrollOffset * TownHubMenu.COLS;
+        if (showGhostSlots) {
+            for (int slot = 0; slot < TownHubMenu.CHEST_SIZE; slot++) {
+                int srcIndex = startIndex + slot;
+                if (srcIndex >= allStockItems.size()) break;
+                ItemStack s = allStockItems.get(srcIndex);
+                if (!isGhost(s)) continue;
+                g.renderFakeItem(new ItemStack(s.getItem()),
+                    leftPos + 8 + (slot % TownHubMenu.COLS) * 18,
+                    topPos + 18 + (slot / TownHubMenu.COLS) * 18);
+            }
+            // Pass 2: draw dimming overlay via Tesselator to bypass RenderType GL state override.
+            // RenderType.gui() resets depth/blend when it flushes, so g.fill() is unreliable here.
+            g.flush();
+            RenderSystem.disableDepthTest();
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+            RenderSystem.setShader(GameRenderer::getPositionColorShader);
+            Tesselator tes = Tesselator.getInstance();
+            BufferBuilder buf = tes.getBuilder();
+            buf.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
+            org.joml.Matrix4f mat = g.pose().last().pose();
+            for (int slot = 0; slot < TownHubMenu.CHEST_SIZE; slot++) {
+                int srcIndex = startIndex + slot;
+                if (srcIndex >= allStockItems.size()) break;
+                if (!isGhost(allStockItems.get(srcIndex))) continue;
+                float sx = leftPos + 8 + (slot % TownHubMenu.COLS) * 18;
+                float sy = topPos + 18 + (slot / TownHubMenu.COLS) * 18;
+                buf.vertex(mat, sx,      sy + 16, 300).color(0x8B, 0x8B, 0x8B, 0xBF).endVertex();
+                buf.vertex(mat, sx + 16, sy + 16, 300).color(0x8B, 0x8B, 0x8B, 0xBF).endVertex();
+                buf.vertex(mat, sx + 16, sy,      300).color(0x8B, 0x8B, 0x8B, 0xBF).endVertex();
+                buf.vertex(mat, sx,      sy,      300).color(0x8B, 0x8B, 0x8B, 0xBF).endVertex();
+            }
+            BufferUploader.drawWithShader(buf.end());
+            RenderSystem.disableBlend();
+            RenderSystem.enableDepthTest();
+        }
+
         int blueX = leftPos + 8;
         int blueY = topPos + 90;
         int greenY = topPos + 107;
@@ -202,6 +330,24 @@ class StockTab {
         g.pose().scale(labelScale, labelScale, 1.0f);
         g.drawCenteredString(ctx.font(), modeLabel, 0, -4, 0xFFFFFFFF);
         g.pose().popPose();
+
+        // Ghost slots toggle button
+        int ghostBtnX = leftPos + 155;
+        int ghostBtnY = topPos + 5;
+        g.blit(TEXTURE, ghostBtnX, ghostBtnY, 179, 102, 10, 10);
+        if (showGhostSlots) {
+            g.fill(ghostBtnX, ghostBtnY, ghostBtnX + 10, ghostBtnY + 10, 0x66FFFFFF);
+        }
+        boolean ghostHover = mx >= ghostBtnX && mx < ghostBtnX + 10 && my >= ghostBtnY && my < ghostBtnY + 10;
+        if (ghostHover) {
+            Component stateLabel = showGhostSlots
+                ? Component.translatable("onceuponatown.ui.ghost_toggle.tooltip.on").withStyle(ChatFormatting.GREEN)
+                : Component.translatable("onceuponatown.ui.ghost_toggle.tooltip.off").withStyle(ChatFormatting.GRAY);
+            g.renderComponentTooltip(ctx.font(), List.of(
+                Component.translatable("onceuponatown.ui.ghost_toggle.tooltip"),
+                stateLabel
+            ), mx, my);
+        }
     }
 
     // Returns true if the trade-price tooltip was rendered (caller skips super.renderTooltip).
@@ -211,6 +357,7 @@ class StockTab {
                                      Font font) {
         if (hoveredSlot == null || !hoveredSlot.hasItem()
                 || hoveredSlot.index >= TownHubMenu.CHEST_SIZE) return false;
+        if (isGhost(hoveredSlot.getItem())) return false;
         String itemId = BuiltInRegistries.ITEM.getKey(hoveredSlot.getItem().getItem()).toString();
         int[] prices = tradePrices.get(itemId);
         if (prices == null) return false;
@@ -218,13 +365,16 @@ class StockTab {
         int buy = prices[0], sell = prices[1], qty = prices[2];
         Item item = hoveredSlot.getItem().getItem();
 
+        String itemName  = new ItemStack(item).getHoverName().getString();
         String labelBuy  = net.minecraft.network.chat.Component.translatable("onceuponatown.tooltip.trade_buy").getString();
         String labelSell = net.minecraft.network.chat.Component.translatable("onceuponatown.tooltip.trade_sell").getString();
         int labelW = Math.max(font.width(labelBuy), font.width(labelSell));
 
         int rowH = 18;
-        int panW = 4 + labelW + 3 + 16 + 5 + 5 + 16 + 4;
-        int panH = 4 + rowH + rowH + 4;
+        int nameRowH = 11;
+        int priceContentW = 4 + labelW + 3 + 16 + 5 + 5 + 16 + 4;
+        int panW = Math.max(priceContentW, 4 + font.width(itemName) + 4);
+        int panH = 4 + nameRowH + rowH + rowH + 4;
         int panX = mx + 10;
         int panY = my - panH / 2;
         var window = Minecraft.getInstance().getWindow();
@@ -245,7 +395,9 @@ class StockTab {
         int slashX = iconX1 + 16 + 2;
         int iconX2 = slashX + 5;
 
-        int row1Y = panY + 4;
+        g.drawString(font, itemName, panX + 4, panY + 4, 0xFFFFFFFF, false);
+
+        int row1Y = panY + 4 + nameRowH;
         g.drawString(font, labelBuy, labelX, row1Y + 5, 0xFFAAAAAA, false);
         g.renderFakeItem(new ItemStack(item, qty), iconX1, row1Y);
         g.renderItemDecorations(font, new ItemStack(item, qty), iconX1, row1Y);
@@ -282,6 +434,17 @@ class StockTab {
                         int leftPos, int topPos,
                         TownHubTypes.TownHubTabContext ctx, TownHubMenu menu) {
         if (button == 0) {
+            int ghostBtnX = leftPos + 155;
+            int ghostBtnY = topPos + 5;
+            if (mX >= ghostBtnX && mX < ghostBtnX + 10 && mY >= ghostBtnY && mY < ghostBtnY + 10) {
+                showGhostSlots = !showGhostSlots;
+                if (lastStockTag != null) {
+                    buildAllStockItems(lastStockTag);
+                    loadMenuWindow(menu);
+                }
+                return true;
+            }
+
             int scrollZoneX = leftPos + 151;
             int scrollZoneY = topPos + 17;
             if (computeMaxScroll() > 0) {
@@ -299,7 +462,7 @@ class StockTab {
                     float ratio = ((float) mY - scrollZoneY - 1) / 55f;
                     scrollOffset = Math.round(ratio * computeMaxScroll());
                     scrollOffset = Math.max(0, Math.min(scrollOffset, computeMaxScroll()));
-                    menu.loadVisibleWindow(allStockItems, scrollOffset);
+                    loadMenuWindow(menu);
                     return true;
                 }
             }
@@ -341,6 +504,7 @@ class StockTab {
                 Slot slot = menu.slots.get(i);
                 if (slot.hasItem() && isHoveringSlot(slot, mX, mY, leftPos, topPos)) {
                     ItemStack stack = slot.getItem();
+                    if (isGhost(stack)) return true;
                     String itemId = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
                     if (tradePrices.containsKey(itemId)) {
                         int[] prices  = tradePrices.get(itemId);

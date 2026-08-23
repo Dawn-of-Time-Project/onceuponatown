@@ -22,10 +22,16 @@ public class EraProgressDraggableWidget extends DraggableWidget {
     private static final int COLOR_CARD_BG     = 0xFF1A1A1A;
     private static final int COLOR_CARD_SEL    = 0xFF223322;
     private static final int COLOR_CARD_BORDER = 0xFF55AA55;
-    private static final int CARD_PADDING      = 8;
+
+    // GAP: between blocks and card borders; INNER_GAP: between items within a block
+    private static final int GAP               = 6;
+    private static final int INNER_GAP         = 1;
     private static final int BTN_H             = 12;
     private static final int GAP_BETWEEN_CARDS = 6;
-    private static final int OUTER_PADDING     = 4;
+    private static final int FONT_H            = 9;
+    private static final int ICON_SIZE         = 16;
+    private static final int DOT_W             = 4;
+    private static final int DOT_TEXT_GAP      = 3;
 
     public record CostRow(String itemId, int amount, int have) {}
     public record ReqBuildRow(String defId, int count, int have) {}
@@ -83,8 +89,6 @@ public class EraProgressDraggableWidget extends DraggableWidget {
         }
     }
 
-    // Called when the server notifies a pre-selected path (autonomy random pick).
-    // Only applies if the player has not manually selected a path yet this session.
     public void applyServerPreselection(String autonomyChosenId) {
         if (autonomyChosenId == null || autonomyChosenId.isEmpty()) return;
         if (ClientSessionState.selectedEraPathId != null) return;
@@ -128,14 +132,14 @@ public class EraProgressDraggableWidget extends DraggableWidget {
 
     private static int computeCardW(EraPathOption opt) {
         var font = Minecraft.getInstance().font;
-        int headerW = 18 + font.width(opt.orientationLabel()); // icon(16) + gap(2) + label
-        int condBlockW = 4 + 3 + maxCondTextW(opt);           // square + gap + longest text
-        return Math.max(headerW, condBlockW) + CARD_PADDING * 2;
+        int headerW = Math.max(ICON_SIZE, font.width(opt.orientationLabel()));
+        int condW   = DOT_W + DOT_TEXT_GAP + maxCondTextW(opt);
+        return Math.max(headerW, condW) + GAP * 2;
     }
 
     public static int computeWidgetW(List<EraPathOption> options) {
         if (options.isEmpty()) return 160;
-        int total = OUTER_PADDING * 2;
+        int total = GAP * 2;
         for (int i = 0; i < options.size(); i++) {
             total += computeCardW(options.get(i));
             if (i < options.size() - 1) total += GAP_BETWEEN_CARDS;
@@ -146,24 +150,27 @@ public class EraProgressDraggableWidget extends DraggableWidget {
     }
 
     private static int computeCardH(EraPathOption opt) {
-        int h = CARD_PADDING;
-        h += 10 + 8; // icon+name row + gap
-        h += opt.resourceCost().size() * 11;
-        if (opt.requiredResidents() > 0) h += 11;
-        h += opt.requiredBuildings().size() * 11;
-        h += 5 + BTN_H;
-        h += CARD_PADDING;
+        int numConds = opt.resourceCost().size()
+            + (opt.requiredResidents() > 0 ? 1 : 0)
+            + opt.requiredBuildings().size();
+        // GAP + icon + GAP + title + GAP (header block)
+        int h = GAP + ICON_SIZE + GAP + FONT_H + GAP;
+        // condition rows with gaps between them
+        if (numConds > 0)
+            h += numConds * FONT_H + (numConds - 1) * INNER_GAP;
+        // GAP before button + button + GAP at bottom
+        h += GAP + BTN_H + GAP;
         return h;
     }
 
     private static int computeContentH(List<EraPathOption> options) {
         if (options.isEmpty()) return 30;
         int maxCardH = options.stream().mapToInt(EraProgressDraggableWidget::computeCardH).max().orElse(60);
-        return OUTER_PADDING + maxCardH + OUTER_PADDING;
+        return GAP + maxCardH + GAP;
     }
 
     // -------------------------------------------------------------------------
-    // Titlebar: Advance Era button is in the content area
+    // Titlebar
     // -------------------------------------------------------------------------
 
     @Override
@@ -191,19 +198,22 @@ public class EraProgressDraggableWidget extends DraggableWidget {
         selectBtnBounds.clear();
 
         if (pathOptions.isEmpty()) {
-            g.drawString(font, "No transitions available", cx + OUTER_PADDING, cy + 10, COLOR_DIM, false);
+            g.drawString(font, "No transitions available", cx + GAP, cy + 10, COLOR_DIM, false);
             return;
         }
 
         int maxCardH = pathOptions.stream().mapToInt(EraProgressDraggableWidget::computeCardH).max().orElse(60);
         boolean multiPath = pathOptions.size() > 1;
 
-        int xCursor = cx + OUTER_PADDING;
-        for (int ci = 0; ci < pathOptions.size(); ci++) {
+        int n = pathOptions.size();
+        int totalGaps = GAP_BETWEEN_CARDS * (n - 1);
+        int cardW = (cw - GAP * 2 - totalGaps) / n;
+
+        int xCursor = cx + GAP;
+        for (int ci = 0; ci < n; ci++) {
             EraPathOption opt = pathOptions.get(ci);
-            int cardW = computeCardW(opt);
             boolean selected = opt.id().equals(selectedPathId);
-            renderCard(g, font, xCursor, cy + OUTER_PADDING, cardW, maxCardH, mx, my, opt, ci, selected, multiPath);
+            renderCard(g, font, xCursor, cy + GAP, cardW, maxCardH, mx, my, opt, ci, selected, multiPath);
             xCursor += cardW + GAP_BETWEEN_CARDS;
         }
     }
@@ -215,50 +225,53 @@ public class EraProgressDraggableWidget extends DraggableWidget {
         boolean hover = mx >= cx && mx < cx + cw && my >= cy && my < cy + fixedH;
         g.fill(cx, cy, cx + cw, cy + fixedH, selected ? COLOR_CARD_SEL : COLOR_CARD_BG);
         if (selected || hover) {
-            g.fill(cx,           cy,              cx + cw,    cy + 1,           COLOR_CARD_BORDER);
-            g.fill(cx,           cy + fixedH - 1, cx + cw,    cy + fixedH,      COLOR_CARD_BORDER);
-            g.fill(cx,           cy,              cx + 1,     cy + fixedH,      COLOR_CARD_BORDER);
-            g.fill(cx + cw - 1, cy,               cx + cw,    cy + fixedH,      COLOR_CARD_BORDER);
+            g.fill(cx,          cy,              cx + cw,   cy + 1,          COLOR_CARD_BORDER);
+            g.fill(cx,          cy + fixedH - 1, cx + cw,   cy + fixedH,     COLOR_CARD_BORDER);
+            g.fill(cx,          cy,              cx + 1,    cy + fixedH,     COLOR_CARD_BORDER);
+            g.fill(cx + cw - 1, cy,              cx + cw,   cy + fixedH,     COLOR_CARD_BORDER);
         }
 
         cardBounds.add(new CardBounds(cx, cy, cw, fixedH, cardIdx));
 
-        int rowY = cy + CARD_PADDING;
+        int rowY = cy + GAP;
 
-        // Icon + label, centered as a unit
-        int iconNameW = 18 + font.width(opt.orientationLabel());
-        int iconX = cx + (cw - iconNameW) / 2;
+        // Block 1: icon centered, title centered below
+        int iconX = cx + (cw - ICON_SIZE) / 2;
         renderItemIcon(g, opt.iconItem(), iconX, rowY);
-        g.drawString(font, opt.orientationLabel(), iconX + 18, rowY + 3, 0xFFEEEEEE, false);
-        rowY += 10 + 8;
+        rowY += ICON_SIZE + GAP;
+        int labelX = cx + (cw - font.width(opt.orientationLabel())) / 2;
+        g.drawString(font, opt.orientationLabel(), labelX, rowY, 0xFFEEEEEE, false);
+        rowY += FONT_H + GAP;
 
-        // Condition block: all squares share the same x axis, block centered in the card
+        // Block 2: conditions, centered as a block
         int maxTW = maxCondTextW(opt);
-        int blockW = 4 + 3 + maxTW;
+        int blockW = DOT_W + DOT_TEXT_GAP + maxTW;
         int blockX = cx + (cw - blockW) / 2;
 
+        boolean firstCond = true;
         for (CostRow cr : opt.resourceCost()) {
-            String text = cr.have() + "/" + cr.amount() + " " + formatItemId(cr.itemId());
-            renderCondRow(g, font, blockX, rowY, text, cr.have() >= cr.amount());
-            rowY += 11;
+            if (!firstCond) rowY += INNER_GAP;
+            renderCondRow(g, font, blockX, rowY, cr.have() + "/" + cr.amount() + " " + formatItemId(cr.itemId()), cr.have() >= cr.amount());
+            rowY += FONT_H;
+            firstCond = false;
         }
-
         if (opt.requiredResidents() > 0) {
-            String text = opt.activeResidents() + "/" + opt.requiredResidents() + " residents";
-            renderCondRow(g, font, blockX, rowY, text, opt.residentsMet());
-            rowY += 11;
+            if (!firstCond) rowY += INNER_GAP;
+            renderCondRow(g, font, blockX, rowY, opt.activeResidents() + "/" + opt.requiredResidents() + " residents", opt.residentsMet());
+            rowY += FONT_H;
+            firstCond = false;
         }
-
         for (ReqBuildRow rb : opt.requiredBuildings()) {
-            String text = rb.have() + "/" + rb.count() + " " + formatBuildingId(rb.defId());
-            renderCondRow(g, font, blockX, rowY, text, rb.have() >= rb.count());
-            rowY += 11;
+            if (!firstCond) rowY += INNER_GAP;
+            renderCondRow(g, font, blockX, rowY, rb.have() + "/" + rb.count() + " " + formatBuildingId(rb.defId()), rb.have() >= rb.count());
+            rowY += FONT_H;
+            firstCond = false;
         }
 
-        // Select button, stretches to card width with padding
-        int btnY = cy + fixedH - CARD_PADDING - BTN_H;
-        int btnW = cw - CARD_PADDING * 2;
-        int btnX = cx + CARD_PADDING;
+        // Button anchored to bottom so all cards align
+        int btnY = cy + fixedH - GAP - BTN_H;
+        int btnW = cw - GAP * 2;
+        int btnX = cx + GAP;
         boolean isSelected = opt.id().equals(selectedPathId);
         boolean btnHover = selectable && mx >= btnX && mx < btnX + btnW && my >= btnY && my < btnY + BTN_H;
 
@@ -280,8 +293,8 @@ public class EraProgressDraggableWidget extends DraggableWidget {
 
     private static void renderCondRow(GuiGraphics g, net.minecraft.client.gui.Font font,
                                        int x, int y, String text, boolean met) {
-        g.fill(x, y + 2, x + 4, y + 6, met ? COLOR_MET : COLOR_UNMET);
-        g.drawString(font, text, x + 7, y, met ? COLOR_TEXT : COLOR_DIM, false);
+        g.fill(x, y + 2, x + DOT_W, y + 6, met ? COLOR_MET : COLOR_UNMET);
+        g.drawString(font, text, x + DOT_W + DOT_TEXT_GAP, y, met ? COLOR_TEXT : COLOR_DIM, false);
     }
 
     private static void renderItemIcon(GuiGraphics g, String iconItemId, int x, int y) {

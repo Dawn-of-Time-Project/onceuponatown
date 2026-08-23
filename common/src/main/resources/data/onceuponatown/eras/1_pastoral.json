@@ -3,7 +3,7 @@
   "from_orientation": "pastoral",
   "orientation_label": "Pastoral",
   "structure_label": "Settlement",
-  "icon_item": "minecraft:beef",
+  "icon_item": "minecraft:mutton",
 
   "weight_cap_increase": 10,
   "resource_cost": [
@@ -11,11 +11,11 @@
   ],
   "required_residents": 2,
   "required_buildings": [
-    { "defId": "sheep_field", "count": 1 }
+    { "defId": "sheep_field", "count": 2 }
   ],
 
-  "auto_build_sequence": ["grove", "wild_stone", "wild_crops", "workshop", "wheat_field", "sheep_field"],
+  "auto_build_sequence": ["grove", "wild_stone", "wild_crops", "workshop", "wheat_field", {"defId": "sheep_field", "count": 2}],
 
-  "unlocked_building_ids": ["oven", "pig_field", "lumberjack", "wild_spot"],
+  "unlocked_building_ids": ["oven", "sheep_farm", "pig_field", "lumberjack", "wild_spot"],
   "auto_upgrade_ids": ["settlement_2"]
 }

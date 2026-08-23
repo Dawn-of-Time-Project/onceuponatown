@@ -55,6 +55,7 @@ public class NpcSleepController {
         if (npc.isSleeping() && !inSleepState) {
             if (cfg.getBedtime() >= 0 && isSleepTime(dayTime, cfg)) return SleepCheck.RESYNC;
             npc.stopSleeping();
+            npc.setSuppressLookAtPlayer(false);
             return SleepCheck.NONE;
         }
         if (!inSleepState && cfg.getBedtime() >= 0 && isSleepTime(dayTime, cfg)) return SleepCheck.TRIGGER;
@@ -74,9 +75,13 @@ public class NpcSleepController {
                     npc.teleportTo(sleepStandPos.getX() + 0.5, sleepStandPos.getY(), sleepStandPos.getZ() + 0.5);
                 }
             }
+            npc.setSuppressLookAtPlayer(false);
             reset();
             return false;
         }
+
+        // Suppress look-at-player for the entire sleep phase (navigation to bed + sleeping).
+        npc.setSuppressLookAtPlayer(true);
 
         // NPC already lying in bed: nothing to do until the wake condition above fires.
         if (npc.isSleeping()) return true;
@@ -110,9 +115,11 @@ public class NpcSleepController {
                 sleepBedPos = null;
                 return true;
             }
-            // Vanilla positions the sleeping entity at the HEAD block center, matching LivingEntityRenderer expectations.
+            // Disable physics for the TP so BedBlock.fallOn() cannot fire before vanilla takes over sleeping position.
+            npc.noPhysics = true;
             npc.teleportTo(sleepBedPos.getX() + 0.5, sleepBedPos.getY() + 0.6875, sleepBedPos.getZ() + 0.5);
             npc.startSleeping(sleepBedPos);
+            npc.noPhysics = false;
         }
 
         return true;
@@ -136,12 +143,16 @@ public class NpcSleepController {
         return null;
     }
 
-    // Returns the first building listed in restBuildings that has a bounding box.
+    // Returns the highest-priority rest building present in the village.
+    // The first entry in restBuildings is the primary: if it exists in the village, it always wins.
+    // Subsequent entries are fallbacks tried in order when the primary is absent.
     private PlacedBuilding findRestBuilding(Town town, SleepConfig cfg) {
-        for (PlacedBuilding building : town.getBuildings()) {
-            if (!cfg.getRestBuildings().contains(building.defId)) continue;
-            if (building.bb == null) continue;
-            return building;
+        for (String buildingId : cfg.getRestBuildings()) {
+            for (PlacedBuilding building : town.getBuildings()) {
+                if (buildingId.equals(building.defId) && building.bb != null) {
+                    return building;
+                }
+            }
         }
         return null;
     }

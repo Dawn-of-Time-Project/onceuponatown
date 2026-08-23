@@ -1,29 +1,26 @@
-## 🏘️ Once Upon a Town v0.0.16 | New villagers, deeper progression and interface polish !
-### New villagers:
-- Added the Shepherd, a new NPC that lives near the sheep field and works all day shearing the sheep, carrying wool and mutton 
-- Added the Beekeeper, a new NPC that tends the beekeeper building and handles the honey production
-- Added the Miner, a new NPC that is tied to the open mine building and manages the extraction work
-- Each new villager has its own clothes, its own schedule, and its own set of secondary activities depending on which buildings are present in the village
-### New buildings & player buildings:
-- The lumberjack building had it's NBT refreshed and comes with 6 new levels. It now produces more products as it gets upgraded
-- Added the Fisherman, a new job building that requires two lakes to be placed. It produces cod and salmon, and can cook them once upgraded. It comes with 6 upgrade levels
-- Added two new building placeholders that the player can build toward the village in exchange for resources and emeralds. These buildings are not going to be touched by the village and the player can freely build on the plot
-- These two plots are 14x14, one is en empty field and the other one is an empty slot house that will be built next to the villager houses for more coherence
-### Interface improvements:
-- Added a scrollbar to the stock tab so you can browse through all your village resources when the list is long
-- The buy/sell mode button in the stock tab now clearly says BUY or SELL instead of just a letter, and hovering it shows a tooltip explaining what each mode does and what resources are accepted
-- The three main tabs of the town hub have been redesigned with proper textured buttons and now show the tab name at the top of the panel
-- Added a Locate button in the task panel for site clearance quests. Clicking it places a marker in the world so you can easily find the spot you need to clear
-- You can also locate a building in the village by shift clicking on the map
-- Buildings that have a direct player cost now show how many of the required items you currently have in your inventory, with a color indicator to know at a glance if you can afford it
-### Progression changes:
-- Extended the era progression by adding eras 5 and 6 for every orientation path. All six branches (rural, urban, cooking, excavator, forge, ranching) now go deeper, giving more room to develop. You can now reach 70 building space
-- The manual advance button has been removed from the era panel, the village takes care of it on its own
-- The quest now drops real XP in addition to the emeralds
-### Other improvements:
-- Heavily improved the villager AI to decrease the amount of time they spent being stuck in walls or blocks
-- Reworked the sleeping system to make it more natural with different timing for sleeping and waking up, also improved the NPC movement to reach their beds
-- NPCs now attract and absorb dropped items nearby so they do not leave item piles on the ground around them
-- Added a new socials tab to let player follow the project directly from the mod
-- Made a ton of internal code changes to prepare for more content in future updates
-- Removed the basic house because the NPC kept stuck his fking head inside the roof
+## 🏘️ Once Upon a Town v0.0.17 | New villagers, new features, more buildings !
+### New buildings & reworked structures:
+- Added a building cow farm for the ranching orientation (with 6 levels)
+- Added a building sheep farm for the ranching orientation (with 6 levels)
+- Updated the pig farm to align on the new ranching farms
+- Added back the house 1 with a refreshed design
+- Updated a ton of building levels to align the upgrades among the new buildings and make the appearance of the buildings evolve over time more coherent
+### New jobs and features:
+- Added a new category of jobs, the breeders. In a building JSON file, you can customize what's the max herds a building can contains, this cap is going to be the one the breeders will follow to make the herds reproduce over time
+- New job cowherd that lives in the cow farm. It will breed the animals and produce leather
+- New job swineherd that lives in the pig farm. It will breed the animals and produce cooked porkchop
+- Updated the shepard to breed the sheep and grow the sheep population over time, it is now tied to the sheep farm
+### New features:
+- Added a system in the settlement summarize widget to check how many workers you have and to locate them with a ping
+- Added a repair button to fix damaged builds. You can use it in the map widget, bottom right corner
+- Added a 'i' icon in the building catalog interface to give a short summarize about what is the structure and which purpose it serves
+- Added a system to preview the max stock of the village, it can be enabled or disabled. It helps to scope the amount of resources you can supply the village if you want to trade resources or afk and collect back
+- Added various tooltips to help the player to read and understand the interface
+### Internal improvements:
+- Reworking the datapack of the plains culture to allow the player to specifically locate a type of orientation : industrial, agricultural, pastoral. It should make the process of finding villages less random
+- Added a label to the structures in the building catalog to understand what represent each color
+- Improved the upgrade bars display to avoid these going out of the frame
+- Fixed the issue with NPC being stuck in doors
+- Made some internal changes to allow more datapack freedom and custom cultures. The builder is able to expend and build custom cultures now
+- Made some improvements to the NPC navigation system to avoid him climbing and walls and being stuck on roofs
+- Made a ton of internal code changes to improve the code performances and readability 

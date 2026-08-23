@@ -29,6 +29,8 @@ public class FoodListDataHandler {
     private static Map<Item, Integer> RESIDENT_FOOD_MAP = Collections.emptyMap();
     private static Map<Item, Integer> HERD_FOOD_MAP = Collections.emptyMap();
     private static List<Long> FEEDING_SCHEDULE = Collections.emptyList();
+    private static float UNITS_PER_RESIDENT = 1.0f;
+    private static float UNITS_PER_ANIMAL   = 1.0f;
 
     public static void reload(MinecraftServer server) {
         LinkedHashMap<Item, Integer> newResidentMap = new LinkedHashMap<>();
@@ -45,6 +47,8 @@ public class FoodListDataHandler {
                         newSchedule.add(el.getAsLong());
                     }
                 }
+                UNITS_PER_RESIDENT = json.has("units_per_resident") ? json.get("units_per_resident").getAsFloat() : 1.0f;
+                UNITS_PER_ANIMAL   = json.has("units_per_animal")   ? json.get("units_per_animal").getAsFloat()   : 1.0f;
                 if (json.has("resident_food")) {
                     parseItemList(json.getAsJsonArray("resident_food"), newResidentMap);
                 }
@@ -88,4 +92,7 @@ public class FoodListDataHandler {
     public static List<Long> getFeedingSchedule() {
         return FEEDING_SCHEDULE;
     }
+
+    public static float getUnitsPerResident() { return UNITS_PER_RESIDENT; }
+    public static float getUnitsPerAnimal()   { return UNITS_PER_ANIMAL; }
 }

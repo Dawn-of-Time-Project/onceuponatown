@@ -38,7 +38,9 @@ import org.dawnoftime.onceuponatown.datapack.BuilderConfigDataHandler;
 import org.dawnoftime.onceuponatown.datapack.BuildingDataHandler;
 import org.dawnoftime.onceuponatown.datapack.LumberjackConfigDataHandler;
 import org.dawnoftime.onceuponatown.datapack.MinerConfigDataHandler;
+import org.dawnoftime.onceuponatown.datapack.CowHerdConfigDataHandler;
 import org.dawnoftime.onceuponatown.datapack.ShepherdConfigDataHandler;
+import org.dawnoftime.onceuponatown.datapack.SwineherdConfigDataHandler;
 import org.dawnoftime.onceuponatown.datapack.BuildingListDataHandler;
 import org.dawnoftime.onceuponatown.datapack.EraTransitionDataHandler;
 import org.dawnoftime.onceuponatown.datapack.FoodListDataHandler;
@@ -53,15 +55,18 @@ import org.dawnoftime.onceuponatown.network.C2SContributeQuestPacket;
 import org.dawnoftime.onceuponatown.network.C2SVerifyClearancePacket;
 import org.dawnoftime.onceuponatown.network.C2SQueueBuildingPacket;
 import org.dawnoftime.onceuponatown.network.C2SRemoveQueuedBuildingPacket;
+import org.dawnoftime.onceuponatown.network.C2SRequestNbtPacket;
 import org.dawnoftime.onceuponatown.network.C2SRequestStockPacket;
 import org.dawnoftime.onceuponatown.network.C2SToggleChatBroadcastPacket;
 import org.dawnoftime.onceuponatown.network.C2SUpgradeBuildingPacket;
+import org.dawnoftime.onceuponatown.network.C2SRepairBuildingPacket;
 import org.dawnoftime.onceuponatown.network.NetworkHelper;
 import org.dawnoftime.onceuponatown.network.S2CBuildingDefsPacket;
 import org.dawnoftime.onceuponatown.network.S2CBuildingListPacket;
 import org.dawnoftime.onceuponatown.network.S2CCitizenUpdatePacket;
 import org.dawnoftime.onceuponatown.network.S2CLogEntryPacket;
 import org.dawnoftime.onceuponatown.network.S2CEraUpdatePacket;
+import org.dawnoftime.onceuponatown.network.S2CNbtStructurePacket;
 import org.dawnoftime.onceuponatown.network.S2CQuestUpdatePacket;
 import org.dawnoftime.onceuponatown.network.S2CStockUpdatePacket;
 import org.dawnoftime.onceuponatown.network.S2CTownHubPacket;
@@ -386,6 +391,49 @@ public class OuatForge {
             },
             Optional.of(NetworkDirection.PLAY_TO_SERVER)
         );
+
+        CHANNEL.registerMessage(21,
+            C2SRequestNbtPacket.class,
+            C2SRequestNbtPacket::encode,
+            C2SRequestNbtPacket::decode,
+            (msg, ctx) -> {
+                ctx.get().enqueueWork(() ->
+                    C2SRequestNbtPacket.Handler.handle(msg, ctx.get().getSender()));
+                ctx.get().setPacketHandled(true);
+            },
+            Optional.of(NetworkDirection.PLAY_TO_SERVER)
+        );
+
+        CHANNEL.registerMessage(22,
+            S2CNbtStructurePacket.class,
+            S2CNbtStructurePacket::encode,
+            S2CNbtStructurePacket::decode,
+            (msg, ctx) -> {
+                ctx.get().enqueueWork(() -> S2CNbtStructurePacket.Handler.handle(msg));
+                ctx.get().setPacketHandled(true);
+            },
+            Optional.of(NetworkDirection.PLAY_TO_CLIENT)
+        );
+        CHANNEL.registerMessage(23,
+            C2SRepairBuildingPacket.class,
+            C2SRepairBuildingPacket::encode,
+            C2SRepairBuildingPacket::decode,
+            (msg, ctx) -> {
+                ctx.get().enqueueWork(() ->
+                    C2SRepairBuildingPacket.Handler.handle(msg, ctx.get().getSender()));
+                ctx.get().setPacketHandled(true);
+            },
+            Optional.of(NetworkDirection.PLAY_TO_SERVER)
+        );
+
+        NetworkHelper.sendNbtStructurePacket = (player, data) ->
+            CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), S2CNbtStructurePacket.fromData(data));
+    }
+
+    // Called from OuatForgeClient to wire the NBT structure request packet sender
+    static void wireRequestNbtPacket() {
+        NetworkHelper.sendRequestNbtPacket = (pos, path) ->
+            CHANNEL.sendToServer(new C2SRequestNbtPacket(pos, path));
     }
 
     // Called from OuatForgeClient to wire the toggle chat broadcast packet sender
@@ -424,9 +472,11 @@ public class OuatForge {
     private void onServerStarting(ServerStartingEvent event) {
         BeekeeperConfigDataHandler.reload(event.getServer());
         BuilderConfigDataHandler.reload(event.getServer());
+        CowHerdConfigDataHandler.reload(event.getServer());
         LumberjackConfigDataHandler.reload(event.getServer());
         MinerConfigDataHandler.reload(event.getServer());
         ShepherdConfigDataHandler.reload(event.getServer());
+        SwineherdConfigDataHandler.reload(event.getServer());
         BuildingDataHandler.reload(event.getServer());
         BuildingListDataHandler.reload(event.getServer());
         EraTransitionDataHandler.reload(event.getServer());

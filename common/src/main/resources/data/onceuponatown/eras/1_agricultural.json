@@ -12,6 +12,7 @@
   ],
   "required_residents": 2,
   "required_buildings": [
+    {"defId": "wild_crops", "count": 2},
     { "defId": "wheat_field", "count": 1 }
   ],
 

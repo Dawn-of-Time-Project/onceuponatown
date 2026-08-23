@@ -35,8 +35,8 @@ class UpgradeTab {
     private long selectedUpgradeBuildingPos = -1L;
     private int upgradeGridScrollOffset = 0;
     private int hoveredUpgradeSlot = -1;
-    private final int[] barLabelYs     = new int[8];
-    private final String[] barTooltips  = new String[8];
+    private final int[] barLabelYs     = new int[10];
+    private final String[] barTooltips  = new String[10];
     private int numActiveBars = 0;
     private final List<int[]> unlockIconBounds   = new ArrayList<>();
     private final List<String> unlockIconItemIds  = new ArrayList<>();
@@ -116,8 +116,7 @@ class UpgradeTab {
         int maxLevel = defEntry != null ? defEntry.upgrades().size() : 0;
 
         List<Component> lines = new ArrayList<>();
-        lines.add(Component.literal(TownHubTypes.formatId(entry.defId()))
-            .withStyle(s -> s.withBold(true)));
+        lines.add(Component.literal(TownHubTypes.formatId(entry.defId())));
 
         if (defEntry != null && maxLevel > 0 && entry.upgradeLevel() < maxLevel) {
             List<ClientBuildingDefsRegistry.CostEntry> costs = defEntry.upgrades().get(entry.upgradeLevel()).upgradeCost();
@@ -229,137 +228,126 @@ class UpgradeTab {
                                         net.minecraft.client.gui.Font font) {
         int barX = leftPos + 12;
         int barW = 152;
-        int barH = 3;
-        int gaugeY = topPos + 22;
+        int barH = 9;
+        int gaugeY = topPos + 21;
         int ghostColor = canAfford ? 0x6655BB55 : 0x66BB5555;
 
         int currentLevel = sel.upgradeLevel();
+        int maxLevel = defEntry.upgrades().size();
+
+        String buildingName = TownHubTypes.formatId(sel.defId());
+        String levelText = "Level " + currentLevel + "/" + maxLevel;
+        g.drawString(font, buildingName, barX, gaugeY, 0xFFFFFFFF, false);
+        g.drawString(font, levelText, barX + barW - font.width(levelText), gaugeY, 0xFFAAAAAA, false);
+        gaugeY += font.lineHeight + 3;
 
         float totalCadence = 0f, curCadence = 0f, ghostCadence = 0f;
         int totalAmount = 0, curAmount = 0, ghostAmount = 0;
         int totalCapacity = 0, curCapacity = 0, ghostCapacity = 0;
         int totalResidents = 0, curResidents = 0, ghostResidentsVal = 0;
-        float totalFood = 0f, curFood = 0f, ghostFood = 0f;
+        int totalStockBonus = 0, curStockBonus = 0, ghostStockBonus = 0;
         double totalStock = 0.0, curStock = 0.0, ghostStock = 0.0;
-        int totalHerd = 0, curHerd = 0, ghostHerd = 0;
-        float totalHerdFood = 0f, curHerdFood = 0f, ghostHerdFood = 0f;
+
+        // Herd: maxHerdsTarget is the absolute target herd size set by that upgrade (0 = no change).
+        int baseHerd     = defEntry.baseHerd();
+        int totalMaxHerd = baseHerd; // highest target across all upgrades
+        int curHerd      = baseHerd; // effective herd at currentLevel
+        int ghostHerd    = 0;
 
         for (int i = 0; i < defEntry.upgrades().size(); i++) {
             var lvl = defEntry.upgrades().get(i);
-            totalCadence   += lvl.cadenceMultiplier();
-            totalAmount    += lvl.amountAdd();
-            totalCapacity  += lvl.capacityStacksAdd();
-            totalResidents += lvl.residentsAdd();
-            totalFood      += lvl.consumptionPerResidentAdd();
-            totalStock     += lvl.productionBonusAdd();
-            totalHerd      += lvl.herdAdd();
-            totalHerdFood  += lvl.consumptionPerHerdAdd();
+            totalCadence    += lvl.cadenceMultiplier();
+            totalAmount     += lvl.amountAdd();
+            totalCapacity   += lvl.capacityStacksAdd();
+            totalResidents  += lvl.residentsAdd();
+            totalStockBonus += lvl.stockBonusAdd();
+            totalStock      += lvl.productionBonusAdd();
+            if (lvl.maxHerdsTarget() > 0) totalMaxHerd = Math.max(totalMaxHerd, lvl.maxHerdsTarget());
             if (i < currentLevel) {
-                curCadence   += lvl.cadenceMultiplier();
-                curAmount    += lvl.amountAdd();
-                curCapacity  += lvl.capacityStacksAdd();
-                curResidents += lvl.residentsAdd();
-                curFood      += lvl.consumptionPerResidentAdd();
-                curStock     += lvl.productionBonusAdd();
-                curHerd      += lvl.herdAdd();
-                curHerdFood  += lvl.consumptionPerHerdAdd();
+                curCadence    += lvl.cadenceMultiplier();
+                curAmount     += lvl.amountAdd();
+                curCapacity   += lvl.capacityStacksAdd();
+                curResidents  += lvl.residentsAdd();
+                curStockBonus += lvl.stockBonusAdd();
+                curStock      += lvl.productionBonusAdd();
+                if (lvl.maxHerdsTarget() > 0) curHerd = lvl.maxHerdsTarget();
             }
             if (showGhost && i == currentLevel) {
                 ghostCadence      = lvl.cadenceMultiplier();
                 ghostAmount       = lvl.amountAdd();
                 ghostCapacity     = lvl.capacityStacksAdd();
                 ghostResidentsVal = lvl.residentsAdd();
-                ghostFood         = lvl.consumptionPerResidentAdd();
+                ghostStockBonus   = lvl.stockBonusAdd();
                 ghostStock        = lvl.productionBonusAdd();
-                ghostHerd         = lvl.herdAdd();
-                ghostHerdFood     = lvl.consumptionPerHerdAdd();
+                if (lvl.maxHerdsTarget() > 0) ghostHerd = lvl.maxHerdsTarget() - curHerd;
             }
         }
 
         if (totalCadence > 0.001f) {
             float fill = curCadence / totalCadence;
             float ghost = showGhost ? ghostCadence / totalCadence : 0f;
-            g.drawString(font, "Speed", barX, gaugeY, 0xFFFFFFFF, false);
-            gaugeY += 13;
             renderStatBar(g, barX, gaugeY, barW, barH, fill, ghost, 0xFFFF8800, ghostColor);
-            barLabelYs[numActiveBars] = gaugeY - 7;
+            g.drawString(font, "Speed", barX + 3, gaugeY + 1, 0xFFFFFFFF, false);
+            barLabelYs[numActiveBars] = gaugeY;
             barTooltips[numActiveBars] = (int)(curCadence * 100) + "% faster  (max " + (int)(totalCadence * 100) + "%)";
             numActiveBars++;
-            gaugeY += barH + 6;
+            gaugeY += barH + 4;
         }
         if (totalAmount > 0) {
             float fill = (float) curAmount / totalAmount;
             float ghost = showGhost ? (float) ghostAmount / totalAmount : 0f;
-            g.drawString(font, "Output", barX, gaugeY, 0xFFFFFFFF, false);
-            gaugeY += 13;
             renderStatBar(g, barX, gaugeY, barW, barH, fill, ghost, 0xFFFFFF00, ghostColor);
-            barLabelYs[numActiveBars] = gaugeY - 7;
+            g.drawString(font, "Output", barX + 3, gaugeY + 1, 0xFFFFFFFF, false);
+            barLabelYs[numActiveBars] = gaugeY;
             barTooltips[numActiveBars] = "+" + curAmount + " output  (max +" + totalAmount + ")";
             numActiveBars++;
-            gaugeY += barH + 6;
+            gaugeY += barH + 4;
         }
         if (totalCapacity > 0) {
             float fill = (float) curCapacity / totalCapacity;
             float ghost = showGhost ? (float) ghostCapacity / totalCapacity : 0f;
-            g.drawString(font, "Capacity", barX, gaugeY, 0xFFFFFFFF, false);
-            gaugeY += 13;
             renderStatBar(g, barX, gaugeY, barW, barH, fill, ghost, 0xFF4488FF, ghostColor);
-            barLabelYs[numActiveBars] = gaugeY - 7;
+            g.drawString(font, "Capacity", barX + 3, gaugeY + 1, 0xFFFFFFFF, false);
+            barLabelYs[numActiveBars] = gaugeY;
             barTooltips[numActiveBars] = "+" + curCapacity + " stacks  (max +" + totalCapacity + ")";
             numActiveBars++;
-            gaugeY += barH + 6;
+            gaugeY += barH + 4;
         }
-        if (totalFood > 0.001f) {
-            float fill = curFood / totalFood;
-            float ghost = showGhost ? ghostFood / totalFood : 0f;
-            g.drawString(font, "Food", barX, gaugeY, 0xFFFFFFFF, false);
-            gaugeY += 13;
-            renderStatBar(g, barX, gaugeY, barW, barH, fill, ghost, 0xFFCC3333, ghostColor);
-            barLabelYs[numActiveBars] = gaugeY - 7;
-            barTooltips[numActiveBars] = String.format("+%.2f food/res  (max +%.2f)", curFood, totalFood);
+        if (totalStockBonus > 0) {
+            float fill = (float) curStockBonus / totalStockBonus;
+            float ghost = showGhost ? (float) ghostStockBonus / totalStockBonus : 0f;
+            renderStatBar(g, barX, gaugeY, barW, barH, fill, ghost, 0xFF44DDAA, ghostColor);
+            g.drawString(font, "Village Cap", barX + 3, gaugeY + 1, 0xFFFFFFFF, false);
+            barLabelYs[numActiveBars] = gaugeY;
+            barTooltips[numActiveBars] = "+" + curStockBonus + " capacity stacks  (max +" + totalStockBonus + ")";
             numActiveBars++;
-            gaugeY += barH + 6;
+            gaugeY += barH + 4;
         }
         if (totalStock > 0.001) {
             float fill = (float)(curStock / totalStock);
             float ghost = showGhost ? (float)(ghostStock / totalStock) : 0f;
-            g.drawString(font, "Stock", barX, gaugeY, 0xFFFFFFFF, false);
-            gaugeY += 13;
             renderStatBar(g, barX, gaugeY, barW, barH, fill, ghost, 0xFFFFCC00, ghostColor);
-            barLabelYs[numActiveBars] = gaugeY - 7;
+            g.drawString(font, "Stock", barX + 3, gaugeY + 1, 0xFFFFFFFF, false);
+            barLabelYs[numActiveBars] = gaugeY;
             barTooltips[numActiveBars] = "+" + (int)(curStock * 100) + "% village stock  (max +" + (int)(totalStock * 100) + "%)";
             numActiveBars++;
-            gaugeY += barH + 6;
-        }
-        if (totalHerdFood > 0.001f) {
-            float fill = curHerdFood / totalHerdFood;
-            float ghost = showGhost ? ghostHerdFood / totalHerdFood : 0f;
-            g.drawString(font, "Herd Food", barX, gaugeY, 0xFFFFFFFF, false);
-            gaugeY += 13;
-            renderStatBar(g, barX, gaugeY, barW, barH, fill, ghost, 0xFFCC6633, ghostColor);
-            barLabelYs[numActiveBars] = gaugeY - 7;
-            barTooltips[numActiveBars] = String.format("+%.2f food/animal  (max +%.2f)", curHerdFood, totalHerdFood);
-            numActiveBars++;
-            gaugeY += barH + 6;
+            gaugeY += barH + 4;
         }
         if (totalResidents > 0) {
-            g.drawString(font, "Residents", barX, gaugeY, 0xFFFFFFFF, false);
-            gaugeY += 13;
             renderIconSlotRow(g, barX, gaugeY, totalResidents, curResidents,
                               showGhost ? ghostResidentsVal : 0, ghostColor, true);
-            barLabelYs[numActiveBars] = gaugeY - 7;
+            barLabelYs[numActiveBars] = gaugeY;
             barTooltips[numActiveBars] = "+" + curResidents + " residents  (max +" + totalResidents + ")";
             numActiveBars++;
-            gaugeY += 16 + 6;
+            gaugeY += 16 + 4;
         }
-        if (totalHerd > 0) {
-            g.drawString(font, "Herd", barX, gaugeY, 0xFFFFFFFF, false);
-            gaugeY += 13;
-            renderIconSlotRow(g, barX, gaugeY, totalHerd, curHerd,
+        if (baseHerd > 0) {
+            renderIconSlotRow(g, barX, gaugeY, totalMaxHerd, curHerd,
                               showGhost ? ghostHerd : 0, ghostColor, false);
-            barLabelYs[numActiveBars] = gaugeY - 7;
-            barTooltips[numActiveBars] = "+" + curHerd + " animals  (max +" + totalHerd + ")";
+            barLabelYs[numActiveBars] = gaugeY;
+            barTooltips[numActiveBars] = curHerd + " animals  (max " + totalMaxHerd + ")";
             numActiveBars++;
+            gaugeY += 16 + 4;
         }
     }
 
@@ -380,7 +368,7 @@ class UpgradeTab {
         int labelY = topPos + 99;
         int rowY = labelY + font.lineHeight;
 
-        g.drawString(font, "Unlocks:", rowX, labelY, 0xFFFFFFFF, false);
+        g.drawString(font, "Unlocks", rowX, labelY, 0x404040, false);
 
         BuildingEntry catalogEntry = null;
         for (BuildingEntry e : buildingCatalog) {
@@ -471,8 +459,12 @@ class UpgradeTab {
             if (i < filled) {
                 RenderSystem.enableBlend();
                 RenderSystem.defaultBlendFunc();
-                float v = isPerson ? 0f : 16f;
-                g.blit(ICONS_TEXTURE, ix, y, 16, 16, 48f, v, 16, 16, 64, 64);
+                if (isPerson) {
+                    g.blit(ICONS_TEXTURE, ix, y, 16, 16, 48f, 0f, 16, 16, 64, 64);
+                } else {
+                    // Sheep head: 8x8 source at (52, 20), rendered native 8x8 centered in the 16x16 slot.
+                    g.blit(ICONS_TEXTURE, ix + 4, y + 4, 8, 8, 52f, 20f, 8, 8, 64, 64);
+                }
                 RenderSystem.disableBlend();
             } else if (i < filled + ghost) {
                 if (isPerson) drawPersonSilhouette(g, ix, y, ghostColor);

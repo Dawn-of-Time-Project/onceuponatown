@@ -15,6 +15,7 @@
 
   "required_residents": 8,
 
+  "auto_build_sequence": ["leather_workshop"],
   "auto_upgrade_ids": ["settlement_2"],
 
   "next_orientation": "ranching"
