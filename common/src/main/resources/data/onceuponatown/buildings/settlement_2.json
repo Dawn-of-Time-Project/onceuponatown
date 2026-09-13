@@ -130,13 +130,11 @@
     {
       "herd_add": 2,
       "consumption_per_herd_add": 2.0,
-      "unlocks_display": ["minecraft:cooked_porkchop", "minecraft:mutton", "minecraft:cooked_mutton", "white_wool"],
       "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 0 }]
     },
     {
       "herd_add": 2,
       "consumption_per_herd_add": 2.0,
-      "unlocks_display": ["minecraft:beef", "minecraft:cooked_beef", "minecraft:leather"],
       "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 20 }]
     },
     {

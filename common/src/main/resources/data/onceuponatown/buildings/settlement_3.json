@@ -62,7 +62,6 @@
   "upgrades": [
     {
       "capacity_stacks_add": 1,
-      "unlocks_display": ["minecraft:bread", "minecraft:baked_potato"],
       "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 0 }]
     },
     {

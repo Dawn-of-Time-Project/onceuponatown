@@ -13,15 +13,15 @@
     { "item": "minecraft:cobblestone", "amount": 35 }
   ],
 
-  "required_residents": 5,
+  "required_residents": 6,
   "required_buildings": [
     { "defId": "kitchen", "count": 1 }
   ],
 
-  "auto_build_sequence": [{"defId": "grove", "count": 3}, "kitchen", "bee_field"],
+  "auto_build_sequence": [{"defId": "grove", "count": 3}, "kitchen", "bee_field", {"defId": "wild_stone", "count": 2}],
   "auto_upgrade_ids": ["settlement_2"],
 
-  "unlocked_building_ids": ["beekeeper", "carpenter"],
+  "unlocked_building_ids": ["beekeeper", "market", "mine"],
 
   "next_orientation": "cooking"
 }

@@ -9,6 +9,7 @@ import net.minecraft.commands.Commands;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import org.dawnoftime.onceuponatown.tick.FoodManager;
 import org.dawnoftime.onceuponatown.town.ConnectionPoint;
 import org.dawnoftime.onceuponatown.town.LevelTowns;
 import org.dawnoftime.onceuponatown.town.Town;
@@ -24,6 +25,9 @@ public class TownCommand {
                     .then(Commands.literal("status")
                         .executes(TownCommand::status))
                     // /ouat town autonomy: requires op level 2
+                    .then(Commands.literal("feed")
+                        .requires(src -> src.hasPermission(2))
+                        .executes(TownCommand::feed))
                     .then(Commands.literal("autonomy")
                         .requires(src -> src.hasPermission(2))
                         .then(Commands.literal("enable")
@@ -33,6 +37,24 @@ public class TownCommand {
                         .then(Commands.literal("status")
                             .executes(TownCommand::autonomyStatus))))
         );
+    }
+
+    private static int feed(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerLevel level = ctx.getSource().getLevel();
+        BlockPos pos = BlockPos.containing(ctx.getSource().getPosition());
+        LevelTowns levelTowns = LevelTowns.get(level);
+        Town town = levelTowns.getNearestTown(pos, 128).orElse(null);
+        if (town == null) {
+            ctx.getSource().sendFailure(Component.literal("[OUAT] No town within 128 blocks"));
+            return 0;
+        }
+        long anchorKey = levelTowns.getAllTownEntries().stream()
+                .filter(e -> e.getValue() == town)
+                .mapToLong(java.util.Map.Entry::getKey)
+                .findFirst().orElse(0L);
+        FoodManager.forceRun(town, level, anchorKey);
+        ctx.getSource().sendSuccess(() -> Component.literal("[OUAT] Village meal triggered"), true);
+        return 1;
     }
 
     private static int status(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {

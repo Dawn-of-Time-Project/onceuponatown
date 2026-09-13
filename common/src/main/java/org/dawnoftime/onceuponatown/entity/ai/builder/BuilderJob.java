@@ -2,6 +2,9 @@ package org.dawnoftime.onceuponatown.entity.ai.builder;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Mirror;
@@ -43,10 +46,10 @@ public class BuilderJob extends AbstractNpcJob {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(BuilderJob.class);
 
-    public enum State { IDLE, BUILD, ACTIVITY, SLEEPING }
+    public enum State { IDLE, BUILD, ACTIVITY, SLEEPING, EATING }
 
     private State current = State.IDLE;
-    private final SecondaryActivityController activityController = new SecondaryActivityController();
+
     private int queueCursor = 0;
     private BuildTask activeBuild = null;
     // The player-queued entry currently being built, or null if not building from queue.
@@ -90,7 +93,7 @@ public class BuilderJob extends AbstractNpcJob {
 
     @Override
     public void tick() {
-        // Resolve level once for the sleep checks; sub-methods do their own cast internally.
+        // Resolve level once for the sleep and meal checks; sub-methods do their own cast internally.
         if (npc.level() instanceof ServerLevel level) {
             BuilderConfigDataHandler.Config cfg = BuilderConfigDataHandler.get();
             long dayTime = level.getDayTime() % 24000;
@@ -98,15 +101,23 @@ public class BuilderJob extends AbstractNpcJob {
             NpcSleepController.SleepCheck sc = sleepController.checkTick(dayTime, cfg, current == State.SLEEPING);
             if (sc == NpcSleepController.SleepCheck.RESYNC)   current = State.SLEEPING;
             if (sc == NpcSleepController.SleepCheck.TRIGGER)  enterSleep();
+
+            if (current != State.SLEEPING && current != State.EATING) {
+                Town town = findTown(level, npc);
+                if (town != null && town.isMealTimeFor(level.getGameTime(), timing.eatStartOffset, 0)) {
+                    enterEating(town);
+                }
+            }
         }
 
-        npc.setSuppressLookAtPlayer(current != State.IDLE && current != State.SLEEPING);
+        npc.setSuppressLookAtPlayer(current != State.IDLE && current != State.SLEEPING && current != State.EATING);
 
         switch (current) {
             case IDLE     -> tickIdle();
             case BUILD    -> tickBuild();
             case ACTIVITY -> tickActivity();
             case SLEEPING -> tickSleeping();
+            case EATING   -> tickEating();
         }
     }
 
@@ -654,6 +665,45 @@ public class BuilderJob extends AbstractNpcJob {
         if (onlyPlannedUpgrades) {
         }
         return false;
+    }
+
+    // Interrupts the builder, navigates it toward the active build's connection point so it eats
+    // near the building entrance rather than from a random rooftop position. ActiveBuildState is
+    // preserved on Town so tickIdle() can resume the build on exitEating().
+    private void enterEating(Town town) {
+        if (current == State.ACTIVITY) activityController.cancel(npc);
+        npc.freeHands();
+        if (current == State.BUILD) {
+            int mySlot = town.getNpcSlot("builder", npc.getUUID());
+            ActiveBuildState saved = mySlot >= 0 ? town.getActiveBuild(mySlot) : null;
+            if (saved != null && !BlockPos.ZERO.equals(saved.connectionPos())) {
+                BlockPos target = saved.connectionPos();
+                npc.getNavigation().moveTo(target.getX() + 0.5, target.getY() + 1.0, target.getZ() + 0.5, 0.6);
+            } else {
+                npc.getNavigation().stop();
+            }
+            mealNavigating = true;
+            activeBuild = null;
+            activeQueueEntry = null;
+        } else {
+            navigateToMealSpot(town);
+        }
+        current = State.EATING;
+    }
+
+    private void tickEating() {
+        if (!(npc.level() instanceof ServerLevel level)) return;
+        Town town = findTown(level, npc);
+        if (town == null || !town.isMealTimeFor(level.getGameTime(), 0, timing.eatEndOffset)) exitEating();
+        else { tryStartEatingAnimation(town); if (npc.isEating()) emitEatParticles(); }
+    }
+
+    private void exitEating() {
+        mealNavigating = false;
+        npc.setEating(false);
+        npc.freeHands();
+        npc.getNavigation().stop();
+        current = State.IDLE; // tickIdle() resumes from persisted ActiveBuildState
     }
 
     // Interrupts whatever the builder was doing and switches to SLEEPING.

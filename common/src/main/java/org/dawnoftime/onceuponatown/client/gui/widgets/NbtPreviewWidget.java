@@ -305,7 +305,7 @@ public class NbtPreviewWidget {
     public static void drawPadlockIcon(GuiGraphics g, int bx, int by) {
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
-        g.blit(ICONS_TEXTURE, bx, by, 16, 16, 0f, 0f, 16, 16, 64, 64);
+        g.blit(ICONS_TEXTURE, bx, by, 16, 16, 0f, 0f, 16, 16, 128, 128);
     }
 
     public boolean mouseScrolled(double mx, double my, double delta) {

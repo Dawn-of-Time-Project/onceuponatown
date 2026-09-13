@@ -17,11 +17,16 @@ public class EraProgressDraggableWidget extends DraggableWidget {
 
     private static final int COLOR_MET         = 0xFF55CC55;
     private static final int COLOR_UNMET       = 0xFF555555;
+    private static final int COLOR_END_DOT     = 0xFFAA3333;
     private static final int COLOR_TEXT        = 0xFFCCCCCC;
     private static final int COLOR_DIM         = 0xFF888888;
     private static final int COLOR_CARD_BG     = 0xFF1A1A1A;
     private static final int COLOR_CARD_SEL    = 0xFF223322;
     private static final int COLOR_CARD_BORDER = 0xFF55AA55;
+
+    private static final String EMPTY_CARD_ICON  = "minecraft:barrier";
+    private static final String EMPTY_CARD_LABEL = "Max Era";
+    private static final String EMPTY_CARD_COND  = "No transition available";
 
     // GAP: between blocks and card borders; INNER_GAP: between items within a block
     private static final int GAP               = 6;
@@ -137,8 +142,19 @@ public class EraProgressDraggableWidget extends DraggableWidget {
         return Math.max(headerW, condW) + GAP * 2;
     }
 
+    private static int computeEmptyCardH() {
+        return GAP + ICON_SIZE + GAP + FONT_H + GAP + FONT_H + GAP;
+    }
+
     public static int computeWidgetW(List<EraPathOption> options) {
-        if (options.isEmpty()) return 160;
+        if (options.isEmpty()) {
+            var font = Minecraft.getInstance().font;
+            int condW   = DOT_W + DOT_TEXT_GAP + font.width(EMPTY_CARD_COND);
+            int headerW = Math.max(ICON_SIZE, font.width(EMPTY_CARD_LABEL));
+            int cardW   = Math.max(condW, headerW) + GAP * 2;
+            int minForTitle = font.width("Era Progress") + 40;
+            return Math.max(cardW + GAP * 2, minForTitle);
+        }
         int total = GAP * 2;
         for (int i = 0; i < options.size(); i++) {
             total += computeCardW(options.get(i));
@@ -164,7 +180,7 @@ public class EraProgressDraggableWidget extends DraggableWidget {
     }
 
     private static int computeContentH(List<EraPathOption> options) {
-        if (options.isEmpty()) return 30;
+        if (options.isEmpty()) return GAP + computeEmptyCardH() + GAP;
         int maxCardH = options.stream().mapToInt(EraProgressDraggableWidget::computeCardH).max().orElse(60);
         return GAP + maxCardH + GAP;
     }
@@ -198,7 +214,12 @@ public class EraProgressDraggableWidget extends DraggableWidget {
         selectBtnBounds.clear();
 
         if (pathOptions.isEmpty()) {
-            g.drawString(font, "No transitions available", cx + GAP, cy + 10, COLOR_DIM, false);
+            int emptyCardH = computeEmptyCardH();
+            int condW   = DOT_W + DOT_TEXT_GAP + font.width(EMPTY_CARD_COND);
+            int headerW = Math.max(ICON_SIZE, font.width(EMPTY_CARD_LABEL));
+            int emptyCardW = Math.max(condW, headerW) + GAP * 2;
+            int cardX = cx + (cw - emptyCardW) / 2;
+            renderEmptyCard(g, font, cardX, cy + GAP, emptyCardW, emptyCardH, mx, my);
             return;
         }
 
@@ -285,6 +306,34 @@ public class EraProgressDraggableWidget extends DraggableWidget {
         int    btnTextColor = !selectable ? 0xFF444444 : (isSelected ? 0xFF88FF88 : 0xFFCCCCCC);
         g.drawString(font, btnText, btnX + (btnW - font.width(btnText)) / 2, btnY + 2, btnTextColor, false);
         selectBtnBounds.add(new int[]{ btnX, btnY, btnW, BTN_H, cardIdx });
+    }
+
+    private void renderEmptyCard(GuiGraphics g, net.minecraft.client.gui.Font font,
+                                  int cx, int cy, int cw, int fixedH,
+                                  int mx, int my) {
+        boolean hover = mx >= cx && mx < cx + cw && my >= cy && my < cy + fixedH;
+        g.fill(cx, cy, cx + cw, cy + fixedH, COLOR_CARD_BG);
+        if (hover) {
+            g.fill(cx,          cy,              cx + cw,   cy + 1,          COLOR_CARD_BORDER);
+            g.fill(cx,          cy + fixedH - 1, cx + cw,   cy + fixedH,     COLOR_CARD_BORDER);
+            g.fill(cx,          cy,              cx + 1,    cy + fixedH,     COLOR_CARD_BORDER);
+            g.fill(cx + cw - 1, cy,              cx + cw,   cy + fixedH,     COLOR_CARD_BORDER);
+        }
+
+        int rowY = cy + GAP;
+
+        int iconX = cx + (cw - ICON_SIZE) / 2;
+        renderItemIcon(g, EMPTY_CARD_ICON, iconX, rowY);
+        rowY += ICON_SIZE + GAP;
+
+        int labelX = cx + (cw - font.width(EMPTY_CARD_LABEL)) / 2;
+        g.drawString(font, EMPTY_CARD_LABEL, labelX, rowY, 0xFFEEEEEE, false);
+        rowY += FONT_H + GAP;
+
+        int condW = DOT_W + DOT_TEXT_GAP + font.width(EMPTY_CARD_COND);
+        int condX = cx + (cw - condW) / 2;
+        g.fill(condX, rowY + 2, condX + DOT_W, rowY + 6, COLOR_END_DOT);
+        g.drawString(font, EMPTY_CARD_COND, condX + DOT_W + DOT_TEXT_GAP, rowY, COLOR_DIM, false);
     }
 
     // -------------------------------------------------------------------------

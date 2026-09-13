@@ -13,7 +13,7 @@
     { "item": "minecraft:cobblestone", "amount": 35 }
   ],
 
-  "required_residents": 5,
+  "required_residents": 6,
   "required_buildings": [
     { "defId": "pig_farm", "count": 1 }
   ],
@@ -21,7 +21,7 @@
   "auto_build_sequence": [{"defId": "grove", "count": 3}, {"defId": "pig_field", "count": 2}, "cow_field", "pig_farm"],
   "auto_upgrade_ids": ["settlement_2"],
 
-  "unlocked_building_ids": ["cow_farm", "carpenter"],
+  "unlocked_building_ids": ["cow_farm", "market", "mine"],
 
   "next_orientation": "ranching"
 }

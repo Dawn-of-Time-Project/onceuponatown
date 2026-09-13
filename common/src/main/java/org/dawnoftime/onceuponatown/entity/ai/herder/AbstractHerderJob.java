@@ -2,7 +2,10 @@ package org.dawnoftime.onceuponatown.entity.ai.herder;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.AABB;
 import org.dawnoftime.onceuponatown.entity.Npc;
 import org.dawnoftime.onceuponatown.entity.ai.AbstractNpcJob;
@@ -24,11 +27,11 @@ import java.util.UUID;
 public abstract class AbstractHerderJob<C extends SleepConfig & WorkConfig & HerderConfig>
         extends AbstractNpcJob {
 
-    protected enum State { IDLE, APPROACHING_ANIMAL, PERFORMING_ACTION, SLEEPING, ACTIVITY }
+    protected enum State { IDLE, APPROACHING_ANIMAL, PERFORMING_ACTION, SLEEPING, ACTIVITY, EATING }
 
     protected State current = State.IDLE;
 
-    protected final SecondaryActivityController activityController = new SecondaryActivityController();
+
 
     protected List<UUID> animalWorkList = new ArrayList<>();
     protected int animalCursor = 0;
@@ -82,9 +85,17 @@ public abstract class AbstractHerderJob<C extends SleepConfig & WorkConfig & Her
         if (sc == NpcSleepController.SleepCheck.RESYNC)  current = State.SLEEPING;
         if (sc == NpcSleepController.SleepCheck.TRIGGER) enterSleep();
 
-        npc.setSuppressLookAtPlayer(current != State.IDLE && current != State.SLEEPING);
+        if (current != State.SLEEPING && current != State.EATING && town.isMealTimeFor(level.getGameTime(), timing.eatStartOffset, 0)) {
+            enterEating(town);
+        }
+
+        npc.setSuppressLookAtPlayer(current != State.IDLE && current != State.SLEEPING && current != State.EATING);
 
         switch (current) {
+            case EATING             -> {
+                if (!town.isMealTimeFor(level.getGameTime(), 0, timing.eatEndOffset)) exitEating();
+                else { tryStartEatingAnimation(town); if (npc.isEating()) emitEatParticles(); }
+            }
             case IDLE               -> tickIdle(level, town, cfg);
             case APPROACHING_ANIMAL -> tickApproachingAnimal(level, town, cfg);
             case PERFORMING_ACTION  -> tickPerformingAction(level, town, cfg);
@@ -191,6 +202,25 @@ public abstract class AbstractHerderJob<C extends SleepConfig & WorkConfig & Her
         animalCursor++;
         currentAnimalId = null;
         startNextAnimal(level, town, cfg);
+    }
+
+    protected void enterEating(Town town) {
+        if (current == State.ACTIVITY) activityController.cancel(npc);
+        npc.freeHands();
+        animalWorkList.clear();
+        animalCursor = 0;
+        currentAnimalId = null;
+        animalNav = null;
+        animalNavRefreshCooldown = 0;
+        navigateToMealSpot(town);
+        current = State.EATING;
+    }
+
+    protected void exitEating() {
+        mealNavigating = false;
+        npc.setEating(false);
+        npc.freeHands();
+        current = State.IDLE;
     }
 
     protected void enterSleep() {

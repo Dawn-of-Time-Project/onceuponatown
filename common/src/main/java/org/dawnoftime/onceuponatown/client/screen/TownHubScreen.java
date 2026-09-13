@@ -19,6 +19,7 @@ import org.dawnoftime.onceuponatown.client.TownHubClientState;
 import org.dawnoftime.onceuponatown.client.gui.widgets.DraggableWidget;
 import org.dawnoftime.onceuponatown.client.gui.widgets.EraProgressDraggableWidget;
 import org.dawnoftime.onceuponatown.client.gui.widgets.MapDraggableWidget;
+import org.dawnoftime.onceuponatown.client.gui.widgets.ProgressionWidget;
 import org.dawnoftime.onceuponatown.client.gui.widgets.QuestHubWidget;
 import org.dawnoftime.onceuponatown.client.gui.widgets.SocialsWidget;
 import org.dawnoftime.onceuponatown.client.gui.widgets.TownSummaryWidget;
@@ -56,6 +57,9 @@ public class TownHubScreen extends AbstractContainerScreen<TownHubMenu> {
     private static int     savedSocialsX     = -1;
     private static int     savedSocialsY     = -1;
     private static boolean savedSocialsOpen  = false;
+    private static int     savedProgressionX    = -1;
+    private static int     savedProgressionY    = -1;
+    private static boolean savedProgressionOpen = false;
     private static int savedActiveTab = 0;
     private static final List<String> savedWidgetOrder = new ArrayList<>();
 
@@ -69,6 +73,8 @@ public class TownHubScreen extends AbstractContainerScreen<TownHubMenu> {
     private final List<DraggableWidget> layer1Widgets = new ArrayList<>();
     private boolean mapWidgetCreated = false;
     private int mapInitialHeight = 0;
+    private boolean progressionClosed = true;
+    private ProgressionWidget progressionWidget = null;
 
     private CompoundTag cachedHubData;
     private boolean mapClosed = false;
@@ -194,6 +200,16 @@ public class TownHubScreen extends AbstractContainerScreen<TownHubMenu> {
                 int startY = (savedSocialsY >= 0) ? Math.min(savedSocialsY, Math.max(0, this.height - socialsH)) : centerY(this.height, socialsH);
                 newWidgets.add(new SocialsWidget(startX, startY, freeZoneW, this.height));
             }
+            if (savedProgressionOpen) {
+                CompoundTag pd = hub.contains("ProgressionData") ? hub.getCompound("ProgressionData") : new CompoundTag();
+                int pgRowCount = pd.getList("SignatureBuildings", Tag.TAG_COMPOUND).size();
+                int pgH = ProgressionWidget.computeHeight(pgRowCount);
+                int startX = (savedProgressionX >= 0) ? Math.min(savedProgressionX, Math.max(0, freeZoneW - ProgressionWidget.WIDGET_W)) : centerX(freeZoneW, ProgressionWidget.WIDGET_W);
+                int startY = (savedProgressionY >= 0) ? Math.min(savedProgressionY, Math.max(0, this.height - pgH)) : centerY(this.height, pgH);
+                progressionWidget = new ProgressionWidget(startX, startY, freeZoneW, this.height,
+                    pd, anchorPos, pos -> NetworkHelper.sendClaimMedalPacket.accept(pos));
+                newWidgets.add(progressionWidget);
+            }
             if (!savedWidgetOrder.isEmpty()) {
                 newWidgets.sort((a, b) -> {
                     int ia = savedWidgetOrder.indexOf(a.getClass().getSimpleName());
@@ -290,6 +306,10 @@ public class TownHubScreen extends AbstractContainerScreen<TownHubMenu> {
             questHubWidget.setQuests(questTagList, anchorPos);
         }
 
+        if (progressionWidget != null && hub.contains("ProgressionData")) {
+            progressionWidget.updateData(hub.getCompound("ProgressionData"));
+        }
+
         TownSummaryWidget.chatBroadcastEnabled = hub.getBoolean("ChatSubscribed");
     }
 
@@ -377,14 +397,21 @@ public class TownHubScreen extends AbstractContainerScreen<TownHubMenu> {
                     savedSocialsY    = w.getY();
                     savedSocialsOpen = false;
                 }
+                if (w instanceof ProgressionWidget) {
+                    savedProgressionX    = w.getX();
+                    savedProgressionY    = w.getY();
+                    savedProgressionOpen = false;
+                    progressionWidget    = null;
+                }
             }
             return w.isClosed();
         });
-        mapClosed       = layer1Widgets.stream().noneMatch(w -> w instanceof MapDraggableWidget);
-        summaryClosed   = layer1Widgets.stream().noneMatch(w -> w instanceof TownSummaryWidget);
-        eraClosed       = layer1Widgets.stream().noneMatch(w -> w instanceof EraProgressDraggableWidget);
-        questHubClosed  = layer1Widgets.stream().noneMatch(w -> w instanceof QuestHubWidget);
-        socialsClosed   = layer1Widgets.stream().noneMatch(w -> w instanceof SocialsWidget);
+        mapClosed         = layer1Widgets.stream().noneMatch(w -> w instanceof MapDraggableWidget);
+        summaryClosed     = layer1Widgets.stream().noneMatch(w -> w instanceof TownSummaryWidget);
+        eraClosed         = layer1Widgets.stream().noneMatch(w -> w instanceof EraProgressDraggableWidget);
+        questHubClosed    = layer1Widgets.stream().noneMatch(w -> w instanceof QuestHubWidget);
+        socialsClosed     = layer1Widgets.stream().noneMatch(w -> w instanceof SocialsWidget);
+        progressionClosed = layer1Widgets.stream().noneMatch(w -> w instanceof ProgressionWidget);
 
         // Layer 1: left draggable widgets (Map, Summary, Era, QuestHub)
         for (int i = 0; i < layer1Widgets.size(); i++) {
@@ -501,6 +528,11 @@ public class TownHubScreen extends AbstractContainerScreen<TownHubMenu> {
         }
         if (data.contains("BuildingCounts")) {
             refreshEraWidgetFromBuildingCounts(data.getCompound("BuildingCounts"));
+        }
+        if (data.contains("ProgressionData")) {
+            CompoundTag pd = data.getCompound("ProgressionData");
+            if (progressionWidget != null) progressionWidget.updateData(pd);
+            if (cachedHubData != null) cachedHubData.put("ProgressionData", pd);
         }
     }
 
@@ -655,6 +687,10 @@ public class TownHubScreen extends AbstractContainerScreen<TownHubMenu> {
                 savedSocialsX = w.getX();
                 savedSocialsY = w.getY();
                 savedWidgetOrder.add(w.getClass().getSimpleName());
+            } else if (w instanceof ProgressionWidget) {
+                savedProgressionX = w.getX();
+                savedProgressionY = w.getY();
+                savedWidgetOrder.add(w.getClass().getSimpleName());
             }
         }
         super.onClose();
@@ -683,6 +719,23 @@ public class TownHubScreen extends AbstractContainerScreen<TownHubMenu> {
                     layer1Widgets.add(0, new SocialsWidget(startX, startY, freeZoneW, this.height));
                     savedSocialsOpen = true;
                     socialsClosed = false;
+                    return true;
+                }
+                btnY -= 18;
+            }
+            if (progressionClosed) {
+                if (mX >= btnX && mX < btnX + 16 && mY >= btnY && mY < btnY + 16) {
+                    int freeZoneW = this.leftPos;
+                    CompoundTag pd = cachedHubData.contains("ProgressionData") ? cachedHubData.getCompound("ProgressionData") : new CompoundTag();
+                    int pgRowCount = pd.getList("SignatureBuildings", Tag.TAG_COMPOUND).size();
+                    int pgH = ProgressionWidget.computeHeight(pgRowCount);
+                    int startX = (savedProgressionX >= 0) ? Math.min(savedProgressionX, Math.max(0, freeZoneW - ProgressionWidget.WIDGET_W)) : centerX(freeZoneW, ProgressionWidget.WIDGET_W);
+                    int startY = (savedProgressionY >= 0) ? Math.min(savedProgressionY, Math.max(0, this.height - pgH)) : centerY(this.height, pgH);
+                    progressionWidget = new ProgressionWidget(startX, startY, freeZoneW, this.height,
+                        pd, anchorPos, pos -> NetworkHelper.sendClaimMedalPacket.accept(pos));
+                    layer1Widgets.add(0, progressionWidget);
+                    savedProgressionOpen = true;
+                    progressionClosed = false;
                     return true;
                 }
                 btnY -= 18;
@@ -1009,31 +1062,37 @@ public class TownHubScreen extends AbstractContainerScreen<TownHubMenu> {
         if (socialsClosed) {
             boolean hover = mx >= btnX && mx < btnX + 16 && my >= btnY && my < btnY + 16;
             if (hover) g.fill(btnX, btnY, btnX + 16, btnY + 16, 0x30FFFFFF);
-            g.blit(ICONS_TEXTURE, btnX, btnY, 16, 16, 32f, 16f, 16, 16, 64, 64);
+            g.blit(ICONS_TEXTURE, btnX, btnY, 16, 16, 32f, 16f, 16, 16, 128, 128);
+            btnY -= 18;
+        }
+        if (progressionClosed) {
+            boolean hover = mx >= btnX && mx < btnX + 16 && my >= btnY && my < btnY + 16;
+            if (hover) g.fill(btnX, btnY, btnX + 16, btnY + 16, 0x30FFFFFF);
+            g.blit(ICONS_TEXTURE, btnX, btnY, 16, 16, 32f, 32f, 16, 16, 128, 128);
             btnY -= 18;
         }
         if (summaryClosed && cachedHubData.contains("SummaryData")) {
             boolean hover = mx >= btnX && mx < btnX + 16 && my >= btnY && my < btnY + 16;
             if (hover) g.fill(btnX, btnY, btnX + 16, btnY + 16, 0x30FFFFFF);
-            g.blit(ICONS_TEXTURE, btnX, btnY, 16, 16, 0f, 16f, 16, 16, 64, 64);
+            g.blit(ICONS_TEXTURE, btnX, btnY, 16, 16, 0f, 16f, 16, 16, 128, 128);
             btnY -= 18;
         }
         if (questHubClosed) {
             boolean hover = mx >= btnX && mx < btnX + 16 && my >= btnY && my < btnY + 16;
             if (hover) g.fill(btnX, btnY, btnX + 16, btnY + 16, 0x30FFFFFF);
-            g.blit(ICONS_TEXTURE, btnX, btnY, 16, 16, 16f, 0f, 16, 16, 64, 64);
+            g.blit(ICONS_TEXTURE, btnX, btnY, 16, 16, 16f, 0f, 16, 16, 128, 128);
             btnY -= 18;
         }
         if (mapClosed) {
             boolean hover = mx >= btnX && mx < btnX + 16 && my >= btnY && my < btnY + 16;
             if (hover) g.fill(btnX, btnY, btnX + 16, btnY + 16, 0x30FFFFFF);
-            g.blit(ICONS_TEXTURE, btnX, btnY, 16, 16, 32f, 0f, 16, 16, 64, 64);
+            g.blit(ICONS_TEXTURE, btnX, btnY, 16, 16, 32f, 0f, 16, 16, 128, 128);
             btnY -= 18;
         }
         if (eraClosed) {
             boolean hover = mx >= btnX && mx < btnX + 16 && my >= btnY && my < btnY + 16;
             if (hover) g.fill(btnX, btnY, btnX + 16, btnY + 16, 0x30FFFFFF);
-            g.blit(ICONS_TEXTURE, btnX, btnY, 16, 16, 16f, 16f, 16, 16, 64, 64);
+            g.blit(ICONS_TEXTURE, btnX, btnY, 16, 16, 16f, 16f, 16, 16, 128, 128);
         }
     }
 

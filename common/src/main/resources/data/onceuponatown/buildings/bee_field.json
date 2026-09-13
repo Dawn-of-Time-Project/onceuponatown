@@ -6,6 +6,8 @@
   "category": "jobs",
   "weight": 2,
   "spawns_npc": "beekeeper",
+  "signature": true,
+
 
   "required_buildings": [
     { "defId": "wild_bee", "count": 2 }

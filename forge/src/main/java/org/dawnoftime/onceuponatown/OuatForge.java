@@ -34,6 +34,7 @@ import org.dawnoftime.onceuponatown.block.TownAnchorBlock;
 import org.dawnoftime.onceuponatown.blockentity.TownAnchorBlockEntity;
 import org.dawnoftime.onceuponatown.command.TownCommand;
 import org.dawnoftime.onceuponatown.datapack.BeekeeperConfigDataHandler;
+import org.dawnoftime.onceuponatown.datapack.MerchantConfigDataHandler;
 import org.dawnoftime.onceuponatown.datapack.BuilderConfigDataHandler;
 import org.dawnoftime.onceuponatown.datapack.BuildingDataHandler;
 import org.dawnoftime.onceuponatown.datapack.LumberjackConfigDataHandler;
@@ -50,6 +51,7 @@ import org.dawnoftime.onceuponatown.entity.Npc;
 
 import org.dawnoftime.onceuponatown.network.C2SSelectEraPathPacket;
 import org.dawnoftime.onceuponatown.network.C2SBuyPacket;
+import org.dawnoftime.onceuponatown.network.C2SCancelContractPacket;
 import org.dawnoftime.onceuponatown.network.C2SDepositPacket;
 import org.dawnoftime.onceuponatown.network.C2SContributeQuestPacket;
 import org.dawnoftime.onceuponatown.network.C2SVerifyClearancePacket;
@@ -59,6 +61,7 @@ import org.dawnoftime.onceuponatown.network.C2SRequestNbtPacket;
 import org.dawnoftime.onceuponatown.network.C2SRequestStockPacket;
 import org.dawnoftime.onceuponatown.network.C2SToggleChatBroadcastPacket;
 import org.dawnoftime.onceuponatown.network.C2SUpgradeBuildingPacket;
+import org.dawnoftime.onceuponatown.network.C2SClaimMedalPacket;
 import org.dawnoftime.onceuponatown.network.C2SRepairBuildingPacket;
 import org.dawnoftime.onceuponatown.network.NetworkHelper;
 import org.dawnoftime.onceuponatown.network.S2CBuildingDefsPacket;
@@ -131,6 +134,14 @@ public class OuatForge {
         ITEMS.register("town_anchor",
             () -> new BlockItem(TOWN_ANCHOR_OBJ.get(), new Item.Properties()));
 
+    private static final RegistryObject<Item> COMMERCE_CONTRACT_ITEM_OBJ =
+        ITEMS.register("commerce_contract",
+            () -> new org.dawnoftime.onceuponatown.item.CommerceContractItem(new Item.Properties().stacksTo(1)));
+
+    private static final RegistryObject<Item> RECOGNITION_MEDAL_ITEM_OBJ =
+        ITEMS.register("recognition_medal",
+            () -> new org.dawnoftime.onceuponatown.item.RecognitionMedalItem(new Item.Properties().stacksTo(1)));
+
     public OuatForge() {
         IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
 
@@ -157,6 +168,8 @@ public class OuatForge {
         EntityRegistry.NPC = (EntityType<Npc>) NPC_OBJ.get();
         MenuRegistry.TOWN_HUB = (MenuType<TownHubMenu>) TOWN_HUB_OBJ.get();
         ItemRegistry.TOWN_ANCHOR = TOWN_ANCHOR_ITEM_OBJ.get();
+        ItemRegistry.COMMERCE_CONTRACT = COMMERCE_CONTRACT_ITEM_OBJ.get();
+        ItemRegistry.RECOGNITION_MEDAL = RECOGNITION_MEDAL_ITEM_OBJ.get();
 
         CHANNEL.registerMessage(1,
             S2CTownHubPacket.class,
@@ -425,6 +438,28 @@ public class OuatForge {
             },
             Optional.of(NetworkDirection.PLAY_TO_SERVER)
         );
+        CHANNEL.registerMessage(24,
+            C2SCancelContractPacket.class,
+            C2SCancelContractPacket::encode,
+            C2SCancelContractPacket::decode,
+            (msg, ctx) -> {
+                ctx.get().enqueueWork(() ->
+                    C2SCancelContractPacket.Handler.handle(msg, ctx.get().getSender()));
+                ctx.get().setPacketHandled(true);
+            },
+            Optional.of(NetworkDirection.PLAY_TO_SERVER)
+        );
+        CHANNEL.registerMessage(25,
+            C2SClaimMedalPacket.class,
+            C2SClaimMedalPacket::encode,
+            C2SClaimMedalPacket::decode,
+            (msg, ctx) -> {
+                ctx.get().enqueueWork(() ->
+                    C2SClaimMedalPacket.Handler.handle(msg, ctx.get().getSender()));
+                ctx.get().setPacketHandled(true);
+            },
+            Optional.of(NetworkDirection.PLAY_TO_SERVER)
+        );
 
         NetworkHelper.sendNbtStructurePacket = (player, data) ->
             CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), S2CNbtStructurePacket.fromData(data));
@@ -460,6 +495,18 @@ public class OuatForge {
             CHANNEL.sendToServer(new C2SVerifyClearancePacket(pos, questId));
     }
 
+    // Called from OuatForgeClient to wire the cancel contract packet sender
+    static void wireCancelContractPacket() {
+        NetworkHelper.sendCancelContractPacket = pos ->
+            CHANNEL.sendToServer(new C2SCancelContractPacket(pos));
+    }
+
+    // Called from OuatForgeClient to wire the claim medal packet sender
+    static void wireClaimMedalPacket() {
+        NetworkHelper.sendClaimMedalPacket = pos ->
+            CHANNEL.sendToServer(new C2SClaimMedalPacket(pos));
+    }
+
     @SuppressWarnings("unchecked")
     private void onEntityAttributes(EntityAttributeCreationEvent event) {
         event.put((EntityType<Npc>) NPC_OBJ.get(), Npc.createAttributes().build());
@@ -471,6 +518,7 @@ public class OuatForge {
 
     private void onServerStarting(ServerStartingEvent event) {
         BeekeeperConfigDataHandler.reload(event.getServer());
+        MerchantConfigDataHandler.reload(event.getServer());
         BuilderConfigDataHandler.reload(event.getServer());
         CowHerdConfigDataHandler.reload(event.getServer());
         LumberjackConfigDataHandler.reload(event.getServer());

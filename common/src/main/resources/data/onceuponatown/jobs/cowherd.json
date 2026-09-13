@@ -24,6 +24,13 @@
       "heldItem": "minecraft:leather",
       "animationType": "CRAFT",
       "target_block": "minecraft:crafting_table"
+    },
+    {
+      "requiredBuilding": "market",
+      "heldItem": "minecraft:air",
+      "animationType": "SELL",
+      "target_block": "minecraft:crafting_table",
+      "productionBuildings": ["cow_field","cow_farm"]
     }
   ]
 }

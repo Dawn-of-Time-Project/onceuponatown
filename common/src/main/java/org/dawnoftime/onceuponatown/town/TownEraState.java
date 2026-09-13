@@ -4,6 +4,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
+import org.dawnoftime.onceuponatown.datapack.BuildingDataHandler;
 import org.dawnoftime.onceuponatown.datapack.EraDef;
 import org.dawnoftime.onceuponatown.datapack.EraTransitionDataHandler;
 import org.dawnoftime.onceuponatown.datapack.EraTransitionDef;
@@ -19,6 +20,9 @@ public class TownEraState {
     private int currentEra = 0;
     private String currentEraPath = "";
     private String currentOrientation = "";
+    // Cached namespace of the datapack that owns this village's culture. Derived once at world gen
+    // and persisted so the village remains isolated even if the datapack is temporarily removed.
+    private String cultureNamespace = "";
     private final Set<String> unlockedBuildingIds = new HashSet<>();
     private int activeResidents = 0;
     private int currentMaxWeight = 0;
@@ -34,6 +38,7 @@ public class TownEraState {
     public void setCurrentEraPath(String v)                 { this.currentEraPath = v; }
     public String getCurrentOrientation()                   { return currentOrientation; }
     public void setCurrentOrientation(String v)             { this.currentOrientation = v; }
+    public String getCultureNamespace()                      { return cultureNamespace; }
     public Set<String> getUnlockedBuildingIds()             { return Collections.unmodifiableSet(unlockedBuildingIds); }
     public void addUnlockedBuildingIds(Collection<String> ids) { unlockedBuildingIds.addAll(ids); }
     public int getActiveResidents()                         { return activeResidents; }
@@ -58,10 +63,14 @@ public class TownEraState {
         if (def == null) return;
         if (def.initialMaxWeight > 0) currentMaxWeight = def.initialMaxWeight;
         currentMaxUpgradeLevel = def.initialMaxUpgradeLevel;
+        // Derive and cache the datapack namespace that owns this culture.
+        cultureNamespace = BuildingDataHandler.get(def.starterBuildingId)
+            .map(b -> b.namespace)
+            .orElse("");
     }
 
     public List<EraTransitionDef> getAvailableTransitions() {
-        return EraTransitionDataHandler.getAvailableTransitions(currentEra, currentOrientation);
+        return EraTransitionDataHandler.getAvailableTransitions(currentEra, currentOrientation, cultureNamespace);
     }
 
     public List<String> getBoostedBuildingIds() {
@@ -78,6 +87,7 @@ public class TownEraState {
         tag.putInt("CurrentEra", currentEra);
         tag.putString("CurrentEraPath", currentEraPath);
         tag.putString("CurrentOrientation", currentOrientation);
+        tag.putString("CultureNamespace", cultureNamespace);
         ListTag unlockedTag = new ListTag();
         unlockedBuildingIds.forEach(id -> unlockedTag.add(StringTag.valueOf(id)));
         tag.put("UnlockedBuildingIds", unlockedTag);
@@ -94,6 +104,17 @@ public class TownEraState {
         state.currentEra = tag.getInt("CurrentEra");
         state.currentEraPath = tag.getString("CurrentEraPath");
         state.currentOrientation = tag.getString("CurrentOrientation");
+        // Migration: old saves lack CultureNamespace — derive it from the orientation on first load.
+        if (tag.contains("CultureNamespace") && !tag.getString("CultureNamespace").isEmpty()) {
+            state.cultureNamespace = tag.getString("CultureNamespace");
+        } else {
+            EraDef eraDef = EraTransitionDataHandler.getEraDefByOrientation(state.currentOrientation);
+            if (eraDef != null) {
+                state.cultureNamespace = BuildingDataHandler.get(eraDef.starterBuildingId)
+                    .map(b -> b.namespace)
+                    .orElse("");
+            }
+        }
         if (tag.contains("UnlockedBuildingIds")) {
             tag.getList("UnlockedBuildingIds", Tag.TAG_STRING)
                 .forEach(t -> state.unlockedBuildingIds.add(t.getAsString()));

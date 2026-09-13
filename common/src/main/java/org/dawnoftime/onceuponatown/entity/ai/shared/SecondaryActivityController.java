@@ -147,6 +147,12 @@ public class SecondaryActivityController {
 
     public boolean isActive() { return current != null; }
 
+    /** True once the NPC has arrived at its target and is in the performing phase. */
+    public boolean isPerforming() { return current != null && performTicks > 0; }
+
+    /** Returns the active ActivityDef, or null if no activity is running. */
+    public ActivityDef getActiveDef() { return current != null ? current.def : null; }
+
     private void tickPerforming(Npc npc, ServerLevel level) {
         npc.getNavigation().stop();
         BlockPos lookPos = current.controller.getTargetBlockPos();
@@ -156,7 +162,9 @@ public class SecondaryActivityController {
                 10f, 10f
             );
         }
-        if (current.def.animationType() == AnimationType.CRAFT) {
+        if (current.def.animationType() == AnimationType.SELL) {
+            // No animation: the NPC simply stands at the market stand, available for player interaction.
+        } else if (current.def.animationType() == AnimationType.CRAFT) {
             if (performTicks % 25 == 0) npc.notifyBlockPlaced();
         } else if (current.def.animationType() == AnimationType.SMELT) {
             if (performTicks == 0 && lookPos != null) setFurnaceLit(level, lookPos, true);

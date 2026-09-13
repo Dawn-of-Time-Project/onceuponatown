@@ -14,24 +14,26 @@ import org.dawnoftime.onceuponatown.town.Town;
 public class NpcSleepController {
 
     private final Npc npc;
-    // Deterministic per-NPC offset (0-199 ticks) added to wakeupTime so NPCs don't all
-    // wake at the exact same moment. Derived from UUID so it's stable across reloads.
+    // Per-NPC offsets from NpcTimingProfile: stagger bedtime and wakeup independently
+    // so NPCs don't all transition at the same tick.
+    private final int sleepOffset;
     private final int wakeOffset;
     private BlockPos sleepBedPos   = null;
     private BlockPos sleepStandPos = null;
     private GoToPosition sleepGoTo = null;
 
-    public NpcSleepController(Npc npc) {
+    public NpcSleepController(Npc npc, NpcTimingProfile timing) {
         this.npc = npc;
-        this.wakeOffset = (int)(Math.abs(npc.getUUID().getLeastSignificantBits()) % 200);
+        this.sleepOffset = timing.sleepOffset;
+        this.wakeOffset  = timing.wakeOffset;
     }
 
     // Returns true when the current daytime falls inside the configured sleep window.
     // Handles midnight wrap-around: e.g., bedtime=13000 wakeup=1000 spans past midnight.
-    // wakeOffset staggers each NPC's wakeup by 0-199 ticks so they don't all exit the
-    // same door simultaneously.
+    // sleepOffset staggers each NPC's bedtime and wakeOffset staggers their wakeup
+    // so they don't all transition at the same moment.
     public boolean isSleepTime(long dayTime, SleepConfig cfg) {
-        int sleep = cfg.getBedtime();
+        int sleep = cfg.getBedtime() + sleepOffset;
         int wake  = cfg.getWakeupTime() + wakeOffset;
         if (sleep > wake) return dayTime >= sleep || dayTime < wake;
         return dayTime >= sleep && dayTime < wake;
@@ -105,6 +107,13 @@ public class NpcSleepController {
                 return true;
             }
             sleepGoTo = new GoToPosition(npc, sleepStandPos, cfg.getWalkSpeed(), 2.0);
+        }
+
+        // sleepBedPos is set but sleepGoTo is null: navigation completed but startSleeping didn't
+        // stick (e.g. the bed was removed or the sleep call failed silently). Reset and retry.
+        if (sleepGoTo == null) {
+            sleepBedPos = null;
+            return true;
         }
 
         if (sleepGoTo.tick()) {

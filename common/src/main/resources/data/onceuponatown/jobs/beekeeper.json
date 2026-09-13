@@ -12,6 +12,25 @@
       "heldItem": "minecraft:honeycomb",
       "animationType": "CRAFT",
       "target_block": "minecraft:crafting_table"
+    },
+    {
+      "requiredBuilding": "bee_field",
+      "heldItem": "minecraft:honeycomb",
+      "animationType": "CRAFT",
+      "target_block": "minecraft:crafting_table"
+    },
+    {
+      "requiredBuilding": "beekeeper",
+      "heldItem": "minecraft:honeycomb",
+      "animationType": "CRAFT",
+      "target_block": "minecraft:crafting_table"
+    },
+    {
+      "requiredBuilding": "market",
+      "heldItem": "minecraft:air",
+      "animationType": "SELL",
+      "target_block": "minecraft:crafting_table",
+      "productionBuildings": ["bee_field", "beekeeper"]
     }
   ]
 }

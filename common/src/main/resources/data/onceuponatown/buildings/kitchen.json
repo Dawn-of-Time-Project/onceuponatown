@@ -5,11 +5,13 @@
   "icon_item": "minecraft:smoker",
   "category": "jobs",
   "weight": 3,
+  "signature": true,
 
   "required_buildings": [
     { "defId": "wild_crops", "count": 1 },
     { "defId": "oven", "count": 1 }
   ],
+
   "construction_cost": [
     {
       "item": "minecraft:oak_log",
@@ -20,6 +22,7 @@
       "amount": 12
     }
   ],
+
   "transform_input_ratio": 0.1,
   "transform_every_ticks": 1600,
   "transformations": [

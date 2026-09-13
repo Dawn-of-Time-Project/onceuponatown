@@ -62,6 +62,8 @@ public class BuildingDef {
     public final String spawnsNpcJob;
     // Items consumed from the player's inventory when queuing this building (refunded on dequeue).
     public final List<ItemCost> playerCost;
+    // When true, this building contributes to the Recognition Medal progression widget.
+    public final boolean signature;
 
     // One upgrade step: cost + what it changes. All additive except maxHerdsTarget (absolute target, 0 = no change).
     public record UpgradeLevel(float cadenceMultiplier, int capacityStacksAdd, int amountAdd,
@@ -69,6 +71,8 @@ public class BuildingDef {
                                 double productionBonusAdd,
                                 int stockBonusAdd,
                                 int maxHerdsTarget,
+                                int tradeSlotsAdd,
+                                float priceDiscountAdd,
                                 List<String> unlockedDisplay,
                                 List<ItemCost> upgradeCost) {}
 
@@ -79,7 +83,9 @@ public class BuildingDef {
     public record ResolvedBuildingStats(List<ProductionEntry> production, double totalCadenceMultiplier,
                                          int resolvedResidents,
                                          int resolvedHerd,
-                                         int resolvedMaxHerds) {}
+                                         int resolvedMaxHerds,
+                                         int resolvedTradeSlots,
+                                         float resolvedPriceDiscount) {}
 
     public BuildingDef(String id, String namespace, ResourceLocation nbt, String entryPool,
                        List<ProductionEntry> production, List<ItemCost> constructionCost,
@@ -93,7 +99,7 @@ public class BuildingDef {
                        List<ItemCost> initialStock,
                        int herd, int maxHerds, int weight,
                        List<String> obstacleBlocks, String spawnsNpcJob,
-                       List<ItemCost> playerCost) {
+                       List<ItemCost> playerCost, boolean signature) {
         this.id = id;
         this.namespace = namespace;
         this.nbt = nbt;
@@ -121,16 +127,17 @@ public class BuildingDef {
         this.obstacleBlocks = obstacleBlocks;
         this.spawnsNpcJob = spawnsNpcJob;
         this.playerCost = playerCost;
+        this.signature = signature;
     }
 
-    // Returns effective production, cadence, residents, herd, and maxHerds at a given upgrade level.
+    // Returns effective production, cadence, residents, herd, maxHerds, trade slots, and price discount at a given upgrade level.
     // Level 0 = base stats with no upgrades applied.
     public ResolvedBuildingStats resolveAtLevel(int level) {
         List<ProductionEntry> activeProduction = production.stream()
             .filter(e -> e.unlockAtLevel() == -1 || e.unlockAtLevel() <= level)
             .toList();
         if (level <= 0 || upgrades.isEmpty()) {
-            return new ResolvedBuildingStats(activeProduction, 0.0, residents, herd, maxHerds);
+            return new ResolvedBuildingStats(activeProduction, 0.0, residents, herd, maxHerds, 3, 0f);
         }
         int capped = Math.min(level, upgrades.size());
         double totalCadence = 0.0;
@@ -138,17 +145,22 @@ public class BuildingDef {
         int totalAmountAdd = 0;
         int totalResidentsAdd = 0;
         int resolvedMaxHerds = maxHerds;
+        int totalTradeSlotsAdd = 0;
+        float totalPriceDiscount = 0f;
         for (int i = 0; i < capped; i++) {
-            totalCadence      += upgrades.get(i).cadenceMultiplier();
-            totalCapAdd       += upgrades.get(i).capacityStacksAdd();
-            totalAmountAdd    += upgrades.get(i).amountAdd();
-            totalResidentsAdd += upgrades.get(i).residentsAdd();
+            totalCadence        += upgrades.get(i).cadenceMultiplier();
+            totalCapAdd         += upgrades.get(i).capacityStacksAdd();
+            totalAmountAdd      += upgrades.get(i).amountAdd();
+            totalResidentsAdd   += upgrades.get(i).residentsAdd();
+            totalTradeSlotsAdd  += upgrades.get(i).tradeSlotsAdd();
+            totalPriceDiscount  += upgrades.get(i).priceDiscountAdd();
             if (upgrades.get(i).maxHerdsTarget() != 0)
                 resolvedMaxHerds = upgrades.get(i).maxHerdsTarget();
         }
-        int resolvedResidents = residents + totalResidentsAdd;
+        int resolvedResidents  = residents + totalResidentsAdd;
+        int resolvedTradeSlots = 3 + totalTradeSlotsAdd;
         if (totalCapAdd == 0 && totalAmountAdd == 0) {
-            return new ResolvedBuildingStats(activeProduction, totalCadence, resolvedResidents, herd, resolvedMaxHerds);
+            return new ResolvedBuildingStats(activeProduction, totalCadence, resolvedResidents, herd, resolvedMaxHerds, resolvedTradeSlots, totalPriceDiscount);
         }
         int finalCapAdd    = totalCapAdd;
         int finalAmountAdd = totalAmountAdd;
@@ -161,7 +173,7 @@ public class BuildingDef {
                 e.capacityUnits(),
                 e.unlockAtLevel()))
             .toList();
-        return new ResolvedBuildingStats(adjusted, totalCadence, resolvedResidents, herd, resolvedMaxHerds);
+        return new ResolvedBuildingStats(adjusted, totalCadence, resolvedResidents, herd, resolvedMaxHerds, resolvedTradeSlots, totalPriceDiscount);
     }
 
     public boolean isTransformer() { return !transformations.isEmpty(); }

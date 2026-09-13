@@ -15,7 +15,9 @@ import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.registries.ForgeRegistries;
 import org.dawnoftime.onceuponatown.client.gui.tooltip.BuildingProductionTooltip;
 import org.dawnoftime.onceuponatown.client.gui.tooltip.ClientBuildingProductionTooltip;
+import org.dawnoftime.onceuponatown.client.gui.tooltip.ClientContractTooltip;
 import org.dawnoftime.onceuponatown.client.gui.tooltip.ClientItemAndTitleTooltip;
+import org.dawnoftime.onceuponatown.client.gui.tooltip.ContractTooltip;
 import org.dawnoftime.onceuponatown.client.gui.tooltip.ItemAndTitleTooltip;
 import org.dawnoftime.onceuponatown.client.model.NpcModel;
 import org.dawnoftime.onceuponatown.client.renderer.NpcRenderer;
@@ -23,6 +25,7 @@ import org.dawnoftime.onceuponatown.client.screen.TownHubScreen;
 import org.dawnoftime.onceuponatown.entity.Npc;
 
 import org.dawnoftime.onceuponatown.network.C2SSelectEraPathPacket;
+import org.dawnoftime.onceuponatown.network.C2SCancelContractPacket;
 import org.dawnoftime.onceuponatown.network.C2SDepositPacket;
 import org.dawnoftime.onceuponatown.network.C2SQueueBuildingPacket;
 import org.dawnoftime.onceuponatown.network.C2SRemoveQueuedBuildingPacket;
@@ -75,6 +78,8 @@ public class OuatForgeClient {
             OuatForge.wireVerifyClearancePacket();
             OuatForge.wireToggleChatBroadcastPacket();
             OuatForge.wireRequestNbtPacket();
+            OuatForge.wireCancelContractPacket();
+            OuatForge.wireClaimMedalPacket();
         });
     }
 
@@ -82,5 +87,6 @@ public class OuatForgeClient {
     public static void onRegisterTooltipFactories(RegisterClientTooltipComponentFactoriesEvent event) {
         event.register(ItemAndTitleTooltip.class, ClientItemAndTitleTooltip::new);
         event.register(BuildingProductionTooltip.class, ClientBuildingProductionTooltip::new);
+        event.register(ContractTooltip.class, ClientContractTooltip::new);
     }
 }

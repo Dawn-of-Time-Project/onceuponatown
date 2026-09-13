@@ -13,15 +13,15 @@
     { "item": "minecraft:cobblestone", "amount": 64 }
   ],
 
-  "required_residents": 6,
+  "required_residents": 8,
   "required_buildings": [
     { "defId": "beekeeper", "count": 1 }
   ],
 
-  "auto_build_sequence": ["beekeeper"],
+  "auto_build_sequence": ["beekeeper", "market", "mine"],
   "auto_upgrade_ids": ["settlement_2"],
 
-  "unlocked_building_ids": ["house_slot"],
+  "unlocked_building_ids": ["house_slot", "carpenter"],
 
   "next_orientation": "cooking"
 }

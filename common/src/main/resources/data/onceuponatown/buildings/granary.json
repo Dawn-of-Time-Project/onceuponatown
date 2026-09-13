@@ -5,6 +5,7 @@
   "icon_item": "minecraft:cobweb",
   "category": "jobs",
   "weight": 3,
+  "signature": true,
 
   "required_buildings": [
     { "defId": "wheat_farm", "count": 1 }

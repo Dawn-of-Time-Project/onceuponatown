@@ -18,7 +18,9 @@ import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraft.client.renderer.RenderType;
 import org.dawnoftime.onceuponatown.client.gui.tooltip.BuildingProductionTooltip;
 import org.dawnoftime.onceuponatown.client.gui.tooltip.ClientBuildingProductionTooltip;
+import org.dawnoftime.onceuponatown.client.gui.tooltip.ClientContractTooltip;
 import org.dawnoftime.onceuponatown.client.gui.tooltip.ClientItemAndTitleTooltip;
+import org.dawnoftime.onceuponatown.client.gui.tooltip.ContractTooltip;
 import org.dawnoftime.onceuponatown.client.gui.tooltip.ItemAndTitleTooltip;
 import org.dawnoftime.onceuponatown.client.model.NpcModel;
 import org.dawnoftime.onceuponatown.client.renderer.NpcRenderer;
@@ -26,9 +28,11 @@ import org.dawnoftime.onceuponatown.client.screen.TownHubScreen;
 
 import org.dawnoftime.onceuponatown.network.C2SSelectEraPathPacket;
 import org.dawnoftime.onceuponatown.network.C2SBuyPacket;
+import org.dawnoftime.onceuponatown.network.C2SCancelContractPacket;
 import org.dawnoftime.onceuponatown.network.C2SDepositPacket;
 import org.dawnoftime.onceuponatown.network.C2SContributeQuestPacket;
 import org.dawnoftime.onceuponatown.network.C2SVerifyClearancePacket;
+import org.dawnoftime.onceuponatown.network.C2SClaimMedalPacket;
 import org.dawnoftime.onceuponatown.network.C2SQueueBuildingPacket;
 import org.dawnoftime.onceuponatown.network.C2SRemoveQueuedBuildingPacket;
 import org.dawnoftime.onceuponatown.network.C2SRequestNbtPacket;
@@ -117,6 +121,7 @@ public class OuatFabricClient implements ClientModInitializer {
         TooltipComponentCallback.EVENT.register(component -> {
             if (component instanceof ItemAndTitleTooltip t) return new ClientItemAndTitleTooltip(t);
             if (component instanceof BuildingProductionTooltip t) return new ClientBuildingProductionTooltip(t);
+            if (component instanceof ContractTooltip t) return new ClientContractTooltip(t);
             return null;
         });
         NetworkHelper.sendQueueBuildingPacket = (pos, defId) -> {
@@ -178,6 +183,16 @@ public class OuatFabricClient implements ClientModInitializer {
             var buf = PacketByteBufs.create();
             new C2SRequestNbtPacket(pos, path).encode(buf);
             ClientPlayNetworking.send(C2SRequestNbtPacket.ID, buf);
+        };
+        NetworkHelper.sendCancelContractPacket = pos -> {
+            var buf = PacketByteBufs.create();
+            new C2SCancelContractPacket(pos).encode(buf);
+            ClientPlayNetworking.send(C2SCancelContractPacket.ID, buf);
+        };
+        NetworkHelper.sendClaimMedalPacket = pos -> {
+            var buf = PacketByteBufs.create();
+            new C2SClaimMedalPacket(pos).encode(buf);
+            ClientPlayNetworking.send(C2SClaimMedalPacket.ID, buf);
         };
     }
 }

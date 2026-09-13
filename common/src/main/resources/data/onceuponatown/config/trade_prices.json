@@ -21,12 +21,14 @@
 
     { "item": "minecraft:cobblestone",        "buy": 2, "sell": 1, "quantity": 25 },
     { "item": "minecraft:stone",              "buy": 3, "sell": 2, "quantity": 15 },
-    { "item": "minecraft:gravel",             "buy": 4, "sell": 2, "quantity": 10 },
-
     { "item": "minecraft:andesite",           "buy": 3, "sell": 2, "quantity": 35 },
     { "item": "minecraft:diorite",            "buy": 3, "sell": 2, "quantity": 35 },
     { "item": "minecraft:granite",            "buy": 3, "sell": 2, "quantity": 35 },
     { "item": "minecraft:tuff",               "buy": 3, "sell": 2, "quantity": 25 },
+
+    { "item": "minecraft:gravel",             "buy": 4, "sell": 2, "quantity": 10 },
+    { "item": "minecraft:flint",              "buy": 6, "sell": 3, "quantity": 7  },
+    { "item": "minecraft:coal",               "buy": 4, "sell": 2, "quantity": 15 },
 
     { "item": "minecraft:oak_sapling",        "buy": 2, "sell": 1, "quantity": 45 },
     { "item": "minecraft:feather",            "buy": 3, "sell": 2, "quantity": 15 },
@@ -41,6 +43,10 @@
     { "item": "minecraft:baked_potato",       "buy": 3, "sell": 2, "quantity": 15 },
 
     { "item": "minecraft:cod",                "buy": 2, "sell": 1, "quantity": 15 },
+    { "item": "minecraft:cooked_cod",         "buy": 3, "sell": 2, "quantity": 10 },
+    { "item": "minecraft:salmon",         "buy": 2, "sell": 1, "quantity": 15 },
+    { "item": "minecraft:cooked_salmon",      "buy": 3, "sell": 2, "quantity": 10 },
+
     { "item": "minecraft:porkchop",           "buy": 2, "sell": 1, "quantity": 15 },
     { "item": "minecraft:cooked_porkchop",    "buy": 3, "sell": 2, "quantity": 10 },
     { "item": "minecraft:mutton",             "buy": 2, "sell": 1, "quantity": 15 },
@@ -49,12 +55,13 @@
     { "item": "minecraft:cooked_beef",        "buy": 3, "sell": 2, "quantity": 10 },
     { "item": "minecraft:chicken",            "buy": 2, "sell": 1, "quantity": 15 },
     { "item": "minecraft:cooked_chicken",     "buy": 3, "sell": 2, "quantity": 10 },
-    { "item": "minecraft:egg",                "buy": 4, "sell": 3, "quantity": 16  },
+    { "item": "minecraft:egg",                "buy": 4, "sell": 3, "quantity": 16 },
 
     { "item": "minecraft:white_wool",         "buy": 5, "sell": 3, "quantity": 10 },
-    { "item": "minecraft:white_bed",          "buy": 3, "sell": 2, "quantity": 1 },
+    { "item": "minecraft:white_bed",          "buy": 3, "sell": 2, "quantity": 1  },
 
     { "item": "minecraft:honeycomb",          "buy": 5, "sell": 3, "quantity": 8  },
+    { "item": "minecraft:honeycomb_block",    "buy": 7, "sell": 4, "quantity": 6  },
 
     { "item": "minecraft:item_frame",         "buy": 5, "sell": 3, "quantity": 5  },
     { "item": "minecraft:leather",            "buy": 5, "sell": 3, "quantity": 8  },
@@ -63,8 +70,8 @@
     { "item": "minecraft:leather_leggings",   "buy": 7, "sell": 4, "quantity": 1  },
     { "item": "minecraft:leather_boots",      "buy": 7, "sell": 4, "quantity": 1  },
     { "item": "minecraft:leather_horse_armor","buy": 9, "sell": 5, "quantity": 1  },
-    { "item": "minecraft:saddle",             "buy": 18, "sell": 9, "quantity": 1  },
+    { "item": "minecraft:saddle",             "buy": 18, "sell": 9, "quantity": 1 },
 
-    { "item": "minecraft:name_tag",           "buy": 21, "sell": 13, "quantity": 1  }
+    { "item": "minecraft:name_tag",           "buy": 21, "sell": 13, "quantity": 1}
   ]
 }

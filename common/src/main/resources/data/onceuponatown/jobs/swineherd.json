@@ -24,6 +24,13 @@
       "heldItem": "minecraft:porkchop",
       "animationType": "SMELT",
       "target_block": "minecraft:furnace"
+    },
+    {
+      "requiredBuilding": "market",
+      "heldItem": "minecraft:air",
+      "animationType": "SELL",
+      "target_block": "minecraft:crafting_table",
+      "productionBuildings": ["pig_field","pig_farm"]
     }
   ]
 }

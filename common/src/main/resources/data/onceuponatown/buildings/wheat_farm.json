@@ -5,6 +5,7 @@
   "icon_item": "minecraft:bread",
   "category": "jobs",
   "weight": 3,
+  "signature": true,
 
   "required_buildings": [
     { "defId": "wild_crops", "count": 2 },
@@ -76,12 +77,10 @@
   "upgrades": [
     {
       "capacity_stacks_add": 1,
-      "unlocks_display": ["minecraft:baked_potato"],
       "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 20 }]
     },
     {
       "amount_add": 1,
-      "unlocks_display": ["minecraft:bone_meal"],
       "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 30 }]
     },
     {

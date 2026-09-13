@@ -23,7 +23,16 @@ public class FoodManager {
     // Fires at each tick listed in feeding_schedule (ticks within a 24000-tick day).
     public static void tick(Town town, ServerLevel level, long gameTime, long anchorKey) {
         if (!FoodRegistry.getFeedingSchedule().contains(gameTime % 24000)) return;
+        run(town, level, gameTime, anchorKey);
+    }
 
+    // Debug: bypasses the schedule check and runs the meal immediately.
+    public static void forceRun(Town town, ServerLevel level, long anchorKey) {
+        run(town, level, level.getGameTime(), anchorKey);
+    }
+
+    private static void run(Town town, ServerLevel level, long gameTime, long anchorKey) {
+        town.startMeal(gameTime);
         TownInventory inv = town.getTownInventory();
 
         // Resident section: compute demand and drain from resident food pool (strongest FUV first).

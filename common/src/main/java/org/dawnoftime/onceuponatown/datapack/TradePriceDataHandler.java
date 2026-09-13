@@ -16,6 +16,7 @@ import java.io.InputStreamReader;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 
 // Loads data/onceuponatown/config/trade_prices.json.
 // Defines which items can be traded at the village hub and their emerald buy/sell prices.
@@ -69,6 +70,10 @@ public class TradePriceDataHandler {
     public static int getQuantity(Item item) {
         int[] p = PRICE_MAP.get(item);
         return p != null ? p[2] : 1;
+    }
+
+    public static Set<Item> getAllPricedItems() {
+        return PRICE_MAP.keySet();
     }
 
     // Serializes the price map for client sync (embedded in hub packet).

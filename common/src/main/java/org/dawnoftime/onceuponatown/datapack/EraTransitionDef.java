@@ -8,6 +8,8 @@ import java.util.Map;
 
 public class EraTransitionDef {
     public final String id;
+    // Datapack namespace this transition belongs to (e.g. "onceuponatown", "desertculture")
+    public final String namespace;
     public final int fromEra;
     // Empty = available from any orientation
     public final String fromOrientation;
@@ -37,7 +39,7 @@ public class EraTransitionDef {
     // An entry in autoBuildSequence. count = total desired placements of defId when this position is reached.
     public record AutoBuildEntry(String defId, int count) {}
 
-    public EraTransitionDef(String id, int fromEra, String fromOrientation, String orientationLabel,
+    public EraTransitionDef(String id, String namespace, int fromEra, String fromOrientation, String orientationLabel,
                             String iconItem, List<ItemCost> resourceCost,
                             int requiredResidents, List<BuildingDef.BuildingRequirement> requiredBuildings,
                             List<String> unlockedBuildingIds, String nextOrientation,
@@ -45,6 +47,7 @@ public class EraTransitionDef {
                             Map<String, Integer> unlockNpcCounts, List<String> autoUpgradeIds,
                             List<AutoBuildEntry> autoBuildSequence, int maxUpgradeLevel) {
         this.id = id;
+        this.namespace = namespace;
         this.fromEra = fromEra;
         this.fromOrientation = fromOrientation;
         this.orientationLabel = orientationLabel;

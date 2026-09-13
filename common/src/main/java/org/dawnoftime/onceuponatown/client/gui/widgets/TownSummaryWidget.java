@@ -13,6 +13,7 @@ import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -37,7 +38,7 @@ public class TownSummaryWidget extends DraggableWidget {
     private static final int HEADER_H    = 12;
     private static final int ITEM_H      = 16;
     private static final int CELL_SIZE   = 18;
-    private static final int MAX_COLS    = 7;
+    private static final int MAX_COLS    = 9;
     private static final int PADDING     = 3;
     private static final int SCROLLBAR_W  = 6;
     private static final int TAB_BTN_W   = 26;
@@ -45,12 +46,14 @@ public class TownSummaryWidget extends DraggableWidget {
     private static final int BELL_BTN_W  = 10;
 
     private static final int COLOR_HEADER_BG   = 0xF52A2A2A;
-    private static final int COLOR_SECTION_TEXT = 0xFFAAAAFF;
-    private static final int COLOR_ORIENT_TEXT  = 0xFFEECC66;
+    private static final int COLOR_SECTION_TEXT = 0xFFFFFFFF;
+    private static final int COLOR_ORIENT_TEXT  = 0xFFFFFFFF;
     private static final int COLOR_CONTENT_BG   = 0xF51A1A1A;
 
     private static final ResourceLocation ICONS_TEXTURE =
         new ResourceLocation("onceuponatown", "textures/gui/icons.png");
+    private static final ResourceLocation TEXTURE_UPGRADE =
+        new ResourceLocation("onceuponatown", "textures/gui/town_upgrade.png");
 
     private static final String[] TAB_LABELS = {"Info", "Log"};
 
@@ -77,9 +80,13 @@ public class TownSummaryWidget extends DraggableWidget {
     // Activity log entries: newest first (index 0 = most recent)
     private final ArrayDeque<TownLogEntry> logEntries = new ArrayDeque<>();
 
-    private enum RowType { WORKERS_ROW, ITEM, SECTION_HEADER, PROD_GRID, TRANSFORM_GRID }
-    private record Row(ItemStack icon, Component text, RowType type, List<Component> tooltip) {
-        Row(ItemStack icon, Component text, RowType type) { this(icon, text, type, null); }
+    private enum RowType { WORKERS_ROW, ITEM, SECTION_HEADER, PROD_GRID, TRANSFORM_GRID, LOG_LINE }
+    private record Row(ItemStack icon, Component text, RowType type, List<Component> tooltip, FormattedCharSequence fcs, ResourceLocation tex, int texU, int texV, int texW, int texH) {
+        Row(ItemStack icon, Component text, RowType type) { this(icon, text, type, null, null, null, 0, 0, 16, 16); }
+        Row(ItemStack icon, Component text, RowType type, List<Component> tooltip) { this(icon, text, type, tooltip, null, null, 0, 0, 16, 16); }
+        Row(FormattedCharSequence fcs) { this(null, null, RowType.LOG_LINE, null, fcs, null, 0, 0, 16, 16); }
+        Row(ResourceLocation tex, int texU, int texV, Component text, RowType type, List<Component> tooltip) { this(null, text, type, tooltip, null, tex, texU, texV, 16, 16); }
+        Row(ResourceLocation tex, int texU, int texV, int texW, int texH, Component text, RowType type, List<Component> tooltip) { this(null, text, type, tooltip, null, tex, texU, texV, texW, texH); }
     }
 
     // Grid cells for production and transformation sections
@@ -153,9 +160,9 @@ public class TownSummaryWidget extends DraggableWidget {
             boolean hover = mouseX >= bx && mouseX < bx + TAB_BTN_W
                          && mouseY >= y  && mouseY < y + TITLE_BAR_H;
             boolean isActive = active[i];
-            int bg = isActive ? (hover ? 0xFF2A5A2A : 0xFF224422)
+            int bg = isActive ? (hover ? 0xFF4A4A4A : 0xFF3A3A3A)
                               : (hover ? 0xFF444444 : 0xFF333333);
-            int fg = isActive ? 0xFFAAFFAA : 0xFF888888;
+            int fg = isActive ? 0xFFEEEEEE : 0xFF888888;
             g.fill(bx, y + 1, bx + TAB_BTN_W, y + TITLE_BAR_H - 1, bg);
             String label = TAB_LABELS[i];
             int textX = bx + (TAB_BTN_W - font.width(label)) / 2;
@@ -166,10 +173,7 @@ public class TownSummaryWidget extends DraggableWidget {
         int bbx = bellBtnX();
         boolean bellHover = mouseX >= bbx && mouseX < bbx + BELL_BTN_W
                          && mouseY >= y   && mouseY < y + TITLE_BAR_H;
-        int bellBg = chatBroadcastEnabled ? (bellHover ? 0xFF5A4A00 : 0xFF443300)
-                                          : (bellHover ? 0xFF444444 : 0xFF333333);
-        g.fill(bbx, y + 1, bbx + BELL_BTN_W, y + TITLE_BAR_H - 1, bellBg);
-        int bellColor = chatBroadcastEnabled ? 0xFFFFAA00 : 0xFF666666;
+        int bellColor = chatBroadcastEnabled ? 0xFFFFAA00 : (bellHover ? 0xFFCCCCCC : 0xFFAAAAAA);
         drawBellIcon(g, bbx, bellColor);
     }
 
@@ -252,8 +256,12 @@ public class TownSummaryWidget extends DraggableWidget {
             if (logEntries.isEmpty()) {
                 rows.add(new Row(null, Component.literal("No activity yet.").withStyle(s -> s.withColor(0xFF888888)), RowType.ITEM));
             } else {
+                var font = Minecraft.getInstance().font;
+                int wrapWidth = WIDGET_W - SCROLLBAR_W - 8;
                 for (TownLogEntry e : logEntries) {
-                    rows.add(new Row(null, e.toComponent(), RowType.ITEM));
+                    for (FormattedCharSequence line : font.split(e.toComponent(), wrapWidth)) {
+                        rows.add(new Row(line));
+                    }
                 }
             }
             totalH = PADDING;
@@ -275,43 +283,31 @@ public class TownSummaryWidget extends DraggableWidget {
             RowType.ITEM));
 
         if (totalResidents > 0) {
-            int resColor = activeResidents >= totalResidents ? 0xFF55FF55
-                         : activeResidents * 2 >= totalResidents ? 0xFFFFAA00
-                         : 0xFFFF5555;
-            Item egg = BuiltInRegistries.ITEM.get(new ResourceLocation("minecraft:villager_spawn_egg"));
-            MutableComponent txt = Component.literal("Residents: ")
-                .withStyle(s -> s.withColor(0xFFCCCCCC))
-                .append(Component.literal(String.valueOf(activeResidents)).withStyle(s -> s.withColor(resColor)))
-                .append(Component.literal(" / " + totalResidents).withStyle(s -> s.withColor(0xFFCCCCCC)));
+            MutableComponent txt = Component.literal("Residents: " + activeResidents + "/" + totalResidents)
+                .withStyle(s -> s.withColor(0xFFCCCCCC));
             List<Component> resTooltip = List.of(
                 Component.literal("Buildings increase the total number of").withStyle(s -> s.withColor(0xFFFFFFFF)),
                 Component.literal("residents. The active count updates").withStyle(s -> s.withColor(0xFFFFFFFF)),
                 Component.literal("each time the village is fed.").withStyle(s -> s.withColor(0xFFFFFFFF))
             );
-            rows.add(new Row(new ItemStack(egg), txt, RowType.ITEM, resTooltip));
+            rows.add(new Row(ICONS_TEXTURE, 16, 64, txt, RowType.ITEM, resTooltip));
         }
 
         if (totalHerd > 0) {
-            int herdColor = activeHerd >= totalHerd ? 0xFF55FF55
-                          : activeHerd * 2 >= totalHerd ? 0xFFFFAA00
-                          : 0xFFFF5555;
-            Item pig = BuiltInRegistries.ITEM.get(new ResourceLocation("minecraft:pig_spawn_egg"));
-            MutableComponent txt = Component.literal("Herd: ")
-                .withStyle(s -> s.withColor(0xFFCCCCCC))
-                .append(Component.literal(String.valueOf(activeHerd)).withStyle(s -> s.withColor(herdColor)))
-                .append(Component.literal(" / " + totalHerd).withStyle(s -> s.withColor(0xFFCCCCCC)));
+            MutableComponent txt = Component.literal("Herds: " + activeHerd + "/" + totalHerd)
+                .withStyle(s -> s.withColor(0xFFCCCCCC));
             List<Component> herdTooltip = List.of(
                 Component.literal("Buildings increase the total size of the").withStyle(s -> s.withColor(0xFFFFFFFF)),
                 Component.literal("herd. The active count updates each time").withStyle(s -> s.withColor(0xFFFFFFFF)),
                 Component.literal("the village has food they can consume.").withStyle(s -> s.withColor(0xFFFFFFFF))
             );
-            rows.add(new Row(new ItemStack(pig), txt, RowType.ITEM, herdTooltip));
+            rows.add(new Row(ICONS_TEXTURE, 0, 64, txt, RowType.ITEM, herdTooltip));
         }
 
         if (totalFoodDemand > 0) {
-            rows.add(new Row(new ItemStack(Items.BREAD),
-                Component.literal(totalFoodDemand + " food units / day").withStyle(s -> s.withColor(0xFFDDDDDD)),
-                RowType.ITEM));
+            rows.add(new Row(ICONS_TEXTURE, 36, 68, 8, 8,
+                Component.literal("Food units: " + totalFoodDemand + "/day").withStyle(s -> s.withColor(0xFFDDDDDD)),
+                RowType.ITEM, null));
         }
 
         ListTag workersTag = summaryData.getList("Workers", Tag.TAG_COMPOUND);
@@ -372,7 +368,7 @@ public class TownSummaryWidget extends DraggableWidget {
         }
 
         if (!prodData.isEmpty() || !lockedProdData.isEmpty()) {
-            rows.add(new Row(null, Component.literal("Produces / min").withStyle(s -> s.withColor(COLOR_SECTION_TEXT)), RowType.SECTION_HEADER));
+            rows.add(new Row(null, Component.literal("Produces/min").withStyle(s -> s.withColor(COLOR_SECTION_TEXT)), RowType.SECTION_HEADER));
             rows.add(new Row(null, null, RowType.PROD_GRID));
             Set<String> sortedProd = new LinkedHashSet<>();
             for (String id : TRADE_PRICE_ORDER) { if (prodData.containsKey(id)) sortedProd.add(id); }
@@ -395,7 +391,7 @@ public class TownSummaryWidget extends DraggableWidget {
         }
 
         if (!transforms.isEmpty() || !lockedTransforms.isEmpty()) {
-            rows.add(new Row(null, Component.literal("Transforms / min").withStyle(s -> s.withColor(COLOR_SECTION_TEXT)), RowType.SECTION_HEADER));
+            rows.add(new Row(null, Component.literal("Transforms/min").withStyle(s -> s.withColor(COLOR_SECTION_TEXT)), RowType.SECTION_HEADER));
             rows.add(new Row(null, null, RowType.TRANSFORM_GRID));
             Set<String> sortedTransforms = new LinkedHashSet<>();
             for (String id : TRADE_PRICE_ORDER) { if (transforms.containsKey(id)) sortedTransforms.add(id); }
@@ -435,7 +431,7 @@ public class TownSummaryWidget extends DraggableWidget {
             case SECTION_HEADER -> HEADER_H;
             case PROD_GRID      -> gridHeight(productionCells.size());
             case TRANSFORM_GRID -> gridHeight(transformCells.size());
-            case ITEM           -> ITEM_H;
+            case ITEM, LOG_LINE -> ITEM_H;
         };
     }
 
@@ -474,7 +470,12 @@ public class TownSummaryWidget extends DraggableWidget {
                     case PROD_GRID      -> renderGrid(g, productionCells, cx, rowY, contentW, mx, my);
                     case TRANSFORM_GRID -> renderGrid(g, transformCells,  cx, rowY, contentW, mx, my);
                     case ITEM           -> {
-                        if (row.icon() != null && !row.icon().isEmpty()) {
+                        if (row.tex() != null) {
+                            int dw = row.texW(), dh = row.texH();
+                            int offX = (16 - dw) / 2, offY = (16 - dh) / 2;
+                            g.blit(row.tex(), cx + 2 + offX, rowY + offY, dw, dh, (float) row.texU(), (float) row.texV(), dw, dh, 128, 128);
+                            g.drawString(font, row.text(), cx + 20, rowY + 4, 0xFFFFFFFF, false);
+                        } else if (row.icon() != null && !row.icon().isEmpty()) {
                             g.renderFakeItem(row.icon(), cx + 2, rowY);
                             g.drawString(font, row.text(), cx + 20, rowY + 4, 0xFFFFFFFF, false);
                         } else {
@@ -486,6 +487,11 @@ public class TownSummaryWidget extends DraggableWidget {
                             pendingTooltipLines = row.tooltip();
                             pendingTooltipX = mx;
                             pendingTooltipY = my;
+                        }
+                    }
+                    case LOG_LINE -> {
+                        if (row.fcs() != null) {
+                            g.drawString(font, row.fcs(), cx + 4, rowY + 2, 0xFFFFFFFF, false);
                         }
                     }
                 }
@@ -547,6 +553,19 @@ public class TownSummaryWidget extends DraggableWidget {
         }
     }
 
+    private static float[] jobIconUV(String jobId) {
+        return switch (jobId) {
+            case "swineherd", "cowherd" -> new float[]{48f, 48f};
+            case "beekeeper"            -> new float[]{0f,  48f};
+            case "lumberjack"           -> new float[]{16f, 48f};
+            case "shepherd"             -> new float[]{32f, 48f};
+            case "builder"              -> new float[]{48f, 32f};
+            case "merchant"             -> new float[]{64f, 16f};
+            case "miner"                -> new float[]{64f, 0f};
+            default                     -> new float[]{48f, 48f};
+        };
+    }
+
     private void renderWorkersRow(GuiGraphics g, int cx, int rowY, int mx, int my) {
         for (int i = 0; i < workerEntries.size(); i++) {
             int col   = i % MAX_COLS;
@@ -566,9 +585,10 @@ public class TownSummaryWidget extends DraggableWidget {
                 pendingTooltipX = mx;
                 pendingTooltipY = my;
             }
+            float[] uv = jobIconUV(workerEntries.get(i).jobId());
             RenderSystem.enableBlend();
             RenderSystem.defaultBlendFunc();
-            g.blit(ICONS_TEXTURE, iconX, iconY, 16, 16, 48f, 0f, 16, 16, 64, 64);
+            g.blit(ICONS_TEXTURE, iconX, iconY, 16, 16, uv[0], uv[1], 16, 16, 128, 128);
             RenderSystem.disableBlend();
         }
     }

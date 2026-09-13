@@ -1,0 +1,60 @@
+{
+  "id": "market",
+  "nbt": "onceuponatown:plains/jobs/market",
+  "entry_pool": "onceuponatown:jobs",
+  "icon_item": "minecraft:emerald",
+  "category": "jobs",
+  "weight": 4,
+  "spawns_npc": "merchant",
+
+  "required_residents": 6,
+
+  "construction_cost": [
+    {
+      "item": "minecraft:oak_log",
+      "amount": 35
+    },
+    {
+      "item": "minecraft:cobblestone",
+      "amount": 10
+    }
+  ],
+
+  "upgrades": [
+    {
+      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 20 }],
+      "price_discount_add": 0.05
+    },
+    {
+      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 30 }],
+      "trade_slots_add": 1
+    },
+    {
+      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 40 }],
+      "trade_slots_add": 1,
+      "price_discount_add": 0.05
+    },
+    {
+      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 60 }],
+      "trade_slots_add": 1
+    },
+    {
+      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 80 }],
+      "price_discount_add": 0.05
+    },
+    {
+      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 100 }],
+      "trade_slots_add": 1,
+      "price_discount_add": 0.05
+    }
+  ],
+
+  "nbt_levels": [
+    "onceuponatown:plains/jobs/market_lvl1",
+    "onceuponatown:plains/jobs/market_lvl2",
+    "onceuponatown:plains/jobs/market_lvl3",
+    "onceuponatown:plains/jobs/market_lvl4",
+    "onceuponatown:plains/jobs/market_lvl5",
+    "onceuponatown:plains/jobs/market_lvl6"
+  ]
+}

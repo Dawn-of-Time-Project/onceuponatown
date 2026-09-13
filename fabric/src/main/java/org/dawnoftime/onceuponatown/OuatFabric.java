@@ -14,6 +14,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.BlockItem;
 import org.dawnoftime.onceuponatown.command.TownCommand;
 import org.dawnoftime.onceuponatown.datapack.BeekeeperConfigDataHandler;
+import org.dawnoftime.onceuponatown.datapack.MerchantConfigDataHandler;
 import org.dawnoftime.onceuponatown.datapack.BuilderConfigDataHandler;
 import org.dawnoftime.onceuponatown.datapack.BuildingDataHandler;
 import org.dawnoftime.onceuponatown.datapack.LumberjackConfigDataHandler;
@@ -30,6 +31,7 @@ import org.dawnoftime.onceuponatown.entity.Npc;
 
 import org.dawnoftime.onceuponatown.network.C2SSelectEraPathPacket;
 import org.dawnoftime.onceuponatown.network.C2SBuyPacket;
+import org.dawnoftime.onceuponatown.network.C2SCancelContractPacket;
 import org.dawnoftime.onceuponatown.network.C2SDepositPacket;
 import org.dawnoftime.onceuponatown.network.C2SContributeQuestPacket;
 import org.dawnoftime.onceuponatown.network.C2SVerifyClearancePacket;
@@ -39,6 +41,7 @@ import org.dawnoftime.onceuponatown.network.C2SRequestNbtPacket;
 import org.dawnoftime.onceuponatown.network.C2SRequestStockPacket;
 import org.dawnoftime.onceuponatown.network.C2SToggleChatBroadcastPacket;
 import org.dawnoftime.onceuponatown.network.C2SUpgradeBuildingPacket;
+import org.dawnoftime.onceuponatown.network.C2SClaimMedalPacket;
 import org.dawnoftime.onceuponatown.network.C2SRepairBuildingPacket;
 import org.dawnoftime.onceuponatown.network.S2CBuildingDefsPacket;
 import org.dawnoftime.onceuponatown.network.S2CBuildingListPacket;
@@ -68,10 +71,17 @@ public class OuatFabric implements ModInitializer {
         ItemRegistry.TOWN_ANCHOR = Registry.register(BuiltInRegistries.ITEM,
             Ouat.modResource("town_anchor"),
             new BlockItem(BlockRegistry.TOWN_ANCHOR, new net.minecraft.world.item.Item.Properties()));
+        ItemRegistry.COMMERCE_CONTRACT = Registry.register(BuiltInRegistries.ITEM,
+            Ouat.modResource("commerce_contract"),
+            new org.dawnoftime.onceuponatown.item.CommerceContractItem(new net.minecraft.world.item.Item.Properties().stacksTo(1)));
+        ItemRegistry.RECOGNITION_MEDAL = Registry.register(BuiltInRegistries.ITEM,
+            Ouat.modResource("recognition_medal"),
+            new org.dawnoftime.onceuponatown.item.RecognitionMedalItem(new net.minecraft.world.item.Item.Properties().stacksTo(1)));
         FabricDefaultAttributeRegistry.register(EntityRegistry.NPC, Npc.createAttributes());
         CommandRegistrationCallback.EVENT.register((dispatcher, context, env) ->
             TownCommand.register(dispatcher, context));
         ServerLifecycleEvents.SERVER_STARTING.register(BeekeeperConfigDataHandler::reload);
+        ServerLifecycleEvents.SERVER_STARTING.register(MerchantConfigDataHandler::reload);
         ServerLifecycleEvents.SERVER_STARTING.register(BuilderConfigDataHandler::reload);
         ServerLifecycleEvents.SERVER_STARTING.register(CowHerdConfigDataHandler::reload);
         ServerLifecycleEvents.SERVER_STARTING.register(LumberjackConfigDataHandler::reload);
@@ -114,6 +124,16 @@ public class OuatFabric implements ModInitializer {
             (server, player, handler, buf, responseSender) -> {
                 C2SDepositPacket packet = C2SDepositPacket.decode(buf);
                 server.execute(() -> C2SDepositPacket.Handler.handle(packet, player));
+            });
+        ServerPlayNetworking.registerGlobalReceiver(C2SClaimMedalPacket.ID,
+            (server, player, handler, buf, responseSender) -> {
+                C2SClaimMedalPacket packet = C2SClaimMedalPacket.decode(buf);
+                server.execute(() -> C2SClaimMedalPacket.Handler.handle(packet, player));
+            });
+        ServerPlayNetworking.registerGlobalReceiver(C2SCancelContractPacket.ID,
+            (server, player, handler, buf, responseSender) -> {
+                C2SCancelContractPacket packet = C2SCancelContractPacket.decode(buf);
+                server.execute(() -> C2SCancelContractPacket.Handler.handle(packet, player));
             });
         ServerPlayNetworking.registerGlobalReceiver(C2SContributeQuestPacket.ID,
             (server, player, handler, buf, responseSender) -> {

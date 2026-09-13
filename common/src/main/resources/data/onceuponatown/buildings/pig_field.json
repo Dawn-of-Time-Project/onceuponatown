@@ -5,6 +5,7 @@
   "icon_item": "minecraft:porkchop",
   "category": "jobs",
   "weight": 2,
+  "signature": true,
 
   "herd": 2,
   "required_buildings": [

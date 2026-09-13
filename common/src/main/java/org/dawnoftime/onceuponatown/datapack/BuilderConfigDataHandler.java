@@ -89,7 +89,8 @@ public class BuilderConfigDataHandler {
                         obj.get("requiredBuilding").getAsString(),
                         obj.get("heldItem").getAsString(),
                         AnimationType.valueOf(obj.get("animationType").getAsString()),
-                        obj.has("target_block") ? obj.get("target_block").getAsString() : null
+                        obj.has("target_block") ? obj.get("target_block").getAsString() : null,
+                        JobConfigParser.parseStringList(obj, "productionBuildings")
                     ));
                 }
             }

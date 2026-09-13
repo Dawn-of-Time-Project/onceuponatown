@@ -11,6 +11,8 @@
     { "item": "minecraft:cooked_beef",     "fuv": 2 },
     { "item": "minecraft:cooked_mutton",   "fuv": 2 },
     { "item": "minecraft:cooked_porkchop", "fuv": 2 },
+    { "item": "minecraft:cooked_salmon",   "fuv": 2 },
+    { "item": "minecraft:cooked_cod",      "fuv": 2 },
     { "item": "minecraft:baked_potato",    "fuv": 2 },
     { "item": "minecraft:bread",           "fuv": 2 }
   ],

@@ -22,9 +22,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
+import org.jetbrains.annotations.Nullable;
+
 import java.util.ArrayDeque;
 import java.util.Optional;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -33,6 +36,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 public class Town {
 
@@ -65,6 +69,22 @@ public class Town {
     // Monotonically increasing counter stamped onto each ConnectionPoint when added to freeConnections.
     // Allows sorting by insertion age: lower = older = closer to the village center.
     private long cpInsertionCounter = 0;
+
+    // Active commerce contract: virtual production entries that tick like a real building.
+    @Nullable
+    private List<ContractEntry> activeContract = null;
+    private final Map<Item, Integer> contractStock = new HashMap<>();
+
+    private boolean medalClaimed = false;
+    @Nullable private Set<String> depositedMedalIds = null;
+
+    public record MedalSnapshot(String namespace, Set<String> unlockedIds) {}
+
+    public record SignatureBuildingProgress(
+        String defId, String iconItem,
+        boolean accessible,
+        boolean built, int currentLevel, int maxLevel, boolean maxed
+    ) {}
 
     public Town() {
     }
@@ -124,6 +144,11 @@ public class Town {
     // Reset when a new CP is added so the message can fire again if the village hits zero a second time.
     private boolean villageFullNotified = false;
 
+    // Transient meal state: set by FoodManager when the feeding schedule fires. Not persisted.
+    private static final int MEAL_DURATION_TICKS = 1200;
+    private boolean mealActive = false;
+    private long mealStartGameTime = 0L;
+
     public void addFreeConnection(ConnectionPoint point) {
         freeConnections.add(new ConnectionPoint(point.pos(), point.direction(), point.targetName(), cpInsertionCounter++));
         villageFullNotified = false;
@@ -176,9 +201,61 @@ public class Town {
     public int getCurrentEra()                              { return eraState.getCurrentEra(); }
     public String getCurrentEraPath()                       { return eraState.getCurrentEraPath(); }
     public String getCurrentOrientation()                   { return eraState.getCurrentOrientation(); }
+    public String getCultureNamespace()                     { return eraState.getCultureNamespace(); }
     public Set<String> getUnlockedBuildingIds()             { return eraState.getUnlockedBuildingIds(); }
+    public void addUnlockedBuildingIds(Collection<String> ids) { eraState.addUnlockedBuildingIds(ids); }
     public int getCurrentMaxWeight()                        { return eraState.getCurrentMaxWeight(); }
     public int getCurrentMaxUpgradeLevel()                  { return eraState.getCurrentMaxUpgradeLevel(); }
+
+    public boolean isMedalClaimed()               { return medalClaimed; }
+    public boolean isMedalReceived()              { return depositedMedalIds != null; }
+    public @Nullable Set<String> getDepositedMedalIds() { return depositedMedalIds; }
+    public void receiveMedal(Set<String> ids)     { this.depositedMedalIds = new HashSet<>(ids); }
+
+    public MedalSnapshot claimMedal() {
+        medalClaimed = true;
+        Set<String> maxedIds = buildings.stream()
+            .filter(b -> {
+                Optional<BuildingDef> def = BuildingDataHandler.get(b.defId);
+                if (def.isEmpty() || !def.get().signature) return false;
+                int maxLevel = Math.max(def.get().upgrades.size(), def.get().nbtLevels.size());
+                return maxLevel == 0 || b.getUpgradeLevel() >= maxLevel;
+            })
+            .map(b -> b.defId)
+            .collect(Collectors.toSet());
+        return new MedalSnapshot(eraState.getCultureNamespace(), maxedIds);
+    }
+
+    public List<SignatureBuildingProgress> getSignatureBuildingProgress() {
+        String ns = eraState.getCultureNamespace();
+        int currentEra = eraState.getCurrentEra();
+        Set<String> unlocked = eraState.getUnlockedBuildingIds();
+
+        Set<String> reachableFuture = new HashSet<>();
+        for (EraTransitionDef t : EraTransitionDataHandler.getAll()) {
+            if (!t.namespace.equals(ns)) continue;
+            if (t.fromEra < currentEra) continue;
+            reachableFuture.addAll(t.unlockedBuildingIds);
+        }
+
+        Set<String> visible = new HashSet<>(unlocked);
+        visible.addAll(reachableFuture);
+
+        return BuildingDataHandler.getAll(ns).stream()
+            .filter(def -> def.signature && visible.contains(def.id))
+            .map(def -> {
+                int maxLevel = Math.max(def.upgrades.size(), def.nbtLevels.size());
+                int current = buildings.stream()
+                    .filter(b -> b.defId.equals(def.id))
+                    .mapToInt(PlacedBuilding::getUpgradeLevel)
+                    .findFirst().orElse(-1);
+                boolean built = current >= 0;
+                boolean accessible = unlocked.contains(def.id) || built;
+                boolean maxed = built && (maxLevel == 0 || current >= maxLevel);
+                return new SignatureBuildingProgress(def.id, def.iconItem, accessible, built, current, maxLevel, maxed);
+            })
+            .toList();
+    }
     public List<BoundingBox> getBlockedZones()              { return Collections.unmodifiableList(blockedZones); }
     public boolean isUnderUpgrade(BlockPos pos)             { return underUpgrade.contains(pos); }
     // Derives orientation from the placed starter building if not already set (world gen path),
@@ -249,9 +326,35 @@ public class Town {
         buildings.get(buildings.size() - 1).setInstanceProductionMultiplier(era.boostMultiplier);
     }
 
-    // Computed aggregate view: buildings + floating reserve
+    // Computed aggregate view: buildings + floating reserve + contract stock
     public TownInventory getTownInventory() {
-        return new TownInventory(buildings, reserveStock);
+        return new TownInventory(buildings, reserveStock, this);
+    }
+
+    public @Nullable List<ContractEntry> getActiveContract() { return activeContract; }
+
+    public void setActiveContract(List<ContractEntry> entries) {
+        this.activeContract = entries;
+        this.contractStock.clear();
+    }
+
+    public void clearContract() {
+        this.activeContract = null;
+        contractStock.forEach((item, amount) -> reserveStock.merge(item, amount, Integer::sum));
+        this.contractStock.clear();
+    }
+
+    public Map<Item, Integer> getContractStock() { return contractStock; }
+
+    public void addContractStock(Item item, int amount) {
+        contractStock.merge(item, amount, Integer::sum);
+    }
+
+    public void removeContractStock(Item item, int amount) {
+        int current = contractStock.getOrDefault(item, 0);
+        int remaining = current - amount;
+        if (remaining <= 0) contractStock.remove(item);
+        else contractStock.put(item, remaining);
     }
 
     // Player command injection - into first building if available, otherwise into reserve
@@ -627,6 +730,23 @@ public class Town {
     public int getActiveResidents()         { return eraState.getActiveResidents(); }
     public void setActiveResidents(int v)   { eraState.setActiveResidents(v); }
 
+    public void startMeal(long gameTime) {
+        mealActive = true;
+        mealStartGameTime = gameTime;
+    }
+
+    public boolean isMealTime(long gameTime) {
+        return mealActive && (gameTime - mealStartGameTime < MEAL_DURATION_TICKS);
+    }
+
+    // Per-NPC variant: the NPC enters eating only after startOffset ticks have elapsed,
+    // and exits eating endOffset ticks before the window closes.
+    public boolean isMealTimeFor(long gameTime, int startOffset, int endOffset) {
+        if (!mealActive) return false;
+        long elapsed = gameTime - mealStartGameTime;
+        return elapsed >= startOffset && elapsed < (MEAL_DURATION_TICKS - endOffset);
+    }
+
     // Returns true if all prerequisites of the given def are currently satisfied.
     // Uses activeResidents (fed population) instead of total residents.
     public boolean meetsPrerequisites(BuildingDef def) {
@@ -800,6 +920,22 @@ public class Town {
             tag.put("ChatSubscribers", subsTag);
         }
         tag.putLong("CpInsertionCounter", cpInsertionCounter);
+        if (activeContract != null) {
+            ListTag contractList = new ListTag();
+            for (ContractEntry e : activeContract) contractList.add(e.toNbt());
+            tag.put("ActiveContract", contractList);
+
+            CompoundTag cStock = new CompoundTag();
+            contractStock.forEach((item, count) ->
+                cStock.putInt(BuiltInRegistries.ITEM.getKey(item).toString(), count));
+            tag.put("ContractStock", cStock);
+        }
+        if (medalClaimed) tag.putBoolean("MedalClaimed", true);
+        if (depositedMedalIds != null) {
+            ListTag medalList = new ListTag();
+            for (String id : depositedMedalIds) medalList.add(StringTag.valueOf(id));
+            tag.put("MedalReceivedIds", medalList);
+        }
         return tag;
     }
 
@@ -858,6 +994,30 @@ public class Town {
                 try { town.chatSubscribers.add(UUID.fromString(t.getAsString())); }
                 catch (IllegalArgumentException ignored) {}
             });
+        }
+        if (tag.contains("ActiveContract")) {
+            ListTag contractList = tag.getList("ActiveContract", Tag.TAG_COMPOUND);
+            List<ContractEntry> entries = new ArrayList<>();
+            for (int i = 0; i < contractList.size(); i++)
+                entries.add(ContractEntry.fromNbt(contractList.getCompound(i)));
+            town.activeContract = entries;
+        }
+        if (tag.contains("ContractStock")) {
+            CompoundTag cStock = tag.getCompound("ContractStock");
+            for (String key : cStock.getAllKeys()) {
+                Item item = BuiltInRegistries.ITEM.get(new ResourceLocation(key));
+                if (item != null) town.contractStock.put(item, cStock.getInt(key));
+            }
+        }
+        if (tag.contains("MedalClaimed")) town.medalClaimed = tag.getBoolean("MedalClaimed");
+        if (tag.contains("MedalReceivedIds")) {
+            ListTag medalList = tag.getList("MedalReceivedIds", Tag.TAG_STRING);
+            Set<String> ids = new HashSet<>();
+            for (int i = 0; i < medalList.size(); i++) ids.add(medalList.getString(i));
+            town.depositedMedalIds = ids;
+        } else if (tag.getBoolean("MedalReceived")) {
+            // Backwards compat: old saves had boolean only, no IDs stored
+            town.depositedMedalIds = new HashSet<>();
         }
         return town;
     }

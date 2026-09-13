@@ -1,4 +1,8 @@
 {
+  "block.onceuponatown.town_anchor": "Town Anchor",
+  "item.onceuponatown.commerce_contract": "Commerce Contract",
+  "item.onceuponatown.recognition_medal": "Recognition Medal",
+
   "onceuponatown.log.build_start": "Starting %s...",
   "onceuponatown.log.build_done": "%s built",
   "onceuponatown.log.upgrade_start": "Upgrading %s...",
@@ -17,6 +21,9 @@
   "onceuponatown.job.miner": "Miner",
   "onceuponatown.job.cowherd": "Cowherd",
   "onceuponatown.job.swineherd": "Swineherd",
+  "onceuponatown.job.merchant": "Merchant",
+
+  "entity.onceuponatown.merchant": "Merchant",
 
   "onceuponatown.tab.stock": "Stock",
   "onceuponatown.tab.construction": "Construction",
@@ -66,6 +73,9 @@
   "onceuponatown.building.wild_stone.description": "A natural stone deposit that slowly yields cobblestone.",
   "onceuponatown.building.stone_breach": "Stone breach",
   "onceuponatown.building.stone_breach.description": "A basic quarry site with a resident miner who chips away at exposed rock. Produces cobblestone steadily from the very first era.",
+  "onceuponatown.building.mine": "Mine",
+  "onceuponatown.building.mine.description": "A key building for a decent cobblestone production. Unlock a miner that will dig deeper over time.",
+
   "onceuponatown.building.open_mine": "Open Mine",
   "onceuponatown.building.open_mine.description": "A large open-pit mine with a resident miner. Produces cobblestone, granite, andesite, diorite and tuff. Unlocks gravel, flint and eventually coal at higher upgrade levels.",
 
@@ -116,7 +126,7 @@
   "onceuponatown.building.lake": "Lake",
   "onceuponatown.building.lake.description": "A small lake. Perfect for those who wanders.",
   "onceuponatown.building.fisherman": "Fisherman",
-  "onceuponatown.building.fisherman.description": "A fisherman's dock with a resident fisherman. Produces cod from the nearby lakes, and unlocks salmon and fish cooking with charcoal at higher upgrade levels.",
+  "onceuponatown.building.fisherman.description": "A fisherman's dock that produces cod from the nearby lakes, and unlocks salmon and fish cooking with charcoal at higher upgrade levels.",
 
   "onceuponatown.building.oven": "Oven",
   "onceuponatown.building.oven.description": "A stone oven that burns oak logs into charcoal, cooks all types of meat and potatoes, and crafts torches.",
@@ -124,21 +134,23 @@
   "onceuponatown.building.kitchen.description": "A fully equipped kitchen that cooks pork, mutton, beef, bakes potatoes and bakes bread. A central production hub for all cooked food.",
 
   "onceuponatown.building.granary": "Granary",
-  "onceuponatown.building.granary.description": "A large grain storage building that increases the village's overall stock capacity. Upgrade it to store more resources across the board.",
+  "onceuponatown.building.granary.description": "A simple grain storage building that increases the village's overall stock capacity. Upgrade it to store more resources across the board.",
 
   "onceuponatown.building.wild_spot": "Wild spot",
-  "onceuponatown.building.wild_spot.description": "A wild meadow that adds a natural touch to the village. Grants a production bonus to all buildings. Requires 2 active residents to activates.",
+  "onceuponatown.building.wild_spot.description": "A wild meadow that adds a natural touch to the village. Grants a production bonus to all buildings.",
   "onceuponatown.building.well": "Well",
-  "onceuponatown.building.well.description": "A stone well that brings water to the village. Grants a production bonus to all buildings. Requires 2 active residents to activates.",
+  "onceuponatown.building.well.description": "A stone well that brings water to the village. Grants a production bonus to all buildings.",
   "onceuponatown.building.lone_place": "Lone place",
-  "onceuponatown.building.lone_place.description": "A small public square that brings life to the village center. Grants a production bonus to all buildings. Requires 5 active residents to activates.",
+  "onceuponatown.building.lone_place.description": "A small public square that brings life to the village center. Grants a production bonus to all buildings.",
   "onceuponatown.building.lone_garden": "Lone garden",
-  "onceuponatown.building.lone_garden.description": "A flourishing garden that brightens the village. Grants a production bonus to all buildings. Requires 12 active residents to activates.",
+  "onceuponatown.building.lone_garden.description": "A flourishing garden that brightens the village. Grants a production bonus to all buildings.",
   "onceuponatown.building.fountain_place": "Fountain place",
-  "onceuponatown.building.fountain_place.description": "A decorative fountain. Grants a bonus production bonus to all buildings. Requires 10 active residents to activates.",
+  "onceuponatown.building.fountain_place.description": "A decorative fountain. Grants a bonus production bonus to all buildings.",
 
   "onceuponatown.building.merchant_shop": "Merchant shop",
-  "onceuponatown.building.merchant_shop.description": "A merchant's shop that sells all kind of goods. Requires at least 5 active residents.",
+  "onceuponatown.building.merchant_shop.description": "A merchant's shop that sells all kind of goods.",
+  "onceuponatown.building.market": "Market",
+  "onceuponatown.building.market.description": "The villagers will gather here to sell or buy goods. Unlocks a merchant that will sell you a commercial contract to send resources to another place.",
 
   "onceuponatown.building.brownfield": "Brownfield",
   "onceuponatown.building.brownfield.description": "An empty 14x14 plot of cleared land. The village leaves it completely untouched. The perfect place for a player to settle on.",
@@ -158,8 +170,6 @@
   "onceuponatown.building.street_11": "Street",
   "onceuponatown.building.street_12": "Street",
   "onceuponatown.building.street_13": "Street",
-
-  "block.onceuponatown.town_anchor": "Town Anchor",
 
   "onceuponatown.quest.claim": "Contribute",
   "onceuponatown.quest.verify": "Verify",

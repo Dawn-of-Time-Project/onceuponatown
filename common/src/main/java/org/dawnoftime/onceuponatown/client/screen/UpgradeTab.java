@@ -22,6 +22,8 @@ class UpgradeTab {
 
     private static final ResourceLocation ICONS_TEXTURE =
         new ResourceLocation(Ouat.MOD_ID, "textures/gui/icons.png");
+    private static final ResourceLocation TEXTURE_UPGRADE =
+        new ResourceLocation(Ouat.MOD_ID, "textures/gui/town_upgrade.png");
 
     private static final int PANEL_W           = 176;
     private static final int AVAIL_GRID_Y_ROW0 = 140;
@@ -63,24 +65,27 @@ class UpgradeTab {
                 boolean pending = isUpgradePending(sel, ctx.constructionQueue());
                 boolean canAfford = !atMax && !pending && !isTownCenter && !eraLocked && canAffordUpgrade(sel, defEntry, ctx.stockSnapshot());
 
-                int btnW = 46;
-                int btnX = leftPos + QUEUE_GRID_X + (AVAIL_COLS * CELL) - 2 - btnW;
-                int btnY = topPos + 126;
-                int btnH = 11;
+                int btnW = 37;
+                int btnX = leftPos + QUEUE_GRID_X + (AVAIL_COLS * CELL) - 2 - btnW + 1;
+                int btnY = topPos + 127;
+                int btnH = 10;
                 boolean btnActive = !atMax && !pending && !isTownCenter && !eraLocked;
                 boolean btnHover = btnActive && mx >= btnX && mx < btnX + btnW && my >= btnY && my < btnY + btnH;
 
-                boolean showGhost    = btnHover || pending;
+                boolean showGhost   = btnHover || pending;
                 boolean ghostAfford = pending || canAfford;
                 renderUpgradeGaugeBars(g, leftPos, topPos, sel, defEntry, showGhost, ghostAfford, ctx.font());
 
                 if (!atMax && !pending) renderUnlockRow(g, leftPos, topPos, mx, my, sel, defEntry, ctx.buildingCatalog(), ctx.font());
 
-                int btnColor = (atMax || pending || eraLocked) ? 0xFF444444 : (canAfford ? (btnHover ? 0xFF55BB55 : 0xFF337733) : 0xFF444444);
-                g.fill(btnX, btnY, btnX + btnW, btnY + btnH, btnColor);
-                String btnText = atMax ? "MAX" : (pending ? "Queued" : "Upgrade");
-                int btnTextColor = (atMax || pending || eraLocked || !canAfford) ? 0xFF888888 : 0xFFFFFFFF;
-                g.drawString(ctx.font(), btnText, btnX + (btnW - ctx.font().width(btnText)) / 2, btnY + 2, btnTextColor, false);
+                String btnText = atMax ? "MAX" : (pending ? "Queued" : "Up");
+                if (btnActive) {
+                    g.blit(TEXTURE_UPGRADE, btnX, btnY, btnW, btnH, 177f, 27f, btnW, btnH, 256, 256);
+                    if (btnHover) g.fill(btnX, btnY, btnX + btnW, btnY + btnH, 0x30FFFFFF);
+                } else {
+                    g.blit(TEXTURE_UPGRADE, btnX, btnY, btnW, btnH, 177f, 38f, btnW, btnH, 256, 256);
+                }
+                g.drawString(ctx.font(), btnText, btnX + (btnW - ctx.font().width(btnText)) / 2, btnY + 1, 0xFFFFFFFF, false);
             }
         }
 
@@ -90,8 +95,17 @@ class UpgradeTab {
     void renderTooltips(GuiGraphics g, int leftPos, int topPos, int mx, int my, TownHubTabContext ctx) {
         for (int i = 0; i < numActiveBars; i++) {
             int labelY = barLabelYs[i];
-            if (my >= labelY && my < labelY + 13 && mx >= leftPos + 12 && mx < leftPos + PANEL_W - 8) {
-                g.renderTooltip(ctx.font(), Component.literal(barTooltips[i]).withStyle(s -> s.withColor(0xCCCCCC)), mx, my);
+            if (my >= labelY && my < labelY + 11 && mx >= leftPos + 10 && mx < leftPos + PANEL_W - 8) {
+                String full = barTooltips[i];
+                int sep = full.indexOf(": ");
+                Component tip;
+                if (sep >= 0) {
+                    tip = Component.literal(full.substring(0, sep + 1) + " ").withStyle(s -> s.withColor(0xCCCCCC))
+                          .append(Component.literal(full.substring(sep + 2)).withStyle(s -> s.withColor(0x777777)));
+                } else {
+                    tip = Component.literal(full).withStyle(s -> s.withColor(0xCCCCCC));
+                }
+                g.renderTooltip(ctx.font(), tip, mx, my);
                 return;
             }
         }
@@ -141,8 +155,8 @@ class UpgradeTab {
         if (sel != null) {
             ClientBuildingDefsRegistry.DefEntry defEntry = ClientBuildingDefsRegistry.get(sel.defId());
             if (defEntry != null && sel.upgradeLevel() < defEntry.upgrades().size()) {
-                int btnX = leftPos + QUEUE_GRID_X + (AVAIL_COLS * CELL) - 2 - 46;
-                int btnY = topPos + 126;
+                int btnX = leftPos + QUEUE_GRID_X + (AVAIL_COLS * CELL) - 2 - 46 + 1;
+                int btnY = topPos + 127;
                 if (mX >= btnX && mX < btnX + 46 && mY >= btnY && mY < btnY + 11) {
                     if (!isUpgradePending(sel, ctx.constructionQueue())
                             && canAffordUpgrade(sel, defEntry, ctx.stockSnapshot())
@@ -226,11 +240,10 @@ class UpgradeTab {
                                         ClientBuildingDefsRegistry.DefEntry defEntry,
                                         boolean showGhost, boolean canAfford,
                                         net.minecraft.client.gui.Font font) {
-        int barX = leftPos + 12;
-        int barW = 152;
-        int barH = 9;
-        int gaugeY = topPos + 21;
-        int ghostColor = canAfford ? 0x6655BB55 : 0x66BB5555;
+        int barX = leftPos + 10;
+        int barW = 141;
+        int barH = 5;
+        int gaugeY = topPos + 23;
 
         int currentLevel = sel.upgradeLevel();
         int maxLevel = defEntry.upgrades().size();
@@ -238,7 +251,7 @@ class UpgradeTab {
         String buildingName = TownHubTypes.formatId(sel.defId());
         String levelText = "Level " + currentLevel + "/" + maxLevel;
         g.drawString(font, buildingName, barX, gaugeY, 0xFFFFFFFF, false);
-        g.drawString(font, levelText, barX + barW - font.width(levelText), gaugeY, 0xFFAAAAAA, false);
+        g.drawString(font, levelText, barX + barW + 8 - font.width(levelText), gaugeY, 0xFFAAAAAA, false);
         gaugeY += font.lineHeight + 3;
 
         float totalCadence = 0f, curCadence = 0f, ghostCadence = 0f;
@@ -247,6 +260,8 @@ class UpgradeTab {
         int totalResidents = 0, curResidents = 0, ghostResidentsVal = 0;
         int totalStockBonus = 0, curStockBonus = 0, ghostStockBonus = 0;
         double totalStock = 0.0, curStock = 0.0, ghostStock = 0.0;
+        int totalTradeSlots = 0, curTradeSlots = 0, ghostTradeSlots = 0;
+        float totalPriceDiscount = 0f, curPriceDiscount = 0f, ghostPriceDiscount = 0f;
 
         // Herd: maxHerdsTarget is the absolute target herd size set by that upgrade (0 = no change).
         int baseHerd     = defEntry.baseHerd();
@@ -256,20 +271,24 @@ class UpgradeTab {
 
         for (int i = 0; i < defEntry.upgrades().size(); i++) {
             var lvl = defEntry.upgrades().get(i);
-            totalCadence    += lvl.cadenceMultiplier();
-            totalAmount     += lvl.amountAdd();
-            totalCapacity   += lvl.capacityStacksAdd();
-            totalResidents  += lvl.residentsAdd();
-            totalStockBonus += lvl.stockBonusAdd();
-            totalStock      += lvl.productionBonusAdd();
+            totalCadence       += lvl.cadenceMultiplier();
+            totalAmount        += lvl.amountAdd();
+            totalCapacity      += lvl.capacityStacksAdd();
+            totalResidents     += lvl.residentsAdd();
+            totalStockBonus    += lvl.stockBonusAdd();
+            totalStock         += lvl.productionBonusAdd();
+            totalTradeSlots    += lvl.tradeSlotsAdd();
+            totalPriceDiscount += lvl.priceDiscountAdd();
             if (lvl.maxHerdsTarget() > 0) totalMaxHerd = Math.max(totalMaxHerd, lvl.maxHerdsTarget());
             if (i < currentLevel) {
-                curCadence    += lvl.cadenceMultiplier();
-                curAmount     += lvl.amountAdd();
-                curCapacity   += lvl.capacityStacksAdd();
-                curResidents  += lvl.residentsAdd();
-                curStockBonus += lvl.stockBonusAdd();
-                curStock      += lvl.productionBonusAdd();
+                curCadence       += lvl.cadenceMultiplier();
+                curAmount        += lvl.amountAdd();
+                curCapacity      += lvl.capacityStacksAdd();
+                curResidents     += lvl.residentsAdd();
+                curStockBonus    += lvl.stockBonusAdd();
+                curStock         += lvl.productionBonusAdd();
+                curTradeSlots    += lvl.tradeSlotsAdd();
+                curPriceDiscount += lvl.priceDiscountAdd();
                 if (lvl.maxHerdsTarget() > 0) curHerd = lvl.maxHerdsTarget();
             }
             if (showGhost && i == currentLevel) {
@@ -279,75 +298,106 @@ class UpgradeTab {
                 ghostResidentsVal = lvl.residentsAdd();
                 ghostStockBonus   = lvl.stockBonusAdd();
                 ghostStock        = lvl.productionBonusAdd();
+                ghostTradeSlots   = lvl.tradeSlotsAdd();
+                ghostPriceDiscount = lvl.priceDiscountAdd();
                 if (lvl.maxHerdsTarget() > 0) ghostHerd = lvl.maxHerdsTarget() - curHerd;
             }
         }
 
+        int iconW = 8;
+        int rowStep = iconW + 3;
+        int barOffX = iconW + 2;
+        int barOffY = (iconW - barH) / 2; // center 5px bar in 8px icon
+
         if (totalCadence > 0.001f) {
             float fill = curCadence / totalCadence;
             float ghost = showGhost ? ghostCadence / totalCadence : 0f;
-            renderStatBar(g, barX, gaugeY, barW, barH, fill, ghost, 0xFFFF8800, ghostColor);
-            g.drawString(font, "Speed", barX + 3, gaugeY + 1, 0xFFFFFFFF, false);
+            g.blit(TEXTURE_UPGRADE, barX, gaugeY, iconW, iconW, 187f, 49f, iconW, iconW, 256, 256);
+            renderStatBar(g, barX + barOffX, gaugeY + barOffY, barW, barH, fill, ghost);
             barLabelYs[numActiveBars] = gaugeY;
-            barTooltips[numActiveBars] = (int)(curCadence * 100) + "% faster  (max " + (int)(totalCadence * 100) + "%)";
+            barTooltips[numActiveBars] = "Speed: " + (int)(curCadence * 100) + "/" + (int)(totalCadence * 100) + "% faster";
             numActiveBars++;
-            gaugeY += barH + 4;
+            gaugeY += rowStep;
         }
         if (totalAmount > 0) {
             float fill = (float) curAmount / totalAmount;
             float ghost = showGhost ? (float) ghostAmount / totalAmount : 0f;
-            renderStatBar(g, barX, gaugeY, barW, barH, fill, ghost, 0xFFFFFF00, ghostColor);
-            g.drawString(font, "Output", barX + 3, gaugeY + 1, 0xFFFFFFFF, false);
+            g.blit(TEXTURE_UPGRADE, barX, gaugeY, iconW, iconW, 198f, 49f, iconW, iconW, 256, 256);
+            renderStatBar(g, barX + barOffX, gaugeY + barOffY, barW, barH, fill, ghost);
             barLabelYs[numActiveBars] = gaugeY;
-            barTooltips[numActiveBars] = "+" + curAmount + " output  (max +" + totalAmount + ")";
+            barTooltips[numActiveBars] = "Output: " + curAmount + "/" + totalAmount + " max";
             numActiveBars++;
-            gaugeY += barH + 4;
+            gaugeY += rowStep;
         }
         if (totalCapacity > 0) {
             float fill = (float) curCapacity / totalCapacity;
             float ghost = showGhost ? (float) ghostCapacity / totalCapacity : 0f;
-            renderStatBar(g, barX, gaugeY, barW, barH, fill, ghost, 0xFF4488FF, ghostColor);
-            g.drawString(font, "Capacity", barX + 3, gaugeY + 1, 0xFFFFFFFF, false);
+            g.blit(TEXTURE_UPGRADE, barX, gaugeY, iconW, iconW, 177f, 49f, iconW, iconW, 256, 256);
+            renderStatBar(g, barX + barOffX, gaugeY + barOffY, barW, barH, fill, ghost);
             barLabelYs[numActiveBars] = gaugeY;
-            barTooltips[numActiveBars] = "+" + curCapacity + " stacks  (max +" + totalCapacity + ")";
+            barTooltips[numActiveBars] = "Capacity: " + curCapacity + "/" + totalCapacity + " stacks";
             numActiveBars++;
-            gaugeY += barH + 4;
+            gaugeY += rowStep;
         }
         if (totalStockBonus > 0) {
             float fill = (float) curStockBonus / totalStockBonus;
             float ghost = showGhost ? (float) ghostStockBonus / totalStockBonus : 0f;
-            renderStatBar(g, barX, gaugeY, barW, barH, fill, ghost, 0xFF44DDAA, ghostColor);
-            g.drawString(font, "Village Cap", barX + 3, gaugeY + 1, 0xFFFFFFFF, false);
+            g.blit(TEXTURE_UPGRADE, barX, gaugeY, iconW, iconW, 177f, 49f, iconW, iconW, 256, 256);
+            renderStatBar(g, barX + barOffX, gaugeY + barOffY, barW, barH, fill, ghost);
             barLabelYs[numActiveBars] = gaugeY;
-            barTooltips[numActiveBars] = "+" + curStockBonus + " capacity stacks  (max +" + totalStockBonus + ")";
+            barTooltips[numActiveBars] = "Village Cap: " + curStockBonus + "/" + totalStockBonus + " stacks";
             numActiveBars++;
-            gaugeY += barH + 4;
+            gaugeY += rowStep;
         }
         if (totalStock > 0.001) {
             float fill = (float)(curStock / totalStock);
             float ghost = showGhost ? (float)(ghostStock / totalStock) : 0f;
-            renderStatBar(g, barX, gaugeY, barW, barH, fill, ghost, 0xFFFFCC00, ghostColor);
-            g.drawString(font, "Stock", barX + 3, gaugeY + 1, 0xFFFFFFFF, false);
+            g.blit(TEXTURE_UPGRADE, barX, gaugeY, iconW, iconW, 198f, 49f, iconW, iconW, 256, 256);
+            renderStatBar(g, barX + barOffX, gaugeY + barOffY, barW, barH, fill, ghost);
             barLabelYs[numActiveBars] = gaugeY;
-            barTooltips[numActiveBars] = "+" + (int)(curStock * 100) + "% village stock  (max +" + (int)(totalStock * 100) + "%)";
+            barTooltips[numActiveBars] = "Stock: " + (int)(curStock * 100) + "/" + (int)(totalStock * 100) + "%";
             numActiveBars++;
-            gaugeY += barH + 4;
+            gaugeY += rowStep;
         }
         if (totalResidents > 0) {
-            renderIconSlotRow(g, barX, gaugeY, totalResidents, curResidents,
-                              showGhost ? ghostResidentsVal : 0, ghostColor, true);
+            float fill = (float) curResidents / totalResidents;
+            float ghost = showGhost ? (float) ghostResidentsVal / totalResidents : 0f;
+            g.blit(TEXTURE_UPGRADE, barX, gaugeY, iconW, iconW, 187f, 59f, iconW, iconW, 256, 256);
+            renderStatBar(g, barX + barOffX, gaugeY + barOffY, barW, barH, fill, ghost);
             barLabelYs[numActiveBars] = gaugeY;
-            barTooltips[numActiveBars] = "+" + curResidents + " residents  (max +" + totalResidents + ")";
+            barTooltips[numActiveBars] = "Residents: " + curResidents + "/" + totalResidents + " added";
             numActiveBars++;
-            gaugeY += 16 + 4;
+            gaugeY += rowStep;
         }
         if (baseHerd > 0) {
-            renderIconSlotRow(g, barX, gaugeY, totalMaxHerd, curHerd,
-                              showGhost ? ghostHerd : 0, ghostColor, false);
+            float fill = (float) curHerd / totalMaxHerd;
+            float ghost = showGhost && ghostHerd > 0 ? (float) ghostHerd / totalMaxHerd : 0f;
+            g.blit(TEXTURE_UPGRADE, barX, gaugeY, iconW, iconW, 198f, 59f, iconW, iconW, 256, 256);
+            renderStatBar(g, barX + barOffX, gaugeY + barOffY, barW, barH, fill, ghost);
             barLabelYs[numActiveBars] = gaugeY;
-            barTooltips[numActiveBars] = curHerd + " animals  (max " + totalMaxHerd + ")";
+            barTooltips[numActiveBars] = "Herds: " + curHerd + "/" + totalMaxHerd + " added";
             numActiveBars++;
-            gaugeY += 16 + 4;
+            gaugeY += rowStep;
+        }
+        if (totalTradeSlots > 0) {
+            float fill = (float) curTradeSlots / totalTradeSlots;
+            float ghost = showGhost ? (float) ghostTradeSlots / totalTradeSlots : 0f;
+            g.blit(TEXTURE_UPGRADE, barX, gaugeY, iconW, iconW, 177f, 69f, iconW, iconW, 256, 256);
+            renderStatBar(g, barX + barOffX, gaugeY + barOffY, barW, barH, fill, ghost);
+            barLabelYs[numActiveBars] = gaugeY;
+            barTooltips[numActiveBars] = "Trade slots: " + curTradeSlots + "/" + totalTradeSlots + " added";
+            numActiveBars++;
+            gaugeY += rowStep;
+        }
+        if (totalPriceDiscount > 0.001f) {
+            float fill = curPriceDiscount / totalPriceDiscount;
+            float ghost = showGhost ? ghostPriceDiscount / totalPriceDiscount : 0f;
+            g.blit(TEXTURE_UPGRADE, barX, gaugeY, iconW, iconW, 177f, 59f, iconW, iconW, 256, 256);
+            renderStatBar(g, barX + barOffX, gaugeY + barOffY, barW, barH, fill, ghost);
+            barLabelYs[numActiveBars] = gaugeY;
+            barTooltips[numActiveBars] = "Price discount: " + (int)(curPriceDiscount * 100) + "/" + (int)(totalPriceDiscount * 100) + "%";
+            numActiveBars++;
+            gaugeY += rowStep;
         }
     }
 
@@ -460,10 +510,10 @@ class UpgradeTab {
                 RenderSystem.enableBlend();
                 RenderSystem.defaultBlendFunc();
                 if (isPerson) {
-                    g.blit(ICONS_TEXTURE, ix, y, 16, 16, 48f, 0f, 16, 16, 64, 64);
+                    g.blit(ICONS_TEXTURE, ix, y, 16, 16, 48f, 0f, 16, 16, 128, 128);
                 } else {
                     // Sheep head: 8x8 source at (52, 20), rendered native 8x8 centered in the 16x16 slot.
-                    g.blit(ICONS_TEXTURE, ix + 4, y + 4, 8, 8, 52f, 20f, 8, 8, 64, 64);
+                    g.blit(ICONS_TEXTURE, ix + 4, y + 4, 8, 8, 52f, 20f, 8, 8, 128, 128);
                 }
                 RenderSystem.disableBlend();
             } else if (i < filled + ghost) {
@@ -488,13 +538,21 @@ class UpgradeTab {
     }
 
     private static void renderStatBar(GuiGraphics g, int x, int y, int w, int h,
-                                      float fill, float ghost, int barColor, int ghostColor) {
-        g.fill(x, y, x + w, y + h, 0xFF222222);
+                                      float fill, float ghost) {
+        g.blit(TEXTURE_UPGRADE, x, y, w, h, 1f, 223f, w, h, 256, 256);
         int fillW = (int)(w * Math.min(1f, Math.max(0f, fill)));
-        if (fillW > 0) g.fill(x, y, x + fillW, y + h, barColor);
+        if (fillW > 0) {
+            g.blit(TEXTURE_UPGRADE, x, y, fillW, h, 1f, 228f, fillW, h, 256, 256);
+        }
         if (ghost > 0f) {
             int ghostW = (int)(w * Math.min(1f - fill, Math.max(0f, ghost)));
-            if (ghostW > 0) g.fill(x + fillW, y, x + fillW + ghostW, y + h, ghostColor);
+            if (ghostW > 0) {
+                RenderSystem.enableBlend();
+                RenderSystem.defaultBlendFunc();
+                RenderSystem.setShaderColor(1f, 1f, 1f, 0.5f);
+                g.blit(TEXTURE_UPGRADE, x + fillW, y, ghostW, h, 1f + fillW, 228f, ghostW, h, 256, 256);
+                RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+            }
         }
     }
 }

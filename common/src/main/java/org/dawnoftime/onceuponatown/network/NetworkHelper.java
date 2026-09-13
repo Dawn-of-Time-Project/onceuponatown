@@ -35,6 +35,7 @@ public class NetworkHelper {
     public static BiConsumer<BlockPos, Long>    sendRepairBuildingPacket       = (pos, worldPos)  -> {};
     public static BiConsumer<BlockPos, String>  sendSelectEraPathPacket        = (pos, pathId)    -> {};
     public static Consumer<BlockPos>            sendDepositPacket              = pos              -> {};
+    public static Consumer<BlockPos>            sendCancelContractPacket       = pos              -> {};
     public static BiConsumer<BlockPos, String>  sendContributeQuestPacket      = (pos, questId)   -> {};
     public static BiConsumer<BlockPos, String>  sendVerifyClearancePacket      = (pos, questId)   -> {};
     public static Consumer<BlockPos>            sendRequestStockPacket         = pos              -> {};
@@ -42,6 +43,8 @@ public class NetworkHelper {
     public static BiConsumer<BlockPos, List<C2SBuyPacket.Entry>> sendBuyPacket = (pos, items) -> {};
     // C2S: client requests raw NBT for a structure path (datapack support)
     public static BiConsumer<BlockPos, String> sendRequestNbtPacket = (pos, path) -> {};
+    // C2S: client claims the village recognition medal
+    public static Consumer<BlockPos> sendClaimMedalPacket = pos -> {};
     // S2C: server pushes raw NBT to a specific player
     public static BiConsumer<ServerPlayer, CompoundTag> sendNbtStructurePacket = (player, data) -> {};
 

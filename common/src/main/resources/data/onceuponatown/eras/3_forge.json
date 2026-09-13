@@ -13,14 +13,15 @@
     { "item": "minecraft:cobblestone", "amount": 35 }
   ],
 
-  "required_residents": 5,
+  "required_residents": 6,
   "required_buildings": [
     { "defId": "stone_breach", "count": 2 }
   ],
 
   "auto_upgrade_ids": ["settlement"],
+  "auto_build_sequence": [{"defId": "wild_stone", "count": 2}],
 
-  "unlocked_building_ids": ["carpenter"],
+  "unlocked_building_ids": ["market", "mine"],
 
   "next_orientation": "forge"
 }

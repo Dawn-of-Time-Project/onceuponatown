@@ -9,6 +9,7 @@ import org.dawnoftime.onceuponatown.town.ItemCost;
 import org.dawnoftime.onceuponatown.town.LevelTowns;
 import org.dawnoftime.onceuponatown.town.PlacedBuilding;
 import org.dawnoftime.onceuponatown.town.ProductionEntry;
+import org.dawnoftime.onceuponatown.town.ContractEntry;
 import org.dawnoftime.onceuponatown.town.Town;
 import org.dawnoftime.onceuponatown.town.TownInventory;
 import org.dawnoftime.onceuponatown.town.TransformationRecipe;
@@ -17,6 +18,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import net.minecraft.world.item.Item;
 
 public class ProductionManager {
 
@@ -76,6 +78,21 @@ public class ProductionManager {
             if (def.isTransformer() && def.transformEveryTicks > 0
                     && gameTime % def.transformEveryTicks == 0) {
                 changed |= tickTransformer(building, def, inv);
+            }
+        }
+
+        List<ContractEntry> contract = town.getActiveContract();
+        if (contract != null) {
+            for (ContractEntry entry : contract) {
+                if (entry.everyTicks() <= 0) continue;
+                if (gameTime % entry.everyTicks() != 0) continue;
+                int cap     = entry.item().getMaxStackSize();
+                int current = town.getContractStock().getOrDefault(entry.item(), 0);
+                int toAdd   = Math.min(entry.amount(), cap - current);
+                if (toAdd > 0) {
+                    town.addContractStock(entry.item(), toAdd);
+                    changed = true;
+                }
             }
         }
 

@@ -1,11 +1,18 @@
 package org.dawnoftime.onceuponatown.datapack;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
 import org.dawnoftime.onceuponatown.entity.ai.ActivityDef;
 import org.dawnoftime.onceuponatown.entity.ai.shared.SleepConfig;
 import org.dawnoftime.onceuponatown.entity.ai.shared.WorkConfig;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public class MinerConfigDataHandler {
 
@@ -14,14 +21,14 @@ public class MinerConfigDataHandler {
         public final int mineDelayTicks;
         public final int mineSessionTicks;
         public final List<String> workBuildings;
-        public final List<String> mineableBlocks;
+        public final Map<String, Item> mineableBlocks;
         public final List<ActivityDef> secondaryActivities;
         public final int bedtime;
         public final int wakeupTime;
         public final List<String> restBuildings;
 
         public Config(double walkSpeed, int mineDelayTicks, int mineSessionTicks,
-                      List<String> workBuildings, List<String> mineableBlocks,
+                      List<String> workBuildings, Map<String, Item> mineableBlocks,
                       List<ActivityDef> secondaryActivities,
                       int bedtime, int wakeupTime, List<String> restBuildings) {
             this.walkSpeed           = walkSpeed;
@@ -49,8 +56,20 @@ public class MinerConfigDataHandler {
     public static void reload(MinecraftServer server) {
         JobConfigParser.reload(server, "jobs/miner.json", "miner",
             json -> {
-                List<String> mineableBlocks = JobConfigParser.parseStringList(json, "mineable_blocks");
-                if (mineableBlocks.isEmpty()) mineableBlocks.add("minecraft:stone");
+                Map<String, Item> mineableBlocks = new LinkedHashMap<>();
+                JsonArray arr = json.getAsJsonArray("mineable_blocks");
+                for (JsonElement el : arr) {
+                    if (el.isJsonObject()) {
+                        JsonObject obj = el.getAsJsonObject();
+                        String block = obj.get("block").getAsString();
+                        Item tool = "shovel".equals(obj.get("tool").getAsString())
+                            ? Items.WOODEN_SHOVEL : Items.WOODEN_PICKAXE;
+                        mineableBlocks.put(block, tool);
+                    } else {
+                        mineableBlocks.put(el.getAsString(), Items.WOODEN_PICKAXE);
+                    }
+                }
+                if (mineableBlocks.isEmpty()) mineableBlocks.put("minecraft:stone", Items.WOODEN_PICKAXE);
                 return new Config(
                     json.get("walk_speed").getAsDouble(),
                     JobConfigParser.optInt(json, "mine_delay_ticks", 20),

@@ -16,12 +16,8 @@ import org.dawnoftime.onceuponatown.town.Town;
 import org.dawnoftime.onceuponatown.town.TownLogEntry;
 
 import java.util.List;
-import java.util.Set;
 
 public class EraManager {
-
-    // Settlement buildings are upgraded by era transitions via autoUpgradeIds; exclude from autonomous upgrades.
-    private static final Set<String> EXCLUDED_AUTO_UPGRADE_DEFS = Set.of("settlement", "settlement_2", "settlement_3");
 
     // Called each server tick. Drives autonomous era transitions and building queue injection.
     public static void tick(Town town, ServerLevel level, long gameTime, long anchorKey) {
@@ -35,7 +31,7 @@ public class EraManager {
             tickUpgradeSlot(town, level, anchorPos, gameTime);
         }
 
-        List<EraTransitionDef> available = EraTransitionDataHandler.getAvailableTransitions(town.getCurrentEra(), orientation);
+        List<EraTransitionDef> available = EraTransitionDataHandler.getAvailableTransitions(town.getCurrentEra(), orientation, town.getCultureNamespace());
         if (available.isEmpty()) return;
 
         // Step A: era auto-transition check
@@ -129,7 +125,7 @@ public class EraManager {
             if (def != null) return def.autoBuildSequence;
         }
         String orientation = town.getCurrentOrientation();
-        List<EraTransitionDef> available = EraTransitionDataHandler.getAvailableTransitions(town.getCurrentEra(), orientation);
+        List<EraTransitionDef> available = EraTransitionDataHandler.getAvailableTransitions(town.getCurrentEra(), orientation, town.getCultureNamespace());
         if (available.size() == 1) return available.get(0).autoBuildSequence;
         return List.of();
     }
@@ -139,7 +135,7 @@ public class EraManager {
     private static boolean meetsStructuralPrereqs(Town town, String defId) {
         BuildingDef def = BuildingDataHandler.get(defId).orElse(null);
         if (def == null) return false;
-        boolean gated = EraTransitionDataHandler.getAllGatedBuildingIds().contains(defId);
+        boolean gated = EraTransitionDataHandler.getAllGatedBuildingIds(town.getCultureNamespace()).contains(defId);
         if (gated && !town.getUnlockedBuildingIds().contains(defId)) return false;
         if (!town.meetsPrerequisites(def)) return false;
         if (town.getCurrentWeight() + def.weight > town.getCurrentMaxWeight()) return false;
@@ -211,7 +207,7 @@ public class EraManager {
     // Picks the housing building that best covers the resident deficit.
     // Exact match or smallest overshoot is preferred; undershoots rank below overshoots.
     private static String pickResidentBuilding(Town town, int deficit) {
-        return BuildingDataHandler.getAll().stream()
+        return BuildingDataHandler.getAll(town.getCultureNamespace()).stream()
             .filter(def -> def.residents > 0)
             .filter(def -> !"town_center".equals(def.category))
             .filter(def -> meetsStructuralPrereqs(town, def.id))
@@ -279,9 +275,9 @@ public class EraManager {
         List<PlacedBuilding> candidates = new java.util.ArrayList<>();
 
         for (PlacedBuilding b : town.getBuildings()) {
-            if (EXCLUDED_AUTO_UPGRADE_DEFS.contains(b.defId)) continue;
             BuildingDef def = BuildingDataHandler.get(b.defId).orElse(null);
             if (def == null || (def.upgrades.isEmpty() && def.nbtLevels.isEmpty())) continue;
+            if ("town_center".equals(def.category)) continue;
             int maxLevel = Math.max(def.upgrades.size(), def.nbtLevels.size());
             int cap = Math.min(maxUpgradeLevel, maxLevel);
             if (b.getUpgradeLevel() >= cap) continue;

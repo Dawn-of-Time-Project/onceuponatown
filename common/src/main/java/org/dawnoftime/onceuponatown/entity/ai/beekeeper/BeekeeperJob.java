@@ -2,7 +2,9 @@ package org.dawnoftime.onceuponatown.entity.ai.beekeeper;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.BeehiveBlock;
@@ -21,19 +23,18 @@ public class BeekeeperJob extends AbstractNpcJob {
 
     private static final int MAX_HONEY_LEVEL = 5;
 
-    private enum State { IDLE, HARVESTING, SLEEPING, ACTIVITY }
+    private enum State { IDLE, HARVESTING, SLEEPING, ACTIVITY, EATING }
 
     private State current = State.IDLE;
     private int harvestTickCounter = 0;
 
     private final BuildingBlockController workController;
     private final BuildingBlockController.BlockScanner workScanner;
-    private final SecondaryActivityController activityController = new SecondaryActivityController();
+
 
     public BeekeeperJob(Npc npc) {
         super(npc);
-        // arrivalRadius 1.0: NPC walks to the block directly adjacent to the hive.
-        this.workController = new BuildingBlockController(npc, 1.0);
+        this.workController = new BuildingBlockController(npc, 2.0);
         // Scanner returns the first ripe hive found in the building; BBC navigates there.
         this.workScanner = (level, building) -> {
             BlockPos hive = scanFirstHive(level, building.bb);
@@ -60,9 +61,17 @@ public class BeekeeperJob extends AbstractNpcJob {
         if (sc == NpcSleepController.SleepCheck.RESYNC)  current = State.SLEEPING;
         if (sc == NpcSleepController.SleepCheck.TRIGGER) enterSleep();
 
-        npc.setSuppressLookAtPlayer(current != State.IDLE && current != State.SLEEPING);
+        if (current != State.SLEEPING && current != State.EATING && town.isMealTimeFor(level.getGameTime(), timing.eatStartOffset, 0)) {
+            enterEating(town);
+        }
+
+        npc.setSuppressLookAtPlayer(current != State.IDLE && current != State.SLEEPING && current != State.EATING);
 
         switch (current) {
+            case EATING -> {
+                if (!town.isMealTimeFor(level.getGameTime(), 0, timing.eatEndOffset)) exitEating();
+                else { tryStartEatingAnimation(town); if (npc.isEating()) emitEatParticles(); }
+            }
             case IDLE -> {
                 if (!hasAvailableHives(level, town, cfg)) {
                     workController.reset();
@@ -120,6 +129,21 @@ public class BeekeeperJob extends AbstractNpcJob {
         return town.getBuildings().stream()
             .filter(b -> cfg.beeBuildings.contains(b.defId))
             .anyMatch(b -> b.bb != null && scanFirstHive(level, b.bb) != null);
+    }
+
+    private void enterEating(Town town) {
+        if (current == State.ACTIVITY) activityController.cancel(npc);
+        npc.freeHands();
+        workController.reset();
+        navigateToMealSpot(town);
+        current = State.EATING;
+    }
+
+    private void exitEating() {
+        mealNavigating = false;
+        npc.setEating(false);
+        npc.freeHands();
+        current = State.IDLE;
     }
 
     private void enterSleep() {

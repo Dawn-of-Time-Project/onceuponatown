@@ -5,6 +5,7 @@
   "icon_item": "minecraft:leather",
   "category": "jobs",
   "weight": 3,
+  "signature": true,
 
   "required_buildings": [
     { "defId": "cow_field", "count": 2 }
@@ -103,14 +104,12 @@
   ],
   "upgrades": [
     {
-      "unlocks_display": ["minecraft:leather_horse_armor","minecraft:saddle"],
       "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 20 }]
     },
     {
       "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 30 }]
     },
     {
-      "unlocks_display": ["minecraft:name_tag"],
       "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 40 }]
     },
     {

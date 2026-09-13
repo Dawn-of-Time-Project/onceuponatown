@@ -9,15 +9,18 @@ import java.util.Map;
 public class TownInventory {
     private final List<PlacedBuilding> buildings;
     private final Map<Item, Integer> reserve;
+    private final Town town;
 
-    public TownInventory(List<PlacedBuilding> buildings, Map<Item, Integer> reserve) {
+    public TownInventory(List<PlacedBuilding> buildings, Map<Item, Integer> reserve, Town town) {
         this.buildings = buildings;
         this.reserve = reserve;
+        this.town = town;
     }
 
     public int getStock(Item item) {
         return buildings.stream().mapToInt(b -> b.getStock(item)).sum()
-            + reserve.getOrDefault(item, 0);
+            + reserve.getOrDefault(item, 0)
+            + town.getContractStock().getOrDefault(item, 0);
     }
 
     // Sum of capacity_stacks * 64 for this item across all placed buildings.
@@ -30,7 +33,7 @@ public class TownInventory {
                 return def == null ? 0 : b.resolvedStockBonus(def);
             })
             .sum();
-        return buildings.stream()
+        int max = buildings.stream()
             .mapToInt(b -> {
                 BuildingDef def = BuildingDataHandler.get(b.getDefId()).orElse(null);
                 if (def == null) return 0;
@@ -49,6 +52,16 @@ public class TownInventory {
                 return fromProduction + fromTransformations;
             })
             .sum();
+        List<ContractEntry> contract = town.getActiveContract();
+        if (contract != null) {
+            for (ContractEntry e : contract) {
+                if (e.item() == item) {
+                    max += item.getMaxStackSize();
+                    break;
+                }
+            }
+        }
+        return max;
     }
 
     public void addStock(List<ItemCost> costs) {
@@ -61,7 +74,7 @@ public class TownInventory {
         return costs.stream().allMatch(cost -> getStock(cost.item()) >= cost.amount());
     }
 
-    // Drains from buildings first (fullest first), then from reserve
+    // Drains from buildings first (fullest first), then from reserve, then from contract stock
     public void removeStock(List<ItemCost> costs) {
         for (ItemCost cost : costs) {
             int remaining = cost.amount();
@@ -76,6 +89,12 @@ public class TownInventory {
                 int inReserve = reserve.getOrDefault(cost.item(), 0);
                 int taken = Math.min(inReserve, remaining);
                 reserve.put(cost.item(), inReserve - taken);
+                remaining -= taken;
+            }
+            if (remaining > 0) {
+                int inContract = town.getContractStock().getOrDefault(cost.item(), 0);
+                int take = Math.min(remaining, inContract);
+                if (take > 0) town.removeContractStock(cost.item(), take);
             }
         }
     }

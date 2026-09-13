@@ -5,6 +5,7 @@
   "icon_item": "minecraft:oak_leaves",
   "category": "gardens",
   "weight": 2,
+  "signature": true,
 
   "production_bonus": 0.02,
   "required_residents": 2,

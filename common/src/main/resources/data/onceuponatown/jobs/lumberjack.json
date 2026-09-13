@@ -18,6 +18,13 @@
       "heldItem": "minecraft:oak_planks",
       "animationType": "CRAFT",
       "target_block": "minecraft:crafting_table"
+    },
+    {
+      "requiredBuilding": "market",
+      "heldItem": "minecraft:air",
+      "animationType": "SELL",
+      "target_block": "minecraft:crafting_table",
+      "productionBuildings": ["grove","lumberjack"]
     }
   ]
 }

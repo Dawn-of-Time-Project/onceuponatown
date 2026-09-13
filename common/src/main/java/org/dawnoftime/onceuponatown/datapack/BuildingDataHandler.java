@@ -133,12 +133,9 @@ public class BuildingDataHandler {
                     ? u.get("production_bonus_add").getAsDouble() : 0.0;
                 int stockBonusAdd = u.has("stock_bonus_add") ? u.get("stock_bonus_add").getAsInt() : 0;
                 int maxHerdsTarget = u.has("max_herds") ? u.get("max_herds").getAsInt() : 0;
+                int tradeSlotsAdd = u.has("trade_slots_add") ? u.get("trade_slots_add").getAsInt() : 0;
+                float priceDiscountAdd = u.has("price_discount_add") ? u.get("price_discount_add").getAsFloat() : 0f;
                 List<String> unlockedDisplay = new ArrayList<>();
-                if (u.has("unlocks_display")) {
-                    for (JsonElement de : u.getAsJsonArray("unlocks_display")) {
-                        unlockedDisplay.add(de.getAsString());
-                    }
-                }
                 List<ItemCost> upgradeCost = new ArrayList<>();
                 if (u.has("upgrade_cost")) {
                     for (JsonElement ce : u.getAsJsonArray("upgrade_cost")) {
@@ -148,7 +145,22 @@ public class BuildingDataHandler {
                     }
                 }
                 upgrades.add(new BuildingDef.UpgradeLevel(cadenceMult, capAdd, amountAdd, residentsAdd,
-                    productionBonusAdd, stockBonusAdd, maxHerdsTarget, unlockedDisplay, upgradeCost));
+                    productionBonusAdd, stockBonusAdd, maxHerdsTarget, tradeSlotsAdd, priceDiscountAdd, unlockedDisplay, upgradeCost));
+            }
+        }
+
+        for (ProductionEntry pe : production) {
+            int lvl = pe.unlockAtLevel();
+            if (lvl > 0 && lvl <= upgrades.size()) {
+                String itemId = BuiltInRegistries.ITEM.getKey(pe.item()).toString();
+                upgrades.get(lvl - 1).unlockedDisplay().add(itemId);
+            }
+        }
+        for (TransformationRecipe tr : transformations) {
+            int lvl = tr.unlockAtLevel();
+            if (lvl > 0 && lvl <= upgrades.size()) {
+                String itemId = BuiltInRegistries.ITEM.getKey(tr.outputItem()).toString();
+                upgrades.get(lvl - 1).unlockedDisplay().add(itemId);
             }
         }
 
@@ -208,11 +220,13 @@ public class BuildingDataHandler {
             }
         }
 
+        boolean signature = json.has("signature") && json.get("signature").getAsBoolean();
+
         return new BuildingDef(id, namespace, nbt, entryPool, production, costs, terrainMatching, iconItem, category, footprint,
             transformations, transformInputRatio, transformEveryTicks,
             productionBonus, stockBonus, residents, upgrades, nbtLevels,
             requiredResidents, requiredBuildings, initialStock,
-            herd, maxHerds, weight, obstacleBlocks, spawnsNpcJob, playerCost);
+            herd, maxHerds, weight, obstacleBlocks, spawnsNpcJob, playerCost, signature);
     }
 
     // Builds the NBT payload sent to the client on player join (upgrade info only).
@@ -239,6 +253,8 @@ public class BuildingDataHandler {
                 ut.putDouble("ProductionBonusAdd", upg.productionBonusAdd());
                 ut.putInt("StockBonusAdd", upg.stockBonusAdd());
                 ut.putInt("MaxHerdsTarget", upg.maxHerdsTarget());
+                ut.putInt("TradeSlotsAdd", upg.tradeSlotsAdd());
+                ut.putFloat("PriceDiscountAdd", upg.priceDiscountAdd());
                 ListTag unlocksTag = new ListTag();
                 for (String itemId : upg.unlockedDisplay()) {
                     unlocksTag.add(net.minecraft.nbt.StringTag.valueOf(itemId));
@@ -263,4 +279,15 @@ public class BuildingDataHandler {
 
     public static Optional<BuildingDef> get(String id) { return Optional.ofNullable(REGISTRY.get(id)); }
     public static Collection<BuildingDef> getAll() { return REGISTRY.values(); }
+
+    // Returns all building defs belonging to the given datapack namespace.
+    // Pass empty string to return all defs regardless of namespace.
+    public static Collection<BuildingDef> getAll(String namespace) {
+        if (namespace == null || namespace.isEmpty()) return REGISTRY.values();
+        List<BuildingDef> result = new ArrayList<>();
+        for (BuildingDef def : REGISTRY.values()) {
+            if (namespace.equals(def.namespace)) result.add(def);
+        }
+        return result;
+    }
 }

@@ -81,7 +81,6 @@
     },
     {
       "amount_add": 1,
-      "unlocks_display": ["minecraft:oak_wood"],
       "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 30 }]
     },
     {
@@ -90,7 +89,6 @@
     },
     {
       "cadence_multiplier": 0.10,
-      "unlocks_display": ["minecraft:stripped_oak_log", "stripped_oak_wood"],
       "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 60 }]
     },
     {

@@ -7,6 +7,7 @@
   "weight": 3,
   "spawns_npc": "swineherd",
   "residents": 1,
+  "signature": true,
 
   "herd": 2,
   "required_buildings": [
@@ -53,7 +54,6 @@
   "upgrades": [
     {
       "capacity_stacks_add": 1,
-      "unlocks_display": ["minecraft:cooked_pork"],
       "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 20 }]
     },
     {

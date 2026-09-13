@@ -2,7 +2,9 @@ package org.dawnoftime.onceuponatown.entity.ai.lumberjack;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
@@ -43,7 +45,7 @@ public class LumberjackJob extends AbstractNpcJob {
         Blocks.JUNGLE_SAPLING, Blocks.ACACIA_SAPLING, Blocks.DARK_OAK_SAPLING
     );
 
-    private enum State { IDLE, CHOPPING, PLANTING, SLEEPING, ACTIVITY }
+    private enum State { IDLE, CHOPPING, PLANTING, SLEEPING, ACTIVITY, EATING }
 
     private State current = State.IDLE;
     private List<BlockPos> chopList = new ArrayList<>();
@@ -52,7 +54,7 @@ public class LumberjackJob extends AbstractNpcJob {
 
     private final BuildingBlockController workController;
     private final BuildingBlockController.BlockScanner workScanner;
-    private final SecondaryActivityController activityController = new SecondaryActivityController();
+
 
     public LumberjackJob(Npc npc) {
         super(npc);
@@ -91,9 +93,17 @@ public class LumberjackJob extends AbstractNpcJob {
         if (sc == NpcSleepController.SleepCheck.RESYNC)   current = State.SLEEPING;
         if (sc == NpcSleepController.SleepCheck.TRIGGER)  enterSleep();
 
-        npc.setSuppressLookAtPlayer(current != State.IDLE && current != State.SLEEPING);
+        if (current != State.SLEEPING && current != State.EATING && town.isMealTimeFor(level.getGameTime(), timing.eatStartOffset, 0)) {
+            enterEating(town);
+        }
+
+        npc.setSuppressLookAtPlayer(current != State.IDLE && current != State.SLEEPING && current != State.EATING);
 
         switch (current) {
+            case EATING -> {
+                if (!town.isMealTimeFor(level.getGameTime(), 0, timing.eatEndOffset)) exitEating();
+                else { tryStartEatingAnimation(town); if (npc.isEating()) emitEatParticles(); }
+            }
             case IDLE -> {
                 if (!hasAvailableLogs(level, town, cfg)) {
                     workController.reset();
@@ -166,6 +176,21 @@ public class LumberjackJob extends AbstractNpcJob {
             }
         }
         workController.advanceCursor(town, cfg);
+        current = State.IDLE;
+    }
+
+    private void enterEating(Town town) {
+        if (current == State.ACTIVITY) activityController.cancel(npc);
+        npc.freeHands();
+        workController.reset();
+        navigateToMealSpot(town);
+        current = State.EATING;
+    }
+
+    private void exitEating() {
+        mealNavigating = false;
+        npc.setEating(false);
+        npc.freeHands();
         current = State.IDLE;
     }
 

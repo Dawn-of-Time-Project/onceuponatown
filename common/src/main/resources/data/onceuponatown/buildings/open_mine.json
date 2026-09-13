@@ -7,6 +7,7 @@
   "weight": 4,
   "spawns_npc": "miner",
   "residents": 1,
+  "signature": true,
 
   "construction_cost": [
     {
@@ -88,7 +89,6 @@
   "upgrades": [
     {
       "capacity_stacks_add": 1,
-      "unlocks_display": ["minecraft:stone"],
       "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 20 }]
     },
     {
@@ -97,7 +97,6 @@
     },
     {
       "capacity_stacks_add": 1,
-      "unlocks_display": ["minecraft:gravel", "minecraft:flint"],
       "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 40 }]
     },
     {
@@ -110,7 +109,6 @@
     },
     {
       "cadence_multiplier": 0.20,
-      "unlocks_display": ["minecraft:coal"],
       "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 100 }]
     }
   ],

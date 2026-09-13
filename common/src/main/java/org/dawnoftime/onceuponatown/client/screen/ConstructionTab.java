@@ -368,25 +368,33 @@ class ConstructionTab {
         int totalRows = (visibleCatalog.size() + AVAIL_COLS - 1) / AVAIL_COLS;
         if (totalRows > CATALOG_ROWS) {
             String scrollText = (catalogScrollOffset + 1) + "/" + (totalRows - CATALOG_ROWS + 1);
-            g.drawString(ctx.font(), scrollText, leftPos + PANEL_W - 4 - ctx.font().width(scrollText),
-                topPos + 201, 0xFFAAAAAA, false);
+            int scrollY = topPos + 208 - ctx.font().lineHeight - 2;
+            g.drawString(ctx.font(), scrollText, leftPos + QUEUE_GRID_X + AVAIL_COLS * CELL - ctx.font().width(scrollText),
+                scrollY, 0xFF404040, false);
         }
     }
 
     void renderWeightBar(GuiGraphics g, int leftPos, int topPos, int mx, int my, TownHubTabContext ctx) {
         int barX = leftPos + 7;
-        int barH = 9;
-        int barY = topPos + 201;
+        int barH = 5;
+        int barY = topPos + 208;
         int barW = QUEUE_COLS * CELL;
 
-        g.fill(barX, barY, barX + barW, barY + barH, 0xFF111111);
+        // Empty bar background (u=1, v=223 in town_construction.png)
+        g.blit(TEXTURE_CONSTRUCTION, barX, barY, barW, barH, 1f, 223f, barW, barH, 256, 256);
 
+        boolean overfull = ctx.currentWeight() >= ctx.maxWeight();
         float fill = ctx.maxWeight() > 0 ? Math.min(1f, (float) ctx.currentWeight() / ctx.maxWeight()) : 0f;
         int fillPx = (int)(barW * fill);
-        int fillColor = (ctx.currentWeight() >= ctx.maxWeight()) ? 0xFF884400 : 0xFF335533;
-        if (fillPx > 0) g.fill(barX, barY, barX + fillPx, barY + barH, fillColor);
 
-        // Ghost preview when hovering a catalog slot
+        // Full bar cropped to fill progress (u=1, v=228), red tint when overfull
+        if (fillPx > 0) {
+            if (overfull) RenderSystem.setShaderColor(1f, 0.2f, 0.2f, 1f);
+            g.blit(TEXTURE_CONSTRUCTION, barX, barY, fillPx, barH, 1f, 228f, fillPx, barH, 256, 256);
+            if (overfull) RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+        }
+
+        // Ghost preview: same full bar texture at 50% opacity for the hovered building weight
         if (hoveredCatalogSlot >= 0 && hoveredCatalogSlot < visibleCatalog.size()) {
             BuildingEntry hov = visibleCatalog.get(hoveredCatalogSlot);
             int weightDelta = hov.weight();
@@ -394,17 +402,18 @@ class ConstructionTab {
                 float ghostFrac = (float) weightDelta / ctx.maxWeight();
                 int ghostPx = (int)(barW * Math.min(1f - fill, ghostFrac));
                 if (ghostPx > 0) {
-                    // Transparent stripe so the dark background shows through, distinguishing ghost from solid fill
-                    int ghostColor = isAffordable(hov, ctx.currentWeight(), ctx.maxWeight(), ctx.stockSnapshot())
-                        ? 0x2255BB55 : 0x22BB5555;
-                    g.fill(barX + fillPx, barY, barX + fillPx + ghostPx, barY + barH, ghostColor);
+                    RenderSystem.enableBlend();
+                    RenderSystem.defaultBlendFunc();
+                    RenderSystem.setShaderColor(1f, 1f, 1f, 0.5f);
+                    g.blit(TEXTURE_CONSTRUCTION, barX + fillPx, barY, ghostPx, barH, 1f + fillPx, 228f, ghostPx, barH, 256, 256);
+                    RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
                 }
             }
         }
 
         String label = Component.translatable("onceuponatown.catalog.space_remaining").getString()
                 + " : " + ctx.currentWeight() + "/" + ctx.maxWeight();
-        g.drawString(ctx.font(), label, barX + 3, barY + 1, 0xFFFFFFFF, false);
+        g.drawString(ctx.font(), label, leftPos + QUEUE_GRID_X, barY - ctx.font().lineHeight - 2, 0xFF404040, false);
     }
 
     void renderTooltips(GuiGraphics g, int leftPos, int topPos, int mx, int my, TownHubTabContext ctx) {
@@ -717,20 +726,24 @@ class ConstructionTab {
         }
 
         // Construct button
-        int btnW = 46;
-        int btnX = leftPos + QUEUE_GRID_X + (AVAIL_COLS * CELL) - 2 - btnW;
-        int btnY = topPos + 126;
-        int btnH = 11;
+        int btnW = 37;
+        int btnX = leftPos + QUEUE_GRID_X + (AVAIL_COLS * CELL) - 2 - btnW + 1;
+        int btnY = topPos + 127;
+        int btnH = 10;
         boolean canConstruct = sel != null && !sel.nextEra()
             && !("town_center".equals(sel.category()) && sel.hasBuilt())
             && isAffordable(sel, ctx.currentWeight(), ctx.maxWeight(), ctx.stockSnapshot())
             && meetsPrerequisites(sel, ctx.activeResidents());
         boolean btnHover = canConstruct && mx >= btnX && mx < btnX + btnW && my >= btnY && my < btnY + btnH;
-        int btnColor = canConstruct ? (btnHover ? 0xFF55BB55 : 0xFF337733) : 0xFF444444;
-        g.fill(btnX, btnY, btnX + btnW, btnY + btnH, btnColor);
-        String btnText = (sel != null && sel.nextEra()) ? "Next era" : "Build";
-        g.drawString(ctx.font(), btnText, btnX + (btnW - ctx.font().width(btnText)) / 2, btnY + 2,
-            canConstruct ? 0xFFFFFFFF : 0xFF888888, false);
+        String btnText = "Build";
+        if (canConstruct) {
+            g.blit(TEXTURE_CONSTRUCTION, btnX, btnY, btnW, btnH, 177f, 45f, btnW, btnH, 256, 256);
+            if (btnHover) g.fill(btnX, btnY, btnX + btnW, btnY + btnH, 0x30FFFFFF);
+            g.drawString(ctx.font(), btnText, btnX + (btnW - ctx.font().width(btnText)) / 2, btnY + 1, 0xFFFFFFFF, false);
+        } else {
+            g.blit(TEXTURE_CONSTRUCTION, btnX, btnY, btnW, btnH, 177f, 56f, btnW, btnH, 256, 256);
+            g.drawString(ctx.font(), btnText, btnX + (btnW - ctx.font().width(btnText)) / 2, btnY + 1, 0xFFFFFFFF, false);
+        }
 
         // Expand button: bottom-right corner of the NBT preview zone
         if (sel != null && constructionPreview != null) {
@@ -753,7 +766,7 @@ class ConstructionTab {
                 if (hoveredInfoIcon) g.fill(iconX, iconY, iconX + 8, iconY + 8, 0x30FFFFFF);
                 RenderSystem.enableBlend();
                 RenderSystem.defaultBlendFunc();
-                g.blit(ICONS_TEXTURE, iconX, iconY, 8, 8, 20f, 36f, 8, 8, 64, 64);
+                g.blit(ICONS_TEXTURE, iconX, iconY, 8, 8, 20f, 36f, 8, 8, 128, 128);
             }
         }
     }

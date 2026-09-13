@@ -36,7 +36,8 @@ public final class JobConfigParser {
                 obj.get("requiredBuilding").getAsString(),
                 obj.get("heldItem").getAsString(),
                 AnimationType.valueOf(obj.get("animationType").getAsString()),
-                obj.has("target_block") ? obj.get("target_block").getAsString() : null
+                obj.has("target_block") ? obj.get("target_block").getAsString() : null,
+                parseStringList(obj, "productionBuildings")
             ));
         }
         return list;

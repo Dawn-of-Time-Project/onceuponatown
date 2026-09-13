@@ -294,7 +294,7 @@ public class TownMapWidget extends AbstractWidget {
         // Repair button: 12x12 icon in bottom-right corner of the map window.
         int repBtnX = mapWindowRightBound - 14;
         int repBtnY = mapWindowBottomBound - 14;
-        graphics.blit(ICONS_TEXTURE, repBtnX, repBtnY, 12, 12, 2f, 34f, 12, 12, 64, 64);
+        graphics.blit(ICONS_TEXTURE, repBtnX, repBtnY, 12, 12, 2f, 34f, 12, 12, 128, 128);
         if (repairMode) {
             graphics.fill(repBtnX, repBtnY, repBtnX + 12, repBtnY + 12, 0x66FFFFFF);
         }

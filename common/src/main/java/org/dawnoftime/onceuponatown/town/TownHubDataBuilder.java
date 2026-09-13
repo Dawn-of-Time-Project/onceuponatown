@@ -70,10 +70,10 @@ public class TownHubDataBuilder {
 
         TownInventory inv = town.getTownInventory();
         String orientation = town.getCurrentOrientation();
-        String cultureNamespace = deriveCultureNamespace(orientation);
-        Set<String> gatedIds = EraTransitionDataHandler.getAllGatedBuildingIds();
+        String cultureNamespace = town.getCultureNamespace();
+        Set<String> gatedIds = EraTransitionDataHandler.getAllGatedBuildingIds(cultureNamespace);
         Set<String> nextEraIds = new HashSet<>();
-        for (EraTransitionDef t : EraTransitionDataHandler.getAvailableTransitions(town.getCurrentEra(), orientation)) {
+        for (EraTransitionDef t : EraTransitionDataHandler.getAvailableTransitions(town.getCurrentEra(), orientation, cultureNamespace)) {
             nextEraIds.addAll(t.unlockedBuildingIds);
         }
         nextEraIds.removeAll(town.getUnlockedBuildingIds());
@@ -93,7 +93,7 @@ public class TownHubDataBuilder {
             .sorted(Comparator.<BuildingDef, Boolean>comparing(def -> "town_center".equals(def.category))
                 .reversed()
                 .thenComparing(def -> nextEraIds.contains(def.id))
-                .thenComparingInt(def -> BuildingListDataHandler.getIndex(def.id)))
+                .thenComparingInt(def -> BuildingListDataHandler.getIndex(cultureNamespace, def.id)))
             .toList();
         ListTag catalogTag = new ListTag();
         for (BuildingDef def : sortedDefs) {
@@ -126,6 +126,7 @@ public class TownHubDataBuilder {
 
         hub.put("Quests", buildQuestsTag());
         hub.put("ActivityLog", buildActivityLogTag());
+        hub.put("ProgressionData", buildProgressionData());
         return hub;
     }
 
@@ -181,6 +182,29 @@ public class TownHubDataBuilder {
             .filter(item -> !produced.contains(item))
             .forEach(item -> stockTag.putInt(
                 BuiltInRegistries.ITEM.getKey(item).toString(), inv.getStock(item)));
+
+        // inv.getStock() already includes contract stock; only add entries for items that
+        // are exclusive to the contract and do not appear in any building production or cost.
+        town.getContractStock().forEach((item, count) -> {
+            String key = BuiltInRegistries.ITEM.getKey(item).toString();
+            if (!stockTag.contains(key)) stockTag.putInt(key, inv.getStock(item));
+        });
+        if (town.getActiveContract() != null) {
+            stockTag.putInt("onceuponatown:commerce_contract", 1);
+            ListTag contractEntries = new ListTag();
+            for (ContractEntry e : town.getActiveContract()) contractEntries.add(e.toNbt());
+            stockTag.put("onceuponatown:commerce_contract_data", contractEntries);
+        }
+        if (town.isMedalReceived()) {
+            stockTag.putInt("onceuponatown:recognition_medal", 1);
+            CompoundTag medalData = new CompoundTag();
+            medalData.putString("Namespace", town.getCultureNamespace());
+            ListTag medalIds = new ListTag();
+            Set<String> deposited = town.getDepositedMedalIds();
+            if (deposited != null) for (String id : deposited) medalIds.add(StringTag.valueOf(id));
+            medalData.put("Ids", medalIds);
+            stockTag.put("onceuponatown:recognition_medal_data", medalData);
+        }
         return stockTag;
     }
 
@@ -201,6 +225,7 @@ public class TownHubDataBuilder {
             buildingCountsTag.putInt(b.defId, buildingCountsTag.getInt(b.defId) + 1);
         }
         tag.put("BuildingCounts", buildingCountsTag);
+        tag.put("ProgressionData", buildProgressionData());
         return tag;
     }
 
@@ -233,10 +258,10 @@ public class TownHubDataBuilder {
         tag.put("BoostedBuildings", boostedTag);
 
         String orientation = town.getCurrentOrientation();
-        String cultureNamespace = deriveCultureNamespace(orientation);
-        Set<String> gatedIds = EraTransitionDataHandler.getAllGatedBuildingIds();
+        String cultureNamespace = town.getCultureNamespace();
+        Set<String> gatedIds = EraTransitionDataHandler.getAllGatedBuildingIds(cultureNamespace);
         Set<String> nextEraIds = new HashSet<>();
-        for (EraTransitionDef t : EraTransitionDataHandler.getAvailableTransitions(town.getCurrentEra(), orientation)) {
+        for (EraTransitionDef t : EraTransitionDataHandler.getAvailableTransitions(town.getCurrentEra(), orientation, cultureNamespace)) {
             nextEraIds.addAll(t.unlockedBuildingIds);
         }
         nextEraIds.removeAll(town.getUnlockedBuildingIds());
@@ -256,7 +281,7 @@ public class TownHubDataBuilder {
             .sorted(Comparator.<BuildingDef, Boolean>comparing(def -> "town_center".equals(def.category))
                 .reversed()
                 .thenComparing(def -> nextEraIds.contains(def.id))
-                .thenComparingInt(def -> BuildingListDataHandler.getIndex(def.id)))
+                .thenComparingInt(def -> BuildingListDataHandler.getIndex(cultureNamespace, def.id)))
             .toList();
         ListTag catalogTag = new ListTag();
         for (BuildingDef def : sortedDefs) {
@@ -486,9 +511,32 @@ public class TownHubDataBuilder {
             dt.put("RequiredBuildings", reqBuildingsTag);
         }
         dt.putInt("Weight", def.weight);
+        dt.putBoolean("Signature", def.signature);
+        boolean unlockedViaMedal = def.signature
+            && town.getUnlockedBuildingIds().contains(def.id)
+            && !def.namespace.equals(town.getCultureNamespace());
+        dt.putBoolean("UnlockedViaMedal", unlockedViaMedal);
         return dt;
     }
 
+    private CompoundTag buildProgressionData() {
+        CompoundTag progressionData = new CompoundTag();
+        progressionData.putBoolean("MedalClaimed", town.isMedalClaimed());
+        ListTag sigBuildings = new ListTag();
+        for (Town.SignatureBuildingProgress p : town.getSignatureBuildingProgress()) {
+            CompoundTag entry = new CompoundTag();
+            entry.putString("DefId", p.defId());
+            entry.putString("IconItem", p.iconItem());
+            entry.putBoolean("Accessible", p.accessible());
+            entry.putBoolean("Built", p.built());
+            entry.putInt("CurrentLevel", p.currentLevel());
+            entry.putInt("MaxLevel", p.maxLevel());
+            entry.putBoolean("Maxed", p.maxed());
+            sigBuildings.add(entry);
+        }
+        progressionData.put("SignatureBuildings", sigBuildings);
+        return progressionData;
+    }
 
     private ListTag buildUpgradeBuildingsTag() {
         List<PlacedBuilding> upgradeBuildings = town.getBuildings().stream()
@@ -504,7 +552,8 @@ public class TownHubDataBuilder {
                 boolean atMaxA = maxA > 0 && a.getUpgradeLevel() >= maxA;
                 boolean atMaxB = maxB > 0 && b2.getUpgradeLevel() >= maxB;
                 if (atMaxA != atMaxB) return atMaxA ? 1 : -1;
-                return Integer.compare(BuildingListDataHandler.getIndex(a.defId), BuildingListDataHandler.getIndex(b2.defId));
+                String ns = town.getCultureNamespace();
+                return Integer.compare(BuildingListDataHandler.getIndex(ns, a.defId), BuildingListDataHandler.getIndex(ns, b2.defId));
             })
             .toList();
         ListTag tag = new ListTag();
@@ -722,18 +771,6 @@ public class TownHubDataBuilder {
             result = rotateCW90(result);
         }
         return result;
-    }
-
-    // Derives the datapack namespace that owns the current culture, used to filter the building catalog.
-    // Traces orientation -> EraDef -> starterBuildingId -> BuildingDef.namespace.
-    // Returns empty string if the chain cannot be resolved (falls back to unfiltered behavior).
-    private String deriveCultureNamespace(String orientation) {
-        if (orientation.isEmpty()) return "";
-        var eraDef = org.dawnoftime.onceuponatown.datapack.EraTransitionDataHandler.getEraDefByOrientation(orientation);
-        if (eraDef == null) return "";
-        return BuildingDataHandler.get(eraDef.starterBuildingId)
-            .map(def -> def.namespace)
-            .orElse("");
     }
 
     // Rotates a 2D char grid 90 degrees clockwise. new[col][rows-1-row] = old[row][col]

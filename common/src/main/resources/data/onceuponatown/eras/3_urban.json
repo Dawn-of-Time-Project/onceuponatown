@@ -18,10 +18,10 @@
     { "defId": "merchant_shop", "count": 1 }
   ],
 
-  "auto_build_sequence": [{"defId": "grove", "count": 3}, "merchant_shop"],
+  "auto_build_sequence": [{"defId": "grove", "count": 3}, {"defId": "wild_stone", "count": 2}, "merchant_shop"],
   "auto_upgrade_ids": ["settlement_3"],
 
-  "unlocked_building_ids": ["carpenter"],
+  "unlocked_building_ids": ["market", "mine"],
 
   "next_orientation": "urban"
 }

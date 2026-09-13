@@ -112,6 +112,28 @@ public class NpcModel<T extends Npc> extends HumanoidModel<T> {
         }
 
         animateReadingPose(npc);
+        animateEatingPose(npc, ageInTicks);
+    }
+
+    private void animateEatingPose(T npc, float ageInTicks) {
+        if (!npc.isEating()) return;
+        // Holding pose: both arms symmetric, hands joined in front holding food.
+        this.rightArm.xRot  = -1.65F;
+        this.rightArm.yRot  = -0.36F;
+        this.rightArm.zRot  =  1.5F;
+        this.rightArm.x    += -0.75F;
+        this.leftArm.xRot   = -1.65F;
+        this.leftArm.yRot   =  0.36F;
+        this.leftArm.zRot   = -1.5F;
+        this.leftArm.x     +=  0.75F;
+
+        // Tilt head down only during the active eating phase (particles + sound window).
+        // Phase is relative to when eating started so the animation stays in sync with particles.
+        float phase = (ageInTicks - npc.getEatStartTick()) % 200f;
+        if (phase >= 10f && phase < 60f) {
+            this.head.xRot = 0.38F;
+            this.hat.xRot  = this.head.xRot;
+        }
     }
 
     private void animateReadingPose(T npc) {

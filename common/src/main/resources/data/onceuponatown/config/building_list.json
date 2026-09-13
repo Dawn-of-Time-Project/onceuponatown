@@ -30,6 +30,7 @@
 
     "wild_stone",
     "stone_breach",
+    "mine",
     "open_mine",
 
     "grove",
@@ -41,6 +42,7 @@
     "oven",
     "kitchen",
 
+    "market",
     "merchant_shop",
 
     "house",

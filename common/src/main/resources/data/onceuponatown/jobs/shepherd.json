@@ -25,6 +25,13 @@
       "heldItem": "minecraft:white_wool",
       "animationType": "CRAFT",
       "target_block": "minecraft:crafting_table"
+    },
+    {
+      "requiredBuilding": "market",
+      "heldItem": "minecraft:air",
+      "animationType": "SELL",
+      "target_block": "minecraft:crafting_table",
+      "productionBuildings": ["sheep_field","sheep_farm"]
     }
   ]
 }

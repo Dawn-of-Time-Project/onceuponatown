@@ -2,6 +2,8 @@ package org.dawnoftime.onceuponatown.entity.ai;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
 import org.dawnoftime.onceuponatown.entity.Npc;
 import org.dawnoftime.onceuponatown.town.LevelTowns;
 import org.dawnoftime.onceuponatown.town.Town;
@@ -9,6 +11,8 @@ import org.dawnoftime.onceuponatown.town.Town;
 public interface NpcJob {
     void tick();
     String getJobId();
+
+    default InteractionResult onPlayerInteract(Player player) { return InteractionResult.PASS; }
 
     // Locates the Town that owns this NPC, filtered by job type.
     // Falls back to a full scan for NPCs loaded from saves predating anchor tracking.

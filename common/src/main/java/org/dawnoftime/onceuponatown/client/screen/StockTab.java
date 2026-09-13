@@ -15,14 +15,18 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import org.dawnoftime.onceuponatown.item.RecognitionMedalItem;
 import org.dawnoftime.onceuponatown.network.C2SBuyPacket;
 import org.dawnoftime.onceuponatown.network.NetworkHelper;
+import org.dawnoftime.onceuponatown.registry.ItemRegistry;
 import org.dawnoftime.onceuponatown.screen.TownHubMenu;
 
 import java.util.ArrayList;
@@ -117,6 +121,14 @@ class StockTab {
             if (count > 0) counts.put(itemId, count);
         }
 
+        ListTag contractEntriesTag = stockTag.contains("onceuponatown:commerce_contract_data", Tag.TAG_LIST)
+            ? stockTag.getList("onceuponatown:commerce_contract_data", Tag.TAG_COMPOUND)
+            : null;
+
+        CompoundTag medalDataTag = stockTag.contains("onceuponatown:recognition_medal_data", Tag.TAG_COMPOUND)
+            ? stockTag.getCompound("onceuponatown:recognition_medal_data")
+            : null;
+
         // Build ordered set: trade_prices.json order first, unknowns appended at the end.
         Set<String> sorted = new LinkedHashSet<>();
         for (String id : TRADE_PRICE_ORDER) { if (counts.containsKey(id)) sorted.add(id); }
@@ -135,7 +147,18 @@ class StockTab {
             int remaining = currentCount;
             while (remaining > 0) {
                 int stackSize = Math.min(remaining, stackMax);
-                allStockItems.add(new ItemStack(item, stackSize));
+                ItemStack stack = new ItemStack(item, stackSize);
+                if (contractEntriesTag != null && "onceuponatown:commerce_contract".equals(itemId)) {
+                    stack.getOrCreateTag().put("ContractEntries", contractEntriesTag);
+                }
+                if (medalDataTag != null && "onceuponatown:recognition_medal".equals(itemId)) {
+                    String ns = medalDataTag.getString("Namespace");
+                    ListTag idsTag = medalDataTag.getList("Ids", Tag.TAG_STRING);
+                    Set<String> ids = new java.util.HashSet<>();
+                    for (int j = 0; j < idsTag.size(); j++) ids.add(idsTag.getString(j));
+                    RecognitionMedalItem.write(stack, ns, ids);
+                }
+                allStockItems.add(stack);
                 remaining -= stackSize;
             }
 
@@ -433,6 +456,19 @@ class StockTab {
     boolean handleClick(double mX, double mY, int button,
                         int leftPos, int topPos,
                         TownHubTypes.TownHubTabContext ctx, TownHubMenu menu) {
+        // Shift+left-click on the active contract in the stock grid removes it.
+        if (button == 0 && Screen.hasShiftDown()) {
+            for (int i = 0; i < TownHubMenu.CHEST_SIZE; i++) {
+                Slot slot = menu.slots.get(i);
+                if (slot.hasItem() && isHoveringSlot(slot, mX, mY, leftPos, topPos)) {
+                    if (slot.getItem().getItem() == ItemRegistry.COMMERCE_CONTRACT && !isGhost(slot.getItem())) {
+                        NetworkHelper.sendCancelContractPacket.accept(ctx.anchorPos());
+                        return true;
+                    }
+                }
+            }
+        }
+
         if (button == 0) {
             int ghostBtnX = leftPos + 155;
             int ghostBtnY = topPos + 5;

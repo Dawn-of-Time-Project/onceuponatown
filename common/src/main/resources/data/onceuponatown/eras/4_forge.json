@@ -13,12 +13,12 @@
     { "item": "minecraft:cobblestone", "amount": 64 }
   ],
 
-  "required_residents": 6,
+  "required_residents": 8,
 
-  "auto_build_sequence": [],
+  "auto_build_sequence": ["market", "mine"],
   "auto_upgrade_ids": ["settlement"],
 
-  "unlocked_building_ids": ["house_slot"],
+  "unlocked_building_ids": ["house_slot", "carpenter"],
 
   "next_orientation": "forge"
 }

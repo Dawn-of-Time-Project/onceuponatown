@@ -10,6 +10,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
@@ -37,6 +38,11 @@ import org.dawnoftime.onceuponatown.town.Town;
 public class Npc extends PathfinderMob {
     private static final EntityDataAccessor<Boolean> DATA_IS_READING =
         SynchedEntityData.defineId(Npc.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Boolean> DATA_IS_EATING =
+        SynchedEntityData.defineId(Npc.class, EntityDataSerializers.BOOLEAN);
+    // Tick at which the current eating session started; used to anchor the phase cycle on both sides.
+    private static final EntityDataAccessor<Integer> DATA_EAT_START_TICK =
+        SynchedEntityData.defineId(Npc.class, EntityDataSerializers.INT);
     // Incremented on each block placement; client reads changes to trigger the swing animation.
     private static final EntityDataAccessor<Integer> DATA_BUILD_GENERATION =
         SynchedEntityData.defineId(Npc.class, EntityDataSerializers.INT);
@@ -70,6 +76,8 @@ public class Npc extends PathfinderMob {
     protected void defineSynchedData() {
         super.defineSynchedData();
         this.entityData.define(DATA_IS_READING, false);
+        this.entityData.define(DATA_IS_EATING, false);
+        this.entityData.define(DATA_EAT_START_TICK, 0);
         this.entityData.define(DATA_BUILD_GENERATION, 0);
         this.entityData.define(DATA_JOB_ID, "builder");
     }
@@ -96,6 +104,15 @@ public class Npc extends PathfinderMob {
             @Override public boolean canUse()         { return !suppressLookAtPlayer && super.canUse(); }
             @Override public boolean canContinueToUse() { return !suppressLookAtPlayer && super.canContinueToUse(); }
         });
+    }
+
+    @Override
+    protected InteractionResult mobInteract(Player player, InteractionHand hand) {
+        if (!level().isClientSide && job != null) {
+            InteractionResult result = job.onPlayerInteract(player);
+            if (result != InteractionResult.PASS) return result;
+        }
+        return super.mobInteract(player, hand);
     }
 
     @Override
@@ -201,6 +218,27 @@ public class Npc extends PathfinderMob {
         readingTicksRemaining = durationTicks;
         entityData.set(DATA_IS_READING, true);
         playSound(SoundEvents.BOOK_PAGE_TURN, 0.6f, 0.9f + getRandom().nextFloat() * 0.2f);
+    }
+
+    public void setEating(boolean v) {
+        if (v) this.entityData.set(DATA_EAT_START_TICK, this.tickCount);
+        this.entityData.set(DATA_IS_EATING, v);
+    }
+    public boolean isEating()      { return this.entityData.get(DATA_IS_EATING); }
+    public int getEatStartTick()   { return this.entityData.get(DATA_EAT_START_TICK); }
+
+    // Spawns vanilla item-crumb particles in front of the NPC face (server-side call, broadcast to clients).
+    public void triggerEatParticles(net.minecraft.world.item.ItemStack stack) {
+        if (!(level() instanceof net.minecraft.server.level.ServerLevel sl)) return;
+        net.minecraft.world.phys.Vec3 look = getLookAngle();
+        double forward = 0.5;
+        sl.sendParticles(
+            new net.minecraft.core.particles.ItemParticleOption(net.minecraft.core.particles.ParticleTypes.ITEM, stack),
+            getX() + look.x * forward,
+            getEyeY() - 0.2,
+            getZ() + look.z * forward,
+            4, 0.08, 0.04, 0.08, 0.03
+        );
     }
 
     public void holdInMainHand(ItemStack stack) { setItemInHand(InteractionHand.MAIN_HAND, stack); }

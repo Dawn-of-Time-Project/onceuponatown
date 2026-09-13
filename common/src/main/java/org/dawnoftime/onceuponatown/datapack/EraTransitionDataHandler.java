@@ -148,18 +148,21 @@ public class EraTransitionDataHandler {
         }
 
         int maxUpgradeLevel = json.has("max_upgrade_level") ? json.get("max_upgrade_level").getAsInt() : 0;
-        return new EraTransitionDef(id, fromEra, fromOrientation, orientationLabel, iconItem,
+        return new EraTransitionDef(id, location.getNamespace(), fromEra, fromOrientation, orientationLabel, iconItem,
             resourceCost, requiredResidents, requiredBuildings, Collections.unmodifiableList(unlockedBuildingIds),
             nextOrientation, weightCapIncrease, structureLabel, Collections.unmodifiableMap(unlockNpcCounts),
             Collections.unmodifiableList(autoUpgradeIds), Collections.unmodifiableList(autoBuildSequence),
             maxUpgradeLevel);
     }
 
-    public static List<EraTransitionDef> getAvailableTransitions(int fromEra, String currentOrientation) {
+    // Returns transitions available for the given era and orientation, scoped to cultureNamespace.
+    // Pass empty cultureNamespace to disable namespace filtering (legacy/unscoped behavior).
+    public static List<EraTransitionDef> getAvailableTransitions(int fromEra, String currentOrientation, String cultureNamespace) {
         List<EraTransitionDef> result = new ArrayList<>();
         for (EraTransitionDef def : REGISTRY.values()) {
             if (def.fromEra != fromEra) continue;
             if (!def.fromOrientation.isEmpty() && !def.fromOrientation.equals(currentOrientation)) continue;
+            if (!cultureNamespace.isEmpty() && !def.namespace.equals(cultureNamespace)) continue;
             result.add(def);
         }
         return result;
@@ -176,11 +179,12 @@ public class EraTransitionDataHandler {
         return ERA_DEF_BY_ORIENTATION.get(orientation);
     }
 
-    // Returns the set of all building IDs that are gated behind at least one era transition.
-    // Buildings NOT in this set are available from era 0 (always visible in the catalog).
-    public static Set<String> getAllGatedBuildingIds() {
+    // Returns building IDs gated behind era transitions, scoped to cultureNamespace.
+    // Pass empty cultureNamespace to include gated IDs from all namespaces.
+    public static Set<String> getAllGatedBuildingIds(String cultureNamespace) {
         Set<String> gated = new HashSet<>();
         for (EraTransitionDef def : REGISTRY.values()) {
+            if (!cultureNamespace.isEmpty() && !def.namespace.equals(cultureNamespace)) continue;
             gated.addAll(def.unlockedBuildingIds);
         }
         return gated;

@@ -173,9 +173,9 @@ public class QuestHubWidget extends DraggableWidget {
             boolean hover = mouseX >= bx && mouseX < bx + TAB_BTN_W
                          && mouseY >= y  && mouseY < y + TITLE_BAR_H;
             boolean isActive = active[i];
-            int bg = isActive ? (hover ? 0xFF2A5A2A : 0xFF224422)
+            int bg = isActive ? (hover ? 0xFF4A4A4A : 0xFF3A3A3A)
                               : (hover ? 0xFF444444 : 0xFF333333);
-            int fg = isActive ? 0xFFAAFFAA : 0xFF888888;
+            int fg = isActive ? 0xFFEEEEEE : 0xFF888888;
             g.fill(bx, y + 1, bx + TAB_BTN_W, y + TITLE_BAR_H - 1, bg);
             String label = TAB_LABELS[i];
             g.drawString(font, label, bx + (TAB_BTN_W - font.width(label)) / 2, y + 2, fg, false);

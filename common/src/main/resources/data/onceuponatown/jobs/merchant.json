@@ -1,0 +1,8 @@
+{
+  "walk_speed": 0.6,
+  "work_buildings": ["market", "merchant_shop"],
+  "rest_buildings": ["merchant_shop", "house", "house_2", "house_3"],
+  "bedtime": 13000,
+  "wakeup_time": 1000,
+  "secondary_activities": []
+}

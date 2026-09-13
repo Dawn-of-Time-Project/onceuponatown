@@ -18,6 +18,7 @@ public class NpcClothesLayer<T extends Npc, M extends NpcModel<T>> extends Rende
         "builder",    new ResourceLocation(Ouat.MOD_ID, "textures/entity/npc/builder_clothes.png"),
         "cowherd",    new ResourceLocation(Ouat.MOD_ID, "textures/entity/npc/cowherd_clothes.png"),
         "lumberjack", new ResourceLocation(Ouat.MOD_ID, "textures/entity/npc/lumberjack_clothes.png"),
+        "merchant",   new ResourceLocation(Ouat.MOD_ID, "textures/entity/npc/merchant_clothes.png"),
         "miner",      new ResourceLocation(Ouat.MOD_ID, "textures/entity/npc/miner_clothes.png"),
         "shepherd",   new ResourceLocation(Ouat.MOD_ID, "textures/entity/npc/shepherd_clothes.png"),
         "swineherd",  new ResourceLocation(Ouat.MOD_ID, "textures/entity/npc/swineherd_clothes.png")

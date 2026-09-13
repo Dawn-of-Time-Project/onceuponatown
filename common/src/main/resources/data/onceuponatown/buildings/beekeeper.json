@@ -6,6 +6,8 @@
   "category": "jobs",
   "weight": 3,
   "residents": 1,
+  "signature": true,
+
 
   "required_buildings": [
     { "defId": "bee_field", "count": 1 }
@@ -77,12 +79,10 @@
   "upgrades": [
     {
       "capacity_stacks_add": 1,
-      "unlocks_display": ["minecraft:honeycomb_block"],
       "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 20 }]
     },
     {
       "amount_add": 1,
-      "unlocks_display": ["minecraft:candle"],
       "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 30 }]
     },
     {
@@ -91,7 +91,6 @@
     },
     {
       "cadence_multiplier": 0.10,
-      "unlocks_display": ["minecraft:honey_bottle", "minecraft:honey_block"],
       "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 60 }]
     },
     {
