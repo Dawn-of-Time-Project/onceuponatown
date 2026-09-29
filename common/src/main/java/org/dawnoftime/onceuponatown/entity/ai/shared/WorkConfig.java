@@ -5,4 +5,5 @@ import java.util.List;
 public interface WorkConfig {
     List<String> getWorkBuildings();
     double getWalkSpeed();
+    double getWorkReach();
 }

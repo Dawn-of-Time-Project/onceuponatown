@@ -20,7 +20,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 
 public class TownQueueState {
 
@@ -30,8 +29,6 @@ public class TownQueueState {
     private final Map<Item, Integer> queueReservedStock = new HashMap<>();
     private long nextEntryId = 0L;
     private final Map<Integer, ActiveBuildState> activeBuilds = new HashMap<>();
-    // Runtime-only: not persisted. Claims are re-established on the next idle tick after restart.
-    private final Map<Integer, UUID> queueIndexClaims = new HashMap<>();
 
     // -- Queue access --
 
@@ -66,7 +63,6 @@ public class TownQueueState {
         if (index < 0 || index >= constructionQueue.size()) return List.of();
         QueueEntry entry = constructionQueue.get(index);
         constructionQueue.remove(index);
-        shiftClaimsAfter(index);
         return getEntryCost(entry);
     }
 
@@ -75,7 +71,6 @@ public class TownQueueState {
         int idx = findQueueIndex(entry.entryId());
         if (idx >= 0) {
             constructionQueue.remove(idx);
-            shiftClaimsAfter(idx);
         }
         for (ItemCost c : getEntryCost(entry)) {
             int reserved = queueReservedStock.getOrDefault(c.item(), 0);
@@ -104,7 +99,6 @@ public class TownQueueState {
                     }
                 }
                 constructionQueue.remove(i);
-                shiftClaimsAfter(i);
             }
         }
         return refunds;
@@ -196,35 +190,6 @@ public class TownQueueState {
     public void clearActiveBuild(int slot)                        { activeBuilds.remove(slot); }
     public ActiveBuildState getActiveBuild(int slot)              { return activeBuilds.get(slot); }
     public Map<Integer, ActiveBuildState> getActiveBuilds()       { return Collections.unmodifiableMap(activeBuilds); }
-
-    // -- Claims --
-
-    public boolean claimQueueEntry(int index, UUID builderId) {
-        UUID existing = queueIndexClaims.get(index);
-        if (existing != null && !existing.equals(builderId)) return false;
-        queueIndexClaims.put(index, builderId);
-        return true;
-    }
-
-    public void releaseQueueClaim(int index, UUID builderId)   { queueIndexClaims.remove(index, builderId); }
-    public void releaseAllClaimsForBuilder(UUID builderId)     { queueIndexClaims.values().removeIf(id -> id.equals(builderId)); }
-
-    public boolean isQueueEntryClaimedByOther(int index, UUID builderId) {
-        UUID existing = queueIndexClaims.get(index);
-        return existing != null && !existing.equals(builderId);
-    }
-
-    private void shiftClaimsAfter(int removedIdx) {
-        Map<Integer, UUID> shifted = new HashMap<>();
-        queueIndexClaims.entrySet().removeIf(e -> {
-            if (e.getKey() > removedIdx) {
-                shifted.put(e.getKey() - 1, e.getValue());
-                return true;
-            }
-            return false;
-        });
-        queueIndexClaims.putAll(shifted);
-    }
 
     // -- Cost resolution --
 

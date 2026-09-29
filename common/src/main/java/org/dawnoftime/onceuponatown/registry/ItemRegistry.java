@@ -7,4 +7,5 @@ public class ItemRegistry {
     public static Item TOWN_ANCHOR;
     public static Item COMMERCE_CONTRACT;
     public static Item RECOGNITION_MEDAL;
+    public static Item VILLAGE_BANNER;
 }

@@ -5,37 +5,34 @@
   "icon_item": "minecraft:honey_bottle",
   "category": "jobs",
   "weight": 3,
-  "residents": 1,
   "signature": true,
 
+  "spawns_npc": "beekeeper",
+  "residents": 1,
 
   "required_buildings": [
     { "defId": "bee_field", "count": 1 }
   ],
+
   "construction_cost": [
-    {
-      "item": "minecraft:oak_log",
-      "amount": 35
-    },
-    {
-      "item": "minecraft:cobblestone",
-      "amount": 15
-    },
-    {
-      "item": "minecraft:white_bed",
-      "amount": 1
-    }
+    { "item": "minecraft:oak_log",     "amount": 35 },
+    { "item": "minecraft:cobblestone", "amount": 15 },
+    { "item": "minecraft:white_bed",   "amount": 1 }
   ],
+
   "production": [
     {
       "item": "minecraft:honeycomb",
       "amount": 1,
       "every_ticks": 1900,
-      "capacity_stacks": 1
+      "slots": 1,
+      "slot_size": 64
     }
   ],
+
   "transform_input_ratio": 0.1,
   "transform_every_ticks": 1600,
+
   "transformations": [
     {
       "inputs": [
@@ -43,27 +40,19 @@
       ],
       "output": "minecraft:honeycomb_block",
       "output_amount": 1,
-      "output_capacity_stacks": 1,
+      "output_slots": 1,
+      "output_slot_size": 64,
       "unlock_at_level": 1
     },
     {
       "inputs": [
-        { "item": "minecraft:honeycomb", "amount": 1 },
-        { "item": "minecraft:string", "amount": 1 }
-      ],
-      "output": "minecraft:candle",
-      "output_amount": 1,
-      "output_capacity_stacks": 1,
-      "unlock_at_level": 5
-    },
-    {
-      "inputs": [
-        { "item": "minecraft:honeycomb", "amount": 1 },
+        { "item": "minecraft:honeycomb",    "amount": 1 },
         { "item": "minecraft:glass_bottle", "amount": 1 }
       ],
       "output": "minecraft:honey_bottle",
       "output_amount": 1,
-      "output_capacity_stacks": 1,
+      "output_slots": 1,
+      "output_slot_size": 64,
       "unlock_at_level": 4
     },
     {
@@ -72,40 +61,68 @@
       ],
       "output": "minecraft:honey_block",
       "output_amount": 1,
-      "output_capacity_stacks": 1,
+      "output_slots": 1,
+      "output_slot_size": 64,
       "unlock_at_level": 4
+    },
+    {
+      "inputs": [
+        { "item": "minecraft:honeycomb", "amount": 1 },
+        { "item": "minecraft:string",    "amount": 1 }
+      ],
+      "output": "minecraft:candle",
+      "output_amount": 1,
+      "output_slots": 1,
+      "output_slot_size": 64,
+      "unlock_at_level": 5
     }
   ],
+
   "upgrades": [
     {
-      "capacity_stacks_add": 1,
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 20 }]
+      "slots_add": 1,
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 20 }
+      ]
     },
     {
       "amount_add": 1,
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 30 }]
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 30 }
+      ]
     },
     {
-      "capacity_stacks_add": 1,
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 40 }]
+      "slots_add": 1,
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 40 }
+      ]
     },
     {
-      "cadence_multiplier": 0.10,
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 60 }]
+      "cadence_multiplier": 0.1,
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 60 }
+      ]
     },
     {
       "amount_add": 1,
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 80 }]
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 80 }
+      ]
     },
     {
-      "cadence_multiplier": 0.20,
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 100 }]
+      "cadence_multiplier": 0.2,
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 100 }
+      ]
     },
     {
-      "capacity_stacks_add": 1,
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 120 }]
+      "slots_add": 1,
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 120 }
+      ]
     }
   ],
+
   "nbt_levels": [
     "onceuponatown:plains/jobs/beekeeper_lvl1",
     "onceuponatown:plains/jobs/beekeeper_lvl2",

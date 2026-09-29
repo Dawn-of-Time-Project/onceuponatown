@@ -1,0 +1,12 @@
+{
+  "walk_speed": 0.6,
+
+  "work_buildings": ["toolsmith"],
+  "work_stand_type": "smithing",
+  "smithing_speed": [0.5, 1.5],
+
+  "rest_buildings": ["toolsmith"],
+  "bedtime": 13000,
+  "wakeup_time": 1000,
+  "production_buildings": ["toolsmith"]
+}

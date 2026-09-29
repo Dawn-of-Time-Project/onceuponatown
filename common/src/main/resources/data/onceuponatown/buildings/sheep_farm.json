@@ -5,84 +5,97 @@
   "icon_item": "minecraft:cooked_mutton",
   "category": "jobs",
   "weight": 3,
-  "spawns_npc": "shepherd",
-  "residents": 1,
   "signature": true,
 
+  "spawns_npc": "shepherd",
+  "residents": 1,
   "herd": 2,
+
   "required_buildings": [
     { "defId": "sheep_field", "count": 2 }
   ],
+
   "construction_cost": [
-    {
-      "item": "minecraft:oak_log",
-      "amount": 45
-    },
-    {
-      "item": "minecraft:cobblestone",
-      "amount": 10
-    },
-    {
-      "item": "minecraft:white_bed",
-      "amount": 1
-    }
+    { "item": "minecraft:oak_log",     "amount": 45 },
+    { "item": "minecraft:cobblestone", "amount": 10 },
+    { "item": "minecraft:white_bed",   "amount": 1 }
   ],
+
   "production": [
     {
       "item": "minecraft:mutton",
       "amount": 2,
       "every_ticks": 1600,
-      "capacity_stacks": 1
+      "slots": 1,
+      "slot_size": 64
     },
     {
       "item": "minecraft:white_wool",
       "amount": 1,
       "every_ticks": 2600,
-      "capacity_stacks": 1
+      "slots": 1,
+      "slot_size": 64
     }
   ],
+
   "transform_input_ratio": 0.1,
   "transform_every_ticks": 1600,
+
   "transformations": [
     {
       "inputs": [
-        { "item": "minecraft:mutton", "amount": 3 },
+        { "item": "minecraft:mutton",   "amount": 3 },
         { "item": "minecraft:charcoal", "amount": 1 }
       ],
       "output": "minecraft:cooked_mutton",
       "output_amount": 3,
-      "output_capacity_stacks": 1,
-      "unlock_at_level": 1
+      "unlock_at_level": 1,
+      "output_slots": 1,
+      "output_slot_size": 64
     }
   ],
+
   "upgrades": [
     {
-      "capacity_stacks_add": 1,
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 20 }]
+      "slots_add": 1,
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 20 }
+      ]
     },
     {
       "max_herds": 3,
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 30 }]
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 30 }
+      ]
     },
     {
-      "capacity_stacks_add": 1,
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 40 }]
+      "slots_add": 1,
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 40 }
+      ]
     },
     {
       "max_herds": 4,
-      "cadence_multiplier": 0.10,
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 60 }]
+      "cadence_multiplier": 0.1,
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 60 }
+      ]
     },
     {
       "max_herds": 5,
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 80 }]
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 80 }
+      ]
     },
     {
       "max_herds": 6,
-      "capacity_stacks_add": 1,
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 100 }]
+      "slots_add": 1,
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 100 }
+      ]
     }
   ],
+
   "nbt_levels": [
     "onceuponatown:plains/jobs/sheep_farm_lvl1",
     "onceuponatown:plains/jobs/sheep_farm_lvl2",

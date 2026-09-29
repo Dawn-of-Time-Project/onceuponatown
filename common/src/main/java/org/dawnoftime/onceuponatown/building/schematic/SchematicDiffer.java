@@ -19,7 +19,8 @@ public final class SchematicDiffer {
     private static final Logger LOGGER = LoggerFactory.getLogger(SchematicDiffer.class);
 
     // Result of a diff between two upgrade-level NBTs at the same origin and rotation.
-    public record DiffResult(List<SchematicBlock> toAdd, List<BlockPos> toRemove) {}
+    // toMarkerPositions: barrier marker local positions from the toNbt template (new level).
+    public record DiffResult(List<SchematicBlock> toAdd, List<BlockPos> toRemove, List<BlockPos> toMarkerPositions) {}
 
     // Returns entities present in toNbt but not accounted for in fromNbt, compared by type count.
     // For each entity type: if toNbt has more than fromNbt, spawn the delta at toNbt positions.
@@ -79,11 +80,13 @@ public final class SchematicDiffer {
         Optional<StructureTemplate> toTpl   = level.getStructureManager().get(toNbt);
         if (fromTpl.isEmpty() || toTpl.isEmpty()) {
             LOGGER.warn("[OUAT] computeDiff: template not found -- from='{}' to='{}'", fromNbt, toNbt);
-            return new DiffResult(List.of(), List.of());
+            return new DiffResult(List.of(), List.of(), List.of());
         }
 
-        List<SchematicBlock> fromBlocks = SchematicReader.readSortedBlocks(fromTpl.get(), rotation);
-        List<SchematicBlock> toBlocks   = SchematicReader.readSortedBlocks(toTpl.get(), rotation);
+        SchematicReader.SchematicReadResult fromRead = SchematicReader.readSortedBlocks(fromTpl.get(), rotation);
+        SchematicReader.SchematicReadResult toRead   = SchematicReader.readSortedBlocks(toTpl.get(), rotation);
+        List<SchematicBlock> fromBlocks = fromRead.blocks();
+        List<SchematicBlock> toBlocks   = toRead.blocks();
 
         // Shift fromNbt positions into toNbt coordinate space so that ground-level blocks
         // at fromNbt Y=0 align with toNbt Y=fromYOffset (the target ground floor).
@@ -113,6 +116,6 @@ public final class SchematicDiffer {
             }
         }
 
-        return new DiffResult(toAdd, toRemove);
+        return new DiffResult(toAdd, toRemove, toRead.markerPositions());
     }
 }

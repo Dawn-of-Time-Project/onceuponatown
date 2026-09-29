@@ -50,7 +50,7 @@ public final class TerrainMatchedPlacer {
         boolean collect = obstacleBlockIds != null && !obstacleBlockIds.isEmpty() && obstacleOut != null;
 
         // All non-air blocks with rotation applied; jigsaw blocks already resolved to final_state.
-        List<SchematicBlock> blocks = SchematicReader.readSortedBlocks(templateOpt.get(), rotation);
+        List<SchematicBlock> blocks = SchematicReader.readSortedBlocks(templateOpt.get(), rotation).blocks();
 
         // Group by XZ column using rotated local coordinates.
         Map<Long, List<SchematicBlock>> columns = new HashMap<>();
@@ -112,7 +112,7 @@ public final class TerrainMatchedPlacer {
 
         boolean collect = obstacleBlockIds != null && !obstacleBlockIds.isEmpty() && obstacleOut != null;
 
-        List<SchematicBlock> blocks = SchematicReader.readSortedBlocks(templateOpt.get(), rotation);
+        List<SchematicBlock> blocks = SchematicReader.readSortedBlocks(templateOpt.get(), rotation).blocks();
 
         Map<Long, List<SchematicBlock>> columns = new HashMap<>();
         for (SchematicBlock b : blocks) {

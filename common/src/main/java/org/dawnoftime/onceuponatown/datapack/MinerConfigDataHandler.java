@@ -1,52 +1,50 @@
 package org.dawnoftime.onceuponatown.datapack;
 
 import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.Items;
 import org.dawnoftime.onceuponatown.entity.ai.ActivityDef;
 import org.dawnoftime.onceuponatown.entity.ai.shared.SleepConfig;
-import org.dawnoftime.onceuponatown.entity.ai.shared.WorkConfig;
+import org.dawnoftime.onceuponatown.entity.ai.shared.StandJobConfig;
+import net.minecraft.server.MinecraftServer;
 
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 public class MinerConfigDataHandler {
 
-    public static final class Config implements SleepConfig, WorkConfig {
+    public static final class Config implements StandJobConfig {
         public final double walkSpeed;
-        public final int mineDelayTicks;
-        public final int mineSessionTicks;
+        public final float mineSpeedMin;
+        public final float mineSpeedMax;
+        public final String workStandType;
         public final List<String> workBuildings;
-        public final Map<String, Item> mineableBlocks;
         public final List<ActivityDef> secondaryActivities;
+        public final List<String> productionBuildings;
         public final int bedtime;
         public final int wakeupTime;
         public final List<String> restBuildings;
 
-        public Config(double walkSpeed, int mineDelayTicks, int mineSessionTicks,
-                      List<String> workBuildings, Map<String, Item> mineableBlocks,
-                      List<ActivityDef> secondaryActivities,
+        public Config(double walkSpeed, float mineSpeedMin, float mineSpeedMax,
+                      String workStandType, List<String> workBuildings,
+                      List<ActivityDef> secondaryActivities, List<String> productionBuildings,
                       int bedtime, int wakeupTime, List<String> restBuildings) {
             this.walkSpeed           = walkSpeed;
-            this.mineDelayTicks      = mineDelayTicks;
-            this.mineSessionTicks    = mineSessionTicks;
+            this.mineSpeedMin        = mineSpeedMin;
+            this.mineSpeedMax        = mineSpeedMax;
+            this.workStandType       = workStandType;
             this.workBuildings       = workBuildings;
-            this.mineableBlocks      = mineableBlocks;
             this.secondaryActivities = secondaryActivities;
+            this.productionBuildings = productionBuildings;
             this.bedtime             = bedtime;
             this.wakeupTime          = wakeupTime;
             this.restBuildings       = restBuildings;
         }
 
-        @Override public int getBedtime()                { return bedtime; }
-        @Override public int getWakeupTime()             { return wakeupTime; }
-        @Override public List<String> getRestBuildings() { return restBuildings; }
-        @Override public double getWalkSpeed()           { return walkSpeed; }
-        @Override public List<String> getWorkBuildings() { return workBuildings; }
+        @Override public int getBedtime()                          { return bedtime; }
+        @Override public int getWakeupTime()                       { return wakeupTime; }
+        @Override public List<String> getRestBuildings()           { return restBuildings; }
+        @Override public double getWalkSpeed()                     { return walkSpeed; }
+        @Override public List<String> getWorkBuildings()           { return workBuildings; }
+        @Override public String getWorkStandType()                 { return workStandType; }
+        @Override public List<ActivityDef> getSecondaryActivities(){ return secondaryActivities; }
     }
 
     private static Config loaded = null;
@@ -56,27 +54,21 @@ public class MinerConfigDataHandler {
     public static void reload(MinecraftServer server) {
         JobConfigParser.reload(server, "jobs/miner.json", "miner",
             json -> {
-                Map<String, Item> mineableBlocks = new LinkedHashMap<>();
-                JsonArray arr = json.getAsJsonArray("mineable_blocks");
-                for (JsonElement el : arr) {
-                    if (el.isJsonObject()) {
-                        JsonObject obj = el.getAsJsonObject();
-                        String block = obj.get("block").getAsString();
-                        Item tool = "shovel".equals(obj.get("tool").getAsString())
-                            ? Items.WOODEN_SHOVEL : Items.WOODEN_PICKAXE;
-                        mineableBlocks.put(block, tool);
-                    } else {
-                        mineableBlocks.put(el.getAsString(), Items.WOODEN_PICKAXE);
-                    }
+                float mineSpeedMin = 0.5f;
+                float mineSpeedMax = 1.5f;
+                if (json.has("mine_speed")) {
+                    JsonArray arr = json.getAsJsonArray("mine_speed");
+                    mineSpeedMin = arr.get(0).getAsFloat();
+                    mineSpeedMax = arr.get(1).getAsFloat();
                 }
-                if (mineableBlocks.isEmpty()) mineableBlocks.put("minecraft:stone", Items.WOODEN_PICKAXE);
                 return new Config(
                     json.get("walk_speed").getAsDouble(),
-                    JobConfigParser.optInt(json, "mine_delay_ticks", 20),
-                    JobConfigParser.optInt(json, "mine_session_ticks", 300),
+                    mineSpeedMin,
+                    mineSpeedMax,
+                    json.get("work_stand_type").getAsString(),
                     JobConfigParser.parseStringList(json, "work_buildings"),
-                    mineableBlocks,
                     JobConfigParser.parseSecondaryActivities(json),
+                    JobConfigParser.parseStringList(json, "production_buildings"),
                     JobConfigParser.optInt(json, "bedtime", -1),
                     JobConfigParser.optInt(json, "wakeup_time", -1),
                     JobConfigParser.parseStringList(json, "rest_buildings")

@@ -1,32 +1,12 @@
 {
   "walk_speed": 0.6,
-  "mine_delay_ticks": 20,
-  "mine_session_ticks": 300,
+
   "work_buildings": ["open_mine", "stone_breach", "mine"],
+  "work_stand_type": "mine_spot",
+  "mine_speed": [0.5, 1.5],
+
   "rest_buildings": ["house", "house_2", "house_3"],
   "bedtime": 13000,
   "wakeup_time": 1000,
-
-  "mineable_blocks": [
-    { "block": "minecraft:stone",    "tool": "pickaxe" },
-    { "block": "minecraft:tuff",     "tool": "pickaxe" },
-    { "block": "minecraft:diorite",  "tool": "pickaxe" },
-    { "block": "minecraft:andesite", "tool": "pickaxe" },
-    { "block": "minecraft:granite",  "tool": "pickaxe" },
-    { "block": "minecraft:coal_ore", "tool": "pickaxe" },
-    { "block": "minecraft:iron_ore", "tool": "pickaxe" },
-    { "block": "minecraft:sand",     "tool": "shovel"  },
-    { "block": "minecraft:clay",     "tool": "shovel"  },
-    { "block": "minecraft:gravel",   "tool": "shovel"  }
-  ],
-  "secondary_activities": [
-    {
-      "requiredBuilding": "market",
-      "heldItem": "minecraft:air",
-      "animationType": "SELL",
-      "target_block": "minecraft:crafting_table",
-      "productionBuildings": ["mine","open_mine", "stone_breach"]
-    }
-  ]
-
+  "production_buildings": ["mine", "open_mine", "stone_breach"]
 }

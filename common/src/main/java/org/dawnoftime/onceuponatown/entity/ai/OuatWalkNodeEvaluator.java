@@ -98,6 +98,23 @@ public class OuatWalkNodeEvaluator extends WalkNodeEvaluator {
             }
         }
 
+        // Penalize upward neighbors to discourage climbing onto walls, trees, and roofs.
+        // The malus is proportional to how many blocks above the mob's current Y each neighbor
+        // sits. The mob can still reach elevated blocks when no lower path exists, but the
+        // pathfinder will prefer routes that keep the NPC close to ground level.
+        int mobY = mob.getBlockY();
+        for (int i = 0; i < count; i++) {
+            Node n = outputArray[i];
+            if (n != null && n.y > mobY) {
+                n.costMalus += HEIGHT_CLIMB_MALUS * (n.y - mobY);
+            }
+        }
+
         return count;
     }
+
+    // Cost added per block above the mob's current Y when evaluating upward neighbors.
+    // High enough to deter opportunistic climbing (walls, tree tops, roofs) while still
+    // allowing the NPC to reach blocks that genuinely require height.
+    private static final float HEIGHT_CLIMB_MALUS = 0.6f;
 }

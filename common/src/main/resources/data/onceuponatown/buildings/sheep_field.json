@@ -7,27 +7,29 @@
   "weight": 2,
 
   "herd": 2,
+
   "required_buildings": [
     { "defId": "wheat_field", "count": 1 }
   ],
+
   "construction_cost": [
-    {
-      "item": "minecraft:oak_log",
-      "amount": 25
-    }
+    {"item": "minecraft:oak_log", "amount": 25 }
   ],
+
   "production": [
     {
       "item": "minecraft:mutton",
       "amount": 1,
       "every_ticks": 1600,
-      "capacity_stacks": 1
+      "slots": 1,
+      "slot_size": 64
     },
     {
       "item": "minecraft:white_wool",
       "amount": 1,
       "every_ticks": 2100,
-      "capacity_stacks": 1
+      "slots": 1,
+      "slot_size": 64
     }
   ]
 }

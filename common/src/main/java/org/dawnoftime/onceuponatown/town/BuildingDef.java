@@ -1,6 +1,7 @@
 package org.dawnoftime.onceuponatown.town;
 
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.block.Block;
 
 import java.util.Collections;
 import java.util.List;
@@ -48,6 +49,10 @@ public class BuildingDef {
     // Per-level NBT metadata. undergroundDepth = how many blocks deeper than the base template this level goes.
     // Used to shift the upgrade diff origin downward so underground galleries land at the correct Y.
     public record NbtLevel(ResourceLocation nbt, int undergroundDepth) {}
+
+    // A physical stand position defined in the building NBT via a barrier block placed next to associatedBlock.
+    // toolItem: optional item ID the NPC holds while occupying this stand (e.g. "minecraft:wooden_pickaxe").
+    public record StandDef(String type, Block associatedBlock, int radius, @org.jetbrains.annotations.Nullable String toolItem) {}
     // Minimum total village residents required before this building can be constructed.
     public final int requiredResidents;
     // Specific buildings that must already exist in the village before this one can be constructed.
@@ -64,15 +69,21 @@ public class BuildingDef {
     public final List<ItemCost> playerCost;
     // When true, this building contributes to the Recognition Medal progression widget.
     public final boolean signature;
+    // When true, the NBT provides its own underground foundation (dirt surround + carved air tunnel).
+    // Skips Pass B anchor fill so the mine shaft is not plugged with dirt. Air at localY < 0 actively carves terrain.
+    public final boolean undergroundFoundation;
+    // Physical market stand slots defined by this building. Empty for non-market buildings.
+    public final List<StandDef> stands;
 
     // One upgrade step: cost + what it changes. All additive except maxHerdsTarget (absolute target, 0 = no change).
-    public record UpgradeLevel(float cadenceMultiplier, int capacityStacksAdd, int amountAdd,
+    public record UpgradeLevel(float cadenceMultiplier, int slotsAdd, int amountAdd,
                                 int residentsAdd,
                                 double productionBonusAdd,
                                 int stockBonusAdd,
                                 int maxHerdsTarget,
                                 int tradeSlotsAdd,
                                 float priceDiscountAdd,
+                                float contractRatioAdd,
                                 List<String> unlockedDisplay,
                                 List<ItemCost> upgradeCost) {}
 
@@ -85,7 +96,8 @@ public class BuildingDef {
                                          int resolvedHerd,
                                          int resolvedMaxHerds,
                                          int resolvedTradeSlots,
-                                         float resolvedPriceDiscount) {}
+                                         float resolvedPriceDiscount,
+                                         float resolvedContractRatio) {}
 
     public BuildingDef(String id, String namespace, ResourceLocation nbt, String entryPool,
                        List<ProductionEntry> production, List<ItemCost> constructionCost,
@@ -99,7 +111,8 @@ public class BuildingDef {
                        List<ItemCost> initialStock,
                        int herd, int maxHerds, int weight,
                        List<String> obstacleBlocks, String spawnsNpcJob,
-                       List<ItemCost> playerCost, boolean signature) {
+                       List<ItemCost> playerCost, boolean signature, boolean undergroundFoundation,
+                       List<StandDef> stands) {
         this.id = id;
         this.namespace = namespace;
         this.nbt = nbt;
@@ -128,6 +141,8 @@ public class BuildingDef {
         this.spawnsNpcJob = spawnsNpcJob;
         this.playerCost = playerCost;
         this.signature = signature;
+        this.undergroundFoundation = undergroundFoundation;
+        this.stands = stands != null ? List.copyOf(stands) : List.of();
     }
 
     // Returns effective production, cadence, residents, herd, maxHerds, trade slots, and price discount at a given upgrade level.
@@ -137,7 +152,7 @@ public class BuildingDef {
             .filter(e -> e.unlockAtLevel() == -1 || e.unlockAtLevel() <= level)
             .toList();
         if (level <= 0 || upgrades.isEmpty()) {
-            return new ResolvedBuildingStats(activeProduction, 0.0, residents, herd, maxHerds, 3, 0f);
+            return new ResolvedBuildingStats(activeProduction, 0.0, residents, herd, maxHerds, 3, 0f, 0.03f);
         }
         int capped = Math.min(level, upgrades.size());
         double totalCadence = 0.0;
@@ -147,20 +162,23 @@ public class BuildingDef {
         int resolvedMaxHerds = maxHerds;
         int totalTradeSlotsAdd = 0;
         float totalPriceDiscount = 0f;
+        float totalContractRatioAdd = 0f;
         for (int i = 0; i < capped; i++) {
-            totalCadence        += upgrades.get(i).cadenceMultiplier();
-            totalCapAdd         += upgrades.get(i).capacityStacksAdd();
-            totalAmountAdd      += upgrades.get(i).amountAdd();
-            totalResidentsAdd   += upgrades.get(i).residentsAdd();
-            totalTradeSlotsAdd  += upgrades.get(i).tradeSlotsAdd();
-            totalPriceDiscount  += upgrades.get(i).priceDiscountAdd();
+            totalCadence           += upgrades.get(i).cadenceMultiplier();
+            totalCapAdd            += upgrades.get(i).slotsAdd();
+            totalAmountAdd         += upgrades.get(i).amountAdd();
+            totalResidentsAdd      += upgrades.get(i).residentsAdd();
+            totalTradeSlotsAdd     += upgrades.get(i).tradeSlotsAdd();
+            totalPriceDiscount     += upgrades.get(i).priceDiscountAdd();
+            totalContractRatioAdd  += upgrades.get(i).contractRatioAdd();
             if (upgrades.get(i).maxHerdsTarget() != 0)
                 resolvedMaxHerds = upgrades.get(i).maxHerdsTarget();
         }
-        int resolvedResidents  = residents + totalResidentsAdd;
-        int resolvedTradeSlots = 3 + totalTradeSlotsAdd;
+        int resolvedResidents   = residents + totalResidentsAdd;
+        int resolvedTradeSlots  = 3 + totalTradeSlotsAdd;
+        float resolvedContractRatio = 0.03f + totalContractRatioAdd;
         if (totalCapAdd == 0 && totalAmountAdd == 0) {
-            return new ResolvedBuildingStats(activeProduction, totalCadence, resolvedResidents, herd, resolvedMaxHerds, resolvedTradeSlots, totalPriceDiscount);
+            return new ResolvedBuildingStats(activeProduction, totalCadence, resolvedResidents, herd, resolvedMaxHerds, resolvedTradeSlots, totalPriceDiscount, resolvedContractRatio);
         }
         int finalCapAdd    = totalCapAdd;
         int finalAmountAdd = totalAmountAdd;
@@ -169,11 +187,11 @@ public class BuildingDef {
                 e.item(),
                 e.amount() + finalAmountAdd,
                 e.everyTicks(),
-                e.capacityStacks() + finalCapAdd,
-                e.capacityUnits(),
+                e.slots() + finalCapAdd,
+                e.slotSize(),
                 e.unlockAtLevel()))
             .toList();
-        return new ResolvedBuildingStats(adjusted, totalCadence, resolvedResidents, herd, resolvedMaxHerds, resolvedTradeSlots, totalPriceDiscount);
+        return new ResolvedBuildingStats(adjusted, totalCadence, resolvedResidents, herd, resolvedMaxHerds, resolvedTradeSlots, totalPriceDiscount, resolvedContractRatio);
     }
 
     public boolean isTransformer() { return !transformations.isEmpty(); }

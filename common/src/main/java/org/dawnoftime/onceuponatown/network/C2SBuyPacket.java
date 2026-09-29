@@ -80,23 +80,25 @@ public record C2SBuyPacket(BlockPos anchorPos, List<Entry> requested) {
 
             if (toGive.isEmpty()) return;
 
-            // Verify player has enough emeralds
-            int playerEmeralds = 0;
-            for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
-                ItemStack s = player.getInventory().getItem(i);
-                if (s.is(Items.EMERALD)) playerEmeralds += s.getCount();
-            }
-            if (playerEmeralds < totalCost) return;
+            if (!town.isPlayerControlled()) {
+                // Verify player has enough emeralds
+                int playerEmeralds = 0;
+                for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+                    ItemStack s = player.getInventory().getItem(i);
+                    if (s.is(Items.EMERALD)) playerEmeralds += s.getCount();
+                }
+                if (playerEmeralds < totalCost) return;
 
-            // Deduct emeralds from player
-            int remaining = totalCost;
-            for (int i = 0; i < player.getInventory().getContainerSize() && remaining > 0; i++) {
-                ItemStack s = player.getInventory().getItem(i);
-                if (!s.is(Items.EMERALD)) continue;
-                int remove = Math.min(remaining, s.getCount());
-                s.shrink(remove);
-                remaining -= remove;
-                if (s.isEmpty()) player.getInventory().setItem(i, ItemStack.EMPTY);
+                // Deduct emeralds from player
+                int remaining = totalCost;
+                for (int i = 0; i < player.getInventory().getContainerSize() && remaining > 0; i++) {
+                    ItemStack s = player.getInventory().getItem(i);
+                    if (!s.is(Items.EMERALD)) continue;
+                    int remove = Math.min(remaining, s.getCount());
+                    s.shrink(remove);
+                    remaining -= remove;
+                    if (s.isEmpty()) player.getInventory().setItem(i, ItemStack.EMPTY);
+                }
             }
 
             // Remove from village stock and give items to player

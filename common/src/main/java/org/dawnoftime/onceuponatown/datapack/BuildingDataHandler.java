@@ -57,13 +57,13 @@ public class BuildingDataHandler {
                 JsonObject p = el.getAsJsonObject();
                 Item item = BuiltInRegistries.ITEM.get(new ResourceLocation(p.get("item").getAsString()));
                 int unlockAtLevel = p.has("unlock_at_level") ? p.get("unlock_at_level").getAsInt() : -1;
-                int capacityUnits = p.has("capacity_units") ? p.get("capacity_units").getAsInt() : -1;
+                int slotSize = p.has("slot_size") ? p.get("slot_size").getAsInt() : 64;
                 production.add(new ProductionEntry(
                     item,
                     p.get("amount").getAsInt(),
                     p.get("every_ticks").getAsInt(),
-                    p.get("capacity_stacks").getAsInt(),
-                    capacityUnits,
+                    p.get("slots").getAsInt(),
+                    slotSize,
                     unlockAtLevel
                 ));
             }
@@ -103,13 +103,13 @@ public class BuildingDataHandler {
                 }
                 Item outputItem = BuiltInRegistries.ITEM.get(new ResourceLocation(t.get("output").getAsString()));
                 int unlockAtLevel = t.has("unlock_at_level") ? t.get("unlock_at_level").getAsInt() : -1;
-                int outputCapacityUnits = t.has("output_capacity_units") ? t.get("output_capacity_units").getAsInt() : -1;
+                int outputSlotSize = t.has("output_slot_size") ? t.get("output_slot_size").getAsInt() : 64;
                 transformations.add(new TransformationRecipe(
                     inputs,
                     outputItem,
                     t.get("output_amount").getAsInt(),
-                    t.get("output_capacity_stacks").getAsInt(),
-                    outputCapacityUnits,
+                    t.get("output_slots").getAsInt(),
+                    outputSlotSize,
                     unlockAtLevel
                 ));
             }
@@ -126,7 +126,7 @@ public class BuildingDataHandler {
             for (JsonElement el : json.getAsJsonArray("upgrades")) {
                 JsonObject u = el.getAsJsonObject();
                 float cadenceMult = u.has("cadence_multiplier") ? u.get("cadence_multiplier").getAsFloat() : 0f;
-                int capAdd    = u.has("capacity_stacks_add") ? u.get("capacity_stacks_add").getAsInt() : 0;
+                int capAdd    = u.has("slots_add") ? u.get("slots_add").getAsInt() : 0;
                 int amountAdd = u.has("amount_add") ? u.get("amount_add").getAsInt() : 0;
                 int residentsAdd = u.has("residents_add") ? u.get("residents_add").getAsInt() : 0;
                 double productionBonusAdd = u.has("production_bonus_add")
@@ -135,6 +135,7 @@ public class BuildingDataHandler {
                 int maxHerdsTarget = u.has("max_herds") ? u.get("max_herds").getAsInt() : 0;
                 int tradeSlotsAdd = u.has("trade_slots_add") ? u.get("trade_slots_add").getAsInt() : 0;
                 float priceDiscountAdd = u.has("price_discount_add") ? u.get("price_discount_add").getAsFloat() : 0f;
+                float contractRatioAdd = u.has("contract_ratio_add") ? u.get("contract_ratio_add").getAsFloat() : 0f;
                 List<String> unlockedDisplay = new ArrayList<>();
                 List<ItemCost> upgradeCost = new ArrayList<>();
                 if (u.has("upgrade_cost")) {
@@ -145,7 +146,7 @@ public class BuildingDataHandler {
                     }
                 }
                 upgrades.add(new BuildingDef.UpgradeLevel(cadenceMult, capAdd, amountAdd, residentsAdd,
-                    productionBonusAdd, stockBonusAdd, maxHerdsTarget, tradeSlotsAdd, priceDiscountAdd, unlockedDisplay, upgradeCost));
+                    productionBonusAdd, stockBonusAdd, maxHerdsTarget, tradeSlotsAdd, priceDiscountAdd, contractRatioAdd, unlockedDisplay, upgradeCost));
             }
         }
 
@@ -221,12 +222,26 @@ public class BuildingDataHandler {
         }
 
         boolean signature = json.has("signature") && json.get("signature").getAsBoolean();
+        boolean undergroundFoundation = json.has("underground_foundation") && json.get("underground_foundation").getAsBoolean();
+
+        List<BuildingDef.StandDef> stands = new ArrayList<>();
+        if (json.has("stands")) {
+            for (JsonElement el : json.getAsJsonArray("stands")) {
+                JsonObject s = el.getAsJsonObject();
+                String standType = s.get("type").getAsString();
+                ResourceLocation blockRl = new ResourceLocation(s.get("associated_block").getAsString());
+                net.minecraft.world.level.block.Block block = BuiltInRegistries.BLOCK.get(blockRl);
+                int radius = s.has("radius") ? s.get("radius").getAsInt() : 4;
+                String toolItem = s.has("tool") ? s.get("tool").getAsString() : null;
+                stands.add(new BuildingDef.StandDef(standType, block, radius, toolItem));
+            }
+        }
 
         return new BuildingDef(id, namespace, nbt, entryPool, production, costs, terrainMatching, iconItem, category, footprint,
             transformations, transformInputRatio, transformEveryTicks,
             productionBonus, stockBonus, residents, upgrades, nbtLevels,
             requiredResidents, requiredBuildings, initialStock,
-            herd, maxHerds, weight, obstacleBlocks, spawnsNpcJob, playerCost, signature);
+            herd, maxHerds, weight, obstacleBlocks, spawnsNpcJob, playerCost, signature, undergroundFoundation, stands);
     }
 
     // Builds the NBT payload sent to the client on player join (upgrade info only).
@@ -237,7 +252,7 @@ public class BuildingDataHandler {
             if (def.upgrades.isEmpty()) continue;
             CompoundTag dt = new CompoundTag();
             dt.putString("Id", def.id);
-            dt.putInt("BaseCapacity", def.production.isEmpty() ? 0 : def.production.get(0).capacityStacks());
+            dt.putInt("BaseCapacity", def.production.isEmpty() ? 0 : def.production.get(0).slots());
             dt.putInt("BaseAmount", def.production.isEmpty() ? 0 : def.production.get(0).amount());
             dt.putInt("BaseResidents", def.residents);
             dt.putInt("BaseHerd", def.herd);
@@ -247,7 +262,7 @@ public class BuildingDataHandler {
             for (BuildingDef.UpgradeLevel upg : def.upgrades) {
                 CompoundTag ut = new CompoundTag();
                 ut.putFloat("CadenceMult", upg.cadenceMultiplier());
-                ut.putInt("CapAdd", upg.capacityStacksAdd());
+                ut.putInt("CapAdd", upg.slotsAdd());
                 ut.putInt("AmountAdd", upg.amountAdd());
                 ut.putInt("ResidentsAdd", upg.residentsAdd());
                 ut.putDouble("ProductionBonusAdd", upg.productionBonusAdd());
@@ -255,6 +270,7 @@ public class BuildingDataHandler {
                 ut.putInt("MaxHerdsTarget", upg.maxHerdsTarget());
                 ut.putInt("TradeSlotsAdd", upg.tradeSlotsAdd());
                 ut.putFloat("PriceDiscountAdd", upg.priceDiscountAdd());
+                ut.putFloat("ContractRatioAdd", upg.contractRatioAdd());
                 ListTag unlocksTag = new ListTag();
                 for (String itemId : upg.unlockedDisplay()) {
                     unlocksTag.add(net.minecraft.nbt.StringTag.valueOf(itemId));

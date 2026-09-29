@@ -1,0 +1,110 @@
+{
+  "id": "potato_farm",
+  "nbt": "onceuponatown:plains/jobs/potato_farm",
+  "entry_pool": "onceuponatown:jobs",
+  "icon_item": "minecraft:baked_potato",
+  "category": "jobs",
+  "weight": 3,
+  "signature": true,
+
+  "spawns_npc": "potato_farmer",
+  "residents": 1,
+
+  "required_buildings": [
+    { "defId": "wild_crops", "count": 2 },
+    { "defId": "potato_field", "count": 2 }
+  ],
+
+  "construction_cost": [
+    { "item": "minecraft:oak_log",     "amount": 35 },
+    { "item": "minecraft:potato",      "amount": 35 },
+    { "item": "minecraft:cobblestone", "amount": 10 },
+    { "item": "minecraft:white_bed",   "amount": 1 }
+  ],
+
+  "production": [
+    {
+      "item": "minecraft:potato",
+      "amount": 1,
+      "every_ticks": 1800,
+      "slots": 1,
+      "slot_size": 64
+    }
+  ],
+
+  "transform_input_ratio": 0.1,
+  "transform_every_ticks": 1600,
+
+  "transformations": [
+    {
+      "inputs": [
+        { "item": "minecraft:potato",   "amount": 3 },
+        { "item": "minecraft:charcoal", "amount": 1 }
+      ],
+      "output": "minecraft:baked_potato",
+      "output_amount": 3,
+      "unlock_at_level": 1,
+      "output_slots": 1,
+      "output_slot_size": 64
+    },
+    {
+      "inputs": [
+        { "item": "minecraft:potato", "amount": 25 }
+      ],
+      "output": "minecraft:bone_meal",
+      "output_amount": 1,
+      "unlock_at_level": 2,
+      "output_slots": 1,
+      "output_slot_size": 64
+    }
+  ],
+
+  "upgrades": [
+    {
+      "slots_add": 1,
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 20 }
+      ]
+    },
+    {
+      "amount_add": 1,
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 30 }
+      ]
+    },
+    {
+      "slots_add": 1,
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 40 }
+      ]
+    },
+    {
+      "cadence_multiplier": 0.1,
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 60 }
+      ]
+    },
+    {
+      "amount_add": 1,
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 80 }
+      ]
+    },
+    {
+      "cadence_multiplier": 0.2,
+      "slots_add": 1,
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 100 }
+      ]
+    }
+  ],
+
+  "nbt_levels": [
+    "onceuponatown:plains/jobs/potato_farm_lvl1",
+    "onceuponatown:plains/jobs/potato_farm_lvl2",
+    "onceuponatown:plains/jobs/potato_farm_lvl3",
+    "onceuponatown:plains/jobs/potato_farm_lvl4",
+    "onceuponatown:plains/jobs/potato_farm_lvl5",
+    "onceuponatown:plains/jobs/potato_farm_lvl6"
+  ]
+}

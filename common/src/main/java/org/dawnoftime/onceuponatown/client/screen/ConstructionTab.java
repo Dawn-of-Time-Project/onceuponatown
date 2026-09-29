@@ -23,7 +23,6 @@ import org.dawnoftime.onceuponatown.client.gui.widgets.EraProgressDraggableWidge
 import org.dawnoftime.onceuponatown.client.gui.widgets.NbtPreviewWidget;
 import org.dawnoftime.onceuponatown.network.NetworkHelper;
 
-import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -42,17 +41,6 @@ class ConstructionTab {
         new ResourceLocation("onceuponatown", "textures/gui/icons.png");
 
     private static final List<String> TRADE_PRICE_ORDER = loadTradePriceOrder();
-
-    private static List<String> loadTradePriceOrder() {
-        List<String> order = new ArrayList<>();
-        try (var stream = ConstructionTab.class.getResourceAsStream("/data/onceuponatown/config/trade_prices.json")) {
-            if (stream == null) return order;
-            var json = com.google.gson.JsonParser.parseReader(new InputStreamReader(stream)).getAsJsonObject();
-            for (var elem : json.getAsJsonArray("prices"))
-                order.add(elem.getAsJsonObject().get("item").getAsString());
-        } catch (Exception ignored) {}
-        return order;
-    }
 
     private static final int PANEL_W            = 176;
     private static final int QUEUE_GRID_X       = 8;
@@ -289,6 +277,14 @@ class ConstructionTab {
                     g.pose().pushPose();
                     g.pose().translate(0, 0, 300);
                     TownHubTypes.drawPadlockIcon(g, sx, sy);
+                    g.pose().popPose();
+                }
+                if (qe.entryId() != 0 && ctx.activeEntryIds().contains(qe.entryId())) {
+                    g.pose().pushPose();
+                    g.pose().translate(0, 0, 500);
+                    RenderSystem.enableBlend();
+                    RenderSystem.defaultBlendFunc();
+                    g.blit(TEXTURE_CONSTRUCTION, sx + 4, sy - 6, 8, 6, 177f, 68f, 8, 6, 256, 256);
                     g.pose().popPose();
                 }
             } else {

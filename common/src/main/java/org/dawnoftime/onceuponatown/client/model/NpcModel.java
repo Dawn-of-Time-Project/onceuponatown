@@ -1,6 +1,5 @@
 package org.dawnoftime.onceuponatown.client.model;
 
-import com.google.common.collect.ImmutableList;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.geom.ModelLayerLocation;
 import net.minecraft.client.model.geom.ModelPart;
@@ -16,15 +15,11 @@ import net.minecraft.world.item.UseAnim;
 import org.dawnoftime.onceuponatown.Ouat;
 import org.dawnoftime.onceuponatown.entity.Npc;
 
-import java.util.List;
-
 public class NpcModel<T extends Npc> extends HumanoidModel<T> {
     public static final ModelLayerLocation LAYER_LOCATION = new ModelLayerLocation(new ResourceLocation(Ouat.MOD_ID, "npc"), "main_layer");
-    private final List<ModelPart> parts;
 
     public NpcModel(ModelPart root) {
         super(root);
-        this.parts = root.getAllParts().filter((part) -> !part.isEmpty()).collect(ImmutableList.toImmutableList());
     }
 
     public static LayerDefinition createBodyLayer() {

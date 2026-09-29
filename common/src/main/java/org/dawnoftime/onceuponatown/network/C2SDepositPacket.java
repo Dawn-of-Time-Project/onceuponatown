@@ -66,9 +66,12 @@ public record C2SDepositPacket(BlockPos anchorPos) {
                 if (town.isMedalReceived()) continue;
                 String medalNamespace = RecognitionMedalItem.readNamespace(stack);
                 if (!medalNamespace.equals(town.getCultureNamespace())) continue;
-                Set<String> ids = RecognitionMedalItem.readIds(stack);
-                town.addUnlockedBuildingIds(ids);
-                town.receiveMedal(ids);
+                Set<String> sigIds = RecognitionMedalItem.readSignatureIds(stack);
+                Set<String> eraIds = RecognitionMedalItem.readEraUnlockedIds(stack);
+                Set<String> allIds = new java.util.HashSet<>(sigIds);
+                allIds.addAll(eraIds);
+                town.addUnlockedBuildingIds(allIds);
+                town.receiveMedal(allIds);
                 deposit.setItem(i, ItemStack.EMPTY);
                 LevelTowns.get(level).markDirty();
                 NetworkHelper.sendTownHubPacket.accept(player, town.getHubData(packet.anchorPos(), level));
@@ -97,13 +100,14 @@ public record C2SDepositPacket(BlockPos anchorPos) {
             }
 
             if (changed) {
-                // Pay out emeralds in stacks of 64 so inventory handles it correctly
-                int emeraldsLeft = totalEmeralds;
-                while (emeraldsLeft > 0) {
-                    int batch = Math.min(emeraldsLeft, 64);
-                    ItemStack reward = new ItemStack(Items.EMERALD, batch);
-                    if (!player.getInventory().add(reward)) player.drop(reward, false);
-                    emeraldsLeft -= batch;
+                if (!town.isPlayerControlled()) {
+                    int emeraldsLeft = totalEmeralds;
+                    while (emeraldsLeft > 0) {
+                        int batch = Math.min(emeraldsLeft, 64);
+                        ItemStack reward = new ItemStack(Items.EMERALD, batch);
+                        if (!player.getInventory().add(reward)) player.drop(reward, false);
+                        emeraldsLeft -= batch;
+                    }
                 }
 
                 LevelTowns.get(level).markDirty();

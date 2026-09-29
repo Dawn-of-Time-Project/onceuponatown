@@ -10,18 +10,15 @@
     { "defId": "wild_stone", "count": 1 },
     { "defId": "grove", "count": 1 }
   ],
+
   "construction_cost": [
-    {
-      "item": "minecraft:oak_log",
-      "amount": 12
-    },
-    {
-      "item": "minecraft:cobblestone",
-      "amount": 5
-    }
+    { "item": "minecraft:oak_log",     "amount": 12 },
+    { "item": "minecraft:cobblestone", "amount": 5 }
   ],
+
   "transform_input_ratio": 0.1,
   "transform_every_ticks": 1600,
+
   "transformations": [
     {
       "inputs": [
@@ -29,13 +26,17 @@
       ],
       "output": "minecraft:oak_planks",
       "output_amount": 4,
-      "output_capacity_stacks": 2
+      "output_slots": 2,
+      "output_slot_size": 64
     },
     {
-      "inputs": [{ "item": "minecraft:oak_planks", "amount": 2 }],
+      "inputs": [
+        { "item": "minecraft:oak_planks", "amount": 2 }
+      ],
       "output": "minecraft:stick",
       "output_amount": 4,
-      "output_capacity_stacks": 1
+      "output_slots": 1,
+      "output_slot_size": 64
     },
     {
       "inputs": [
@@ -44,8 +45,8 @@
       ],
       "output": "minecraft:white_bed",
       "output_amount": 1,
-      "output_capacity_stacks": 1,
-      "output_capacity_units": 3
+      "output_slots": 3,
+      "output_slot_size": 1
     },
     {
       "inputs": [
@@ -53,7 +54,8 @@
       ],
       "output": "minecraft:oak_stairs",
       "output_amount": 4,
-      "output_capacity_stacks": 1
+      "output_slots": 1,
+      "output_slot_size": 64
     },
     {
       "inputs": [
@@ -61,37 +63,46 @@
       ],
       "output": "minecraft:oak_slab",
       "output_amount": 6,
-      "output_capacity_stacks": 1
+      "output_slots": 1,
+      "output_slot_size": 64
     },
     {
       "inputs": [
-        { "item": "minecraft:stick", "amount": 4 },
+        { "item": "minecraft:stick",      "amount": 4 },
         { "item": "minecraft:oak_planks", "amount": 2 }
       ],
       "output": "minecraft:oak_fence",
       "output_amount": 1,
-      "output_capacity_stacks": 1
+      "output_slots": 1,
+      "output_slot_size": 64
     },
     {
       "inputs": [
-        { "item": "minecraft:stick", "amount": 4 },
+        { "item": "minecraft:stick",      "amount": 4 },
         { "item": "minecraft:oak_planks", "amount": 2 }
       ],
       "output": "minecraft:oak_fence_gate",
       "output_amount": 1,
-      "output_capacity_stacks": 1
+      "output_slots": 1,
+      "output_slot_size": 64
     },
     {
-      "inputs": [{ "item": "minecraft:oak_planks", "amount": 6 }],
+      "inputs": [
+        { "item": "minecraft:oak_planks", "amount": 6 }
+      ],
       "output": "minecraft:oak_trapdoor",
       "output_amount": 2,
-      "output_capacity_stacks": 1
+      "output_slots": 1,
+      "output_slot_size": 64
     },
     {
-      "inputs": [{ "item": "minecraft:oak_planks", "amount": 6 }],
+      "inputs": [
+        { "item": "minecraft:oak_planks", "amount": 6 }
+      ],
       "output": "minecraft:oak_door",
       "output_amount": 3,
-      "output_capacity_stacks": 1
+      "output_slots": 1,
+      "output_slot_size": 64
     }
   ]
 }

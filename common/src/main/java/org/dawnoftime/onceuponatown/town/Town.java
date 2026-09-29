@@ -15,6 +15,7 @@ import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import org.dawnoftime.onceuponatown.building.schematic.SchematicBlock;
 import org.dawnoftime.onceuponatown.building.schematic.SchematicReader;
 import org.dawnoftime.onceuponatown.datapack.BuildingDataHandler;
+import org.dawnoftime.onceuponatown.town.StandSlot;
 import org.dawnoftime.onceuponatown.datapack.EraDef;
 import org.dawnoftime.onceuponatown.datapack.EraTransitionDataHandler;
 import org.dawnoftime.onceuponatown.datapack.EraTransitionDef;
@@ -47,6 +48,9 @@ public class Town {
     private final List<PlacedBuilding> buildings = new ArrayList<>();
     private final List<ConnectionPoint> freeConnections = new ArrayList<>();
     private final Map<Item, Integer> reserveStock = new HashMap<>();
+    private TownInventory cachedInventory;
+    private boolean occupiedBoxesDirty = true;
+    private List<BoundingBox> cachedOccupiedBoxes = null;
     private final List<UnderConstructionEntry> underConstruction = new ArrayList<>();
     // Bounding boxes reserved for pieces that have no building def (starter, vanilla pieces).
     // Must be serialized - the mixin that populates these only fires during world gen, not on reload.
@@ -78,7 +82,16 @@ public class Town {
     private boolean medalClaimed = false;
     @Nullable private Set<String> depositedMedalIds = null;
 
-    public record MedalSnapshot(String namespace, Set<String> unlockedIds) {}
+    public record MedalSnapshot(
+        String namespace,
+        String mainOrientation,
+        String mainOrientationLabel,
+        String currentOrientation,
+        String currentOrientationLabel,
+        String starterBuildingId,
+        Set<String> eraUnlockedIds,
+        Set<String> signatureIds
+    ) {}
 
     public record SignatureBuildingProgress(
         String defId, String iconItem,
@@ -87,10 +100,13 @@ public class Town {
     ) {}
 
     public Town() {
+        this.cachedInventory = new TownInventory(buildings, reserveStock, this);
     }
 
-    public void registerBuilding(BlockPos worldPos, String defId, List<ConnectionPoint> connections, BoundingBox bb, Rotation rotation, List<BlockPos> obstaclePositions, @org.jetbrains.annotations.Nullable BlockPos entryPos) {
-        buildings.add(new PlacedBuilding(defId, worldPos, bb, rotation, obstaclePositions, entryPos));
+    public PlacedBuilding registerBuilding(BlockPos worldPos, String defId, List<ConnectionPoint> connections, BoundingBox bb, Rotation rotation, List<BlockPos> obstaclePositions, @org.jetbrains.annotations.Nullable BlockPos entryPos) {
+        PlacedBuilding placed = new PlacedBuilding(defId, worldPos, bb, rotation, obstaclePositions, entryPos);
+        buildings.add(placed);
+        occupiedBoxesDirty = true;
         for (ConnectionPoint cp : connections) {
             freeConnections.add(new ConnectionPoint(cp.pos(), cp.direction(), cp.targetName(), cpInsertionCounter++));
         }
@@ -102,20 +118,41 @@ public class Town {
                 return bb.isInside(expansion);
             });
         }
+        return placed;
+    }
+
+    // Acquires the first free stand of standType across all buildings with the given defId.
+    public @org.jetbrains.annotations.Nullable StandSlot acquireStand(String buildingDefId, String standType, java.util.UUID npcUuid) {
+        for (PlacedBuilding building : buildings) {
+            if (!building.defId.equals(buildingDefId)) continue;
+            StandSlot slot = building.acquireStand(standType, npcUuid);
+            if (slot != null) return slot;
+        }
+        return null;
+    }
+
+    // Releases any stand held by npcUuid across all buildings.
+    public void releaseStand(java.util.UUID npcUuid) {
+        for (PlacedBuilding building : buildings) {
+            if (building.releaseStand(npcUuid)) return;
+        }
     }
 
     public void addBlockedZone(BoundingBox bb) {
         blockedZones.add(bb);
+        occupiedBoxesDirty = true;
     }
 
     public void addUnderConstruction(String defId, BlockPos pos, BoundingBox bb, Rotation rotation) {
         if (underConstruction.stream().noneMatch(e -> e.worldPos().equals(pos))) {
             underConstruction.add(new UnderConstructionEntry(defId, pos, bb, rotation));
+            occupiedBoxesDirty = true;
         }
     }
 
     public void removeUnderConstruction(BlockPos pos) {
         underConstruction.removeIf(e -> e.worldPos().equals(pos));
+        occupiedBoxesDirty = true;
     }
 
     public List<UnderConstructionEntry> getUnderConstructionBuildings() {
@@ -133,10 +170,13 @@ public class Town {
     // Returns the world bounding boxes of all placed buildings plus blocked zones plus in-progress builds.
     // Buildings from saves predating BB tracking have null bb - they are skipped.
     public List<BoundingBox> getOccupiedBoxes() {
+        if (!occupiedBoxesDirty && cachedOccupiedBoxes != null) return cachedOccupiedBoxes;
         List<BoundingBox> all = new ArrayList<>();
         buildings.stream().map(b -> b.bb).filter(Objects::nonNull).forEach(all::add);
         all.addAll(blockedZones);
         underConstruction.stream().map(UnderConstructionEntry::bb).filter(Objects::nonNull).forEach(all::add);
+        cachedOccupiedBoxes = all;
+        occupiedBoxesDirty = false;
         return all;
     }
 
@@ -201,6 +241,7 @@ public class Town {
     public int getCurrentEra()                              { return eraState.getCurrentEra(); }
     public String getCurrentEraPath()                       { return eraState.getCurrentEraPath(); }
     public String getCurrentOrientation()                   { return eraState.getCurrentOrientation(); }
+    public String getMainOrientation()                      { return eraState.getMainOrientation(); }
     public String getCultureNamespace()                     { return eraState.getCultureNamespace(); }
     public Set<String> getUnlockedBuildingIds()             { return eraState.getUnlockedBuildingIds(); }
     public void addUnlockedBuildingIds(Collection<String> ids) { eraState.addUnlockedBuildingIds(ids); }
@@ -214,7 +255,27 @@ public class Town {
 
     public MedalSnapshot claimMedal() {
         medalClaimed = true;
-        Set<String> maxedIds = buildings.stream()
+
+        String mainOri = eraState.getMainOrientation();
+        EraDef rootDef = EraTransitionDataHandler.getEraDefByOrientation(mainOri);
+        if (rootDef == null) {
+            for (PlacedBuilding b : buildings) {
+                EraDef candidate = EraTransitionDataHandler.getEraDefForStarter(b.defId);
+                if (candidate != null) { rootDef = candidate; break; }
+            }
+        }
+        String mainLabel = rootDef != null ? rootDef.orientationLabel : mainOri;
+        String starterBuildingId = rootDef != null ? rootDef.starterBuildingId : "";
+
+        String currentOri = eraState.getCurrentOrientation();
+        String currentLabel = mainOri.equals(currentOri)
+            ? mainLabel
+            : EraTransitionDataHandler.getAll().stream()
+                .filter(t -> t.nextOrientation.equals(currentOri))
+                .map(t -> t.orientationLabel)
+                .findFirst().orElse(currentOri);
+
+        Set<String> signatureIds = buildings.stream()
             .filter(b -> {
                 Optional<BuildingDef> def = BuildingDataHandler.get(b.defId);
                 if (def.isEmpty() || !def.get().signature) return false;
@@ -223,7 +284,17 @@ public class Town {
             })
             .map(b -> b.defId)
             .collect(Collectors.toSet());
-        return new MedalSnapshot(eraState.getCultureNamespace(), maxedIds);
+
+        Set<String> eraUnlockedIds = new HashSet<>(eraState.getUnlockedBuildingIds());
+
+        return new MedalSnapshot(
+            eraState.getCultureNamespace(),
+            mainOri, mainLabel,
+            currentOri, currentLabel,
+            starterBuildingId,
+            eraUnlockedIds,
+            signatureIds
+        );
     }
 
     public List<SignatureBuildingProgress> getSignatureBuildingProgress() {
@@ -279,9 +350,11 @@ public class Town {
         int w = getCurrentWeight();
         if (w > getCurrentMaxWeight()) return false;
         if (t.requiredResidents > 0 && eraState.getActiveResidents() < t.requiredResidents) return false;
-        for (BuildingDef.BuildingRequirement req : t.requiredBuildings) {
-            long count = buildings.stream().filter(b -> b.defId.equals(req.defId())).count();
-            if (count < req.count()) return false;
+        if (!isPlayerControlled()) {
+            for (BuildingDef.BuildingRequirement req : t.requiredBuildings) {
+                long count = buildings.stream().filter(b -> b.defId.equals(req.defId())).count();
+                if (count < req.count()) return false;
+            }
         }
         if (!getTownInventory().hasStock(t.resourceCost)) return false;
         return true;
@@ -328,7 +401,7 @@ public class Town {
 
     // Computed aggregate view: buildings + floating reserve + contract stock
     public TownInventory getTownInventory() {
-        return new TownInventory(buildings, reserveStock, this);
+        return cachedInventory;
     }
 
     public @Nullable List<ContractEntry> getActiveContract() { return activeContract; }
@@ -550,6 +623,9 @@ public class Town {
 
     public boolean isAutonomyEnabled()                  { return eraState.isAutonomyEnabled(); }
     public void setAutonomyEnabled(boolean v)           { eraState.setAutonomyEnabled(v); }
+    public boolean isPlayerControlled()                 { return !eraState.isAutonomyEnabled(); }
+    public boolean isAutoUpgradeEnabled()               { return eraState.isAutoUpgradeEnabled(); }
+    public void setAutoUpgradeEnabled(boolean v)        { eraState.setAutoUpgradeEnabled(v); }
     public String getAutonomyChosenTransitionId()       { return eraState.getAutonomyChosenTransitionId(); }
     public void setAutonomyChosenTransitionId(String v) { eraState.setAutonomyChosenTransitionId(v); }
 
@@ -621,7 +697,7 @@ public class Town {
         Optional<StructureTemplate> templateOpt = level.getStructureManager().get(nbtPath);
         if (templateOpt.isEmpty()) return false;
 
-        List<SchematicBlock> templateBlocks = SchematicReader.readSortedBlocks(templateOpt.get(), building.rotation);
+        List<SchematicBlock> templateBlocks = SchematicReader.readSortedBlocks(templateOpt.get(), building.rotation).blocks();
         boolean anyMismatch = templateBlocks.stream().anyMatch(b ->
             !level.getBlockState(building.worldPos.offset(b.localPos())).equals(b.state()));
         if (!anyMismatch) return false;
@@ -857,11 +933,6 @@ public class Town {
     public void clearActiveBuild(int slot)                      { queueState.clearActiveBuild(slot); }
     public ActiveBuildState getActiveBuild(int slot)            { return queueState.getActiveBuild(slot); }
     public Map<Integer, ActiveBuildState> getActiveBuilds()     { return queueState.getActiveBuilds(); }
-
-    public boolean claimQueueEntry(int i, UUID id)              { return queueState.claimQueueEntry(i, id); }
-    public void releaseQueueClaim(int i, UUID id)               { queueState.releaseQueueClaim(i, id); }
-    public void releaseAllClaimsForBuilder(UUID id)             { queueState.releaseAllClaimsForBuilder(id); }
-    public boolean isQueueEntryClaimedByOther(int i, UUID id)   { return queueState.isQueueEntryClaimedByOther(i, id); }
 
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }

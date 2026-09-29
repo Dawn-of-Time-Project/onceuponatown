@@ -12,7 +12,10 @@
     "wheat_farm",
     "carrot_field",
     "potato_field",
+    "potato_farm",
+
     "granary",
+    "barn",
 
     "sheep_field",
     "sheep_farm",
@@ -32,10 +35,10 @@
     "stone_breach",
     "mine",
     "open_mine",
+    "toolsmith",
 
     "grove",
     "lumberjack",
-
     "workshop",
     "carpenter",
 

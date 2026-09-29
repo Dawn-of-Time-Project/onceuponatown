@@ -18,17 +18,28 @@ import org.dawnoftime.onceuponatown.town.BuildingDef;
 import org.dawnoftime.onceuponatown.town.ConnectionPoint;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
 public final class ConnectorReader {
 
+    private static final Map<ResourceLocation, List<JigsawConnector>> CACHE = new HashMap<>();
+
     private ConnectorReader() {}
 
+    public static void clearCache() {
+        CACHE.clear();
+    }
+
     // Reads all jigsaw connectors from a template in local (non-rotated) coordinates.
+    // Results are cached per ResourceLocation since templates never change at runtime.
     public static List<JigsawConnector> readConnectors(ServerLevel level, ResourceLocation nbtLocation) {
+        List<JigsawConnector> cached = CACHE.get(nbtLocation);
+        if (cached != null) return cached;
         Optional<StructureTemplate> template = level.getStructureManager().get(nbtLocation);
         if (template.isEmpty()) return List.of();
         List<JigsawConnector> result = new ArrayList<>();
@@ -41,6 +52,7 @@ public final class ConnectorReader {
             String pool = info.nbt().getString("pool");
             result.add(new JigsawConnector(info.pos(), facing, name, target, pool));
         }
+        CACHE.put(nbtLocation, result);
         return result;
     }
 
@@ -197,5 +209,30 @@ public final class ConnectorReader {
             points.add(new ConnectionPoint(worldPos, rotatedDir, target, 0L));
         }
         return points;
+    }
+
+    // Returns the world position of the primary entry jigsaw for NPC navigation.
+    // Prefers receiver jigsaws (pool = minecraft:empty) since they mark building entrances,
+    // then falls back to any extensor jigsaw. Returns null only for buildings with no jigsaw at all
+    // (lone buildings with no network connection -- cannot crash, just walk to worldPos instead).
+    public static BlockPos readEntryJigsawPos(ServerLevel level, BlockPos originPos,
+                                                         ResourceLocation nbtLocation, Rotation rotation) {
+        Optional<StructureTemplate> template = level.getStructureManager().get(nbtLocation);
+        if (template.isEmpty()) return null;
+
+        BlockPos receiverPos = null;
+        BlockPos extensorPos = null;
+        for (StructureTemplate.StructureBlockInfo info :
+                template.get().filterBlocks(BlockPos.ZERO, new StructurePlaceSettings(), Blocks.JIGSAW)) {
+            if (info.nbt() == null) continue;
+            BlockPos rotatedRel = StructureTemplate.transform(info.pos(), Mirror.NONE, rotation, BlockPos.ZERO);
+            BlockPos worldPos = originPos.offset(rotatedRel);
+            String pool = info.nbt().getString("pool");
+            boolean isReceiver = pool.isEmpty() || pool.equals("minecraft:empty");
+            if (isReceiver && receiverPos == null) receiverPos = worldPos;
+            else if (!isReceiver && extensorPos == null) extensorPos = worldPos;
+            if (receiverPos != null) break; // receiver found -- highest priority, stop scanning
+        }
+        return receiverPos != null ? receiverPos : extensorPos;
     }
 }

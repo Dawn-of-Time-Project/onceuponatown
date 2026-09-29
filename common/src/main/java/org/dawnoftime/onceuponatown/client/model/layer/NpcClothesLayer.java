@@ -13,15 +13,18 @@ import org.dawnoftime.onceuponatown.entity.Npc;
 import java.util.Map;
 
 public class NpcClothesLayer<T extends Npc, M extends NpcModel<T>> extends RenderLayer<T, M> {
-    private static final Map<String, ResourceLocation> CLOTHES_BY_JOB = Map.of(
-        "beekeeper",  new ResourceLocation(Ouat.MOD_ID, "textures/entity/npc/beekeeper_clothes.png"),
-        "builder",    new ResourceLocation(Ouat.MOD_ID, "textures/entity/npc/builder_clothes.png"),
-        "cowherd",    new ResourceLocation(Ouat.MOD_ID, "textures/entity/npc/cowherd_clothes.png"),
-        "lumberjack", new ResourceLocation(Ouat.MOD_ID, "textures/entity/npc/lumberjack_clothes.png"),
-        "merchant",   new ResourceLocation(Ouat.MOD_ID, "textures/entity/npc/merchant_clothes.png"),
-        "miner",      new ResourceLocation(Ouat.MOD_ID, "textures/entity/npc/miner_clothes.png"),
-        "shepherd",   new ResourceLocation(Ouat.MOD_ID, "textures/entity/npc/shepherd_clothes.png"),
-        "swineherd",  new ResourceLocation(Ouat.MOD_ID, "textures/entity/npc/swineherd_clothes.png")
+    private static final Map<String, ResourceLocation> CLOTHES_BY_JOB = Map.ofEntries(
+        Map.entry("beekeeper",     new ResourceLocation(Ouat.MOD_ID, "textures/entity/npc/beekeeper_clothes.png")),
+        Map.entry("builder",       new ResourceLocation(Ouat.MOD_ID, "textures/entity/npc/builder_clothes.png")),
+        Map.entry("cowherd",       new ResourceLocation(Ouat.MOD_ID, "textures/entity/npc/cowherd_clothes.png")),
+        Map.entry("lumberjack",    new ResourceLocation(Ouat.MOD_ID, "textures/entity/npc/lumberjack_clothes.png")),
+        Map.entry("merchant",      new ResourceLocation(Ouat.MOD_ID, "textures/entity/npc/merchant_clothes.png")),
+        Map.entry("miner",         new ResourceLocation(Ouat.MOD_ID, "textures/entity/npc/miner_clothes.png")),
+        Map.entry("potato_farmer", new ResourceLocation(Ouat.MOD_ID, "textures/entity/npc/potato_farmer_clothes.png")),
+        Map.entry("shepherd",      new ResourceLocation(Ouat.MOD_ID, "textures/entity/npc/shepherd_clothes.png")),
+        Map.entry("swineherd",     new ResourceLocation(Ouat.MOD_ID, "textures/entity/npc/swineherd_clothes.png")),
+        Map.entry("toolsmith",     new ResourceLocation(Ouat.MOD_ID, "textures/entity/npc/toolsmith_clothes.png")),
+        Map.entry("wheat_farmer",  new ResourceLocation(Ouat.MOD_ID, "textures/entity/npc/wheat_farmer_clothes.png"))
     );
 
     @SuppressWarnings("unchecked")

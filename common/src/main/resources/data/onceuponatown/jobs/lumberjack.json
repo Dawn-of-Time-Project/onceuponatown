@@ -1,30 +1,37 @@
 {
   "walk_speed": 0.6,
-  "chop_delay_ticks": 12,
+
   "wood_source_buildings": ["grove", "lake", "pig_field", "bee_field", "wild_spot", "lone_place", "lone_garden"],
+  "work_reach": 6.0,
+  "chop_speed": [0.4, 0.8],
+  "plant_speed": [0.3, 0.7],
+
   "rest_buildings": ["lumberjack"],
   "bedtime": 13000,
   "wakeup_time": 1000,
+
+  "production_buildings": ["grove", "lumberjack"],
 
   "secondary_activities": [
     {
       "requiredBuilding": "lumberjack",
       "heldItem": "minecraft:charcoal",
       "animationType": "SMELT",
-      "target_block": "minecraft:furnace"
+      "target_block": "minecraft:furnace",
+      "arrival_radius": 2.0
     },
     {
       "requiredBuilding": "lumberjack",
       "heldItem": "minecraft:oak_planks",
       "animationType": "CRAFT",
-      "target_block": "minecraft:crafting_table"
+      "target_block": "minecraft:crafting_table",
+      "arrival_radius": 2.0
     },
     {
       "requiredBuilding": "market",
       "heldItem": "minecraft:air",
       "animationType": "SELL",
-      "target_block": "minecraft:crafting_table",
-      "productionBuildings": ["grove","lumberjack"]
+      "stand_type": "sell_lumberjack"
     }
   ]
 }

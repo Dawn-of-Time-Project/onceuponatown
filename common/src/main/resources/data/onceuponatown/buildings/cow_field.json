@@ -8,27 +8,28 @@
   "signature": true,
 
   "herd": 2,
+
   "required_buildings": [
     { "defId": "wheat_field", "count": 1 }
   ],
   "construction_cost": [
-    {
-      "item": "minecraft:oak_log",
-      "amount": 12
-    }
+    { "item": "minecraft:oak_log", "amount": 12 }
   ],
+
   "production": [
     {
       "item": "minecraft:beef",
       "amount": 1,
       "every_ticks": 1600,
-      "capacity_stacks": 1
+      "slots": 1,
+      "slot_size": 64
     },
     {
       "item": "minecraft:leather",
       "amount": 1,
       "every_ticks": 2800,
-      "capacity_stacks": 1
+      "slots": 1,
+      "slot_size": 64
     }
   ]
 }

@@ -10,6 +10,8 @@ import net.minecraft.world.item.Items;
 import org.dawnoftime.onceuponatown.client.gui.tooltip.BuildingProductionTooltip;
 import org.dawnoftime.onceuponatown.screen.TownHubMenu;
 
+import java.io.InputStreamReader;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -39,7 +41,7 @@ class TownHubTypes {
                                 String category, String iconItem) {}
 
     record ClientQueueEntry(String type, String defId, long buildingWorldPos,
-                            boolean locked, boolean residentTrack) {
+                            boolean locked, boolean residentTrack, long entryId) {
         boolean isUpgrade()       { return "upgrade".equals(type); }
         boolean isRepair()        { return "repair".equals(type); }
         boolean isResidentTrack() { return residentTrack; }
@@ -62,7 +64,9 @@ class TownHubTypes {
         net.minecraft.client.gui.Font font,
         TownHubMenu menu,
         List<BuildingEntry> buildingCatalog,
-        int maxUpgradeLevel
+        int maxUpgradeLevel,
+        java.util.Set<Long> activeEntryIds,
+        boolean autoUpgradeEnabled
     ) {}
 
     static int categoryColor(String category) {
@@ -107,5 +111,17 @@ class TownHubTypes {
 
     static void drawPadlockIcon(GuiGraphics g, int bx, int by) {
         NbtPreviewWidget.drawPadlockIcon(g, bx, by);
+    }
+
+    // Loads item ordering from trade_prices.json; items absent from the list fall back to the end.
+    static List<String> loadTradePriceOrder() {
+        List<String> order = new ArrayList<>();
+        try (var stream = TownHubTypes.class.getResourceAsStream("/data/onceuponatown/config/trade_prices.json")) {
+            if (stream == null) return order;
+            var json = com.google.gson.JsonParser.parseReader(new InputStreamReader(stream)).getAsJsonObject();
+            for (var elem : json.getAsJsonArray("prices"))
+                order.add(elem.getAsJsonObject().get("item").getAsString());
+        } catch (Exception ignored) {}
+        return order;
     }
 }

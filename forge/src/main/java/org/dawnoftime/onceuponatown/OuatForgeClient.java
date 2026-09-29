@@ -77,6 +77,7 @@ public class OuatForgeClient {
             OuatForge.wireContributeQuestPacket();
             OuatForge.wireVerifyClearancePacket();
             OuatForge.wireToggleChatBroadcastPacket();
+            OuatForge.wireToggleAutoUpgradePacket();
             OuatForge.wireRequestNbtPacket();
             OuatForge.wireCancelContractPacket();
             OuatForge.wireClaimMedalPacket();

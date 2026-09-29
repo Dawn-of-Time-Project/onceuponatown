@@ -14,6 +14,7 @@ import org.dawnoftime.onceuponatown.datapack.BuildingDataHandler;
 import org.dawnoftime.onceuponatown.datapack.BuildingListDataHandler;
 import org.dawnoftime.onceuponatown.entity.Npc;
 import org.dawnoftime.onceuponatown.entity.ai.NpcJobRegistry;
+import org.dawnoftime.onceuponatown.datapack.EraDef;
 import org.dawnoftime.onceuponatown.datapack.EraTransitionDataHandler;
 import org.dawnoftime.onceuponatown.datapack.EraTransitionDef;
 import org.dawnoftime.onceuponatown.datapack.QuestDataHandler;
@@ -52,7 +53,9 @@ public class TownHubDataBuilder {
         hub.putInt("CurrentWeight", town.getCurrentWeight());
         hub.putInt("MaxWeight", town.getCurrentMaxWeight());
         hub.putInt("MaxUpgradeLevel", town.getCurrentMaxUpgradeLevel());
+        hub.putBoolean("AutoUpgradeEnabled", town.isAutoUpgradeEnabled());
         hub.putString("AutonomyChosenTransitionId", town.getAutonomyChosenTransitionId());
+        hub.putBoolean("IsPlayerControlled", town.isPlayerControlled());
 
         ListTag eraTransitionsTag = new ListTag();
         TownInventory invForEra = town.getTownInventory();
@@ -67,6 +70,8 @@ public class TownHubDataBuilder {
         ListTag cqTag = new ListTag();
         town.getConstructionQueue().forEach(e -> cqTag.add(QueueEntry.serialize(e)));
         hub.put("ConstructionQueue", cqTag);
+        hub.putLongArray("ActiveEntryIds", town.getActiveBuilds().values().stream()
+            .mapToLong(ActiveBuildState::queueEntryId).filter(id -> id >= 0).distinct().toArray());
 
         TownInventory inv = town.getTownInventory();
         String orientation = town.getCurrentOrientation();
@@ -198,11 +203,17 @@ public class TownHubDataBuilder {
         if (town.isMedalReceived()) {
             stockTag.putInt("onceuponatown:recognition_medal", 1);
             CompoundTag medalData = new CompoundTag();
-            medalData.putString("Namespace", town.getCultureNamespace());
-            ListTag medalIds = new ListTag();
+            medalData.putString("CultureNamespace", town.getCultureNamespace());
+            medalData.putString("MainOrientation", "");
+            medalData.putString("MainOrientationLabel", "");
+            medalData.putString("CurrentOrientation", "");
+            medalData.putString("CurrentOrientationLabel", "");
+            medalData.putString("StarterBuildingId", "");
+            ListTag eraIds = new ListTag();
             Set<String> deposited = town.getDepositedMedalIds();
-            if (deposited != null) for (String id : deposited) medalIds.add(StringTag.valueOf(id));
-            medalData.put("Ids", medalIds);
+            if (deposited != null) for (String id : deposited) eraIds.add(StringTag.valueOf(id));
+            medalData.put("EraUnlockedIds", eraIds);
+            medalData.put("SignatureIds", new ListTag());
             stockTag.put("onceuponatown:recognition_medal_data", medalData);
         }
         return stockTag;
@@ -219,6 +230,8 @@ public class TownHubDataBuilder {
         ListTag cqTag = new ListTag();
         town.getConstructionQueue().forEach(e -> cqTag.add(QueueEntry.serialize(e)));
         tag.put("ConstructionQueue", cqTag);
+        tag.putLongArray("ActiveEntryIds", town.getActiveBuilds().values().stream()
+            .mapToLong(ActiveBuildState::queueEntryId).filter(id -> id >= 0).distinct().toArray());
         tag.put("UpgradeBuildings", buildUpgradeBuildingsTag());
         CompoundTag buildingCountsTag = new CompoundTag();
         for (PlacedBuilding b : town.getBuildings()) {
@@ -246,6 +259,7 @@ public class TownHubDataBuilder {
         tag.putInt("CurrentWeight", town.getCurrentWeight());
         tag.putInt("MaxWeight", town.getCurrentMaxWeight());
         tag.putInt("MaxUpgradeLevel", town.getCurrentMaxUpgradeLevel());
+        tag.putBoolean("AutoUpgradeEnabled", town.isAutoUpgradeEnabled());
         tag.putString("AutonomyChosenTransitionId", town.getAutonomyChosenTransitionId());
         ListTag eraTransitionsTag = new ListTag();
         TownInventory invForEra = town.getTownInventory();
@@ -459,7 +473,7 @@ public class TownHubDataBuilder {
             pt.putString("Item", BuiltInRegistries.ITEM.getKey(pe.item()).toString());
             pt.putInt("Amount", pe.amount());
             pt.putInt("EveryTicks", pe.everyTicks());
-            pt.putInt("CapacityItems", pe.capacityItems());
+            pt.putInt("CapacityItems", pe.capacity());
             pt.putInt("UnlockAtLevel", pe.unlockAtLevel());
             prodTag.add(pt);
         }
@@ -477,7 +491,7 @@ public class TownHubDataBuilder {
             tt.put("Inputs", inputsTag);
             tt.putString("OutputItem", BuiltInRegistries.ITEM.getKey(tr.outputItem()).toString());
             tt.putInt("OutputAmount", tr.outputAmount());
-            tt.putInt("OutputCapacityItems", tr.outputCapacityItems());
+            tt.putInt("OutputCapacityItems", tr.outputCapacity());
             tt.putInt("EveryTicks", def.transformEveryTicks);
             tt.putInt("UnlockAtLevel", tr.unlockAtLevel());
             transTag.add(tt);
@@ -522,6 +536,28 @@ public class TownHubDataBuilder {
     private CompoundTag buildProgressionData() {
         CompoundTag progressionData = new CompoundTag();
         progressionData.putBoolean("MedalClaimed", town.isMedalClaimed());
+
+        String mainOri = town.getMainOrientation();
+        EraDef rootDef = EraTransitionDataHandler.getEraDefByOrientation(mainOri);
+        String mainLabel = rootDef != null ? rootDef.orientationLabel : mainOri;
+        String starterBuildingId = rootDef != null ? rootDef.starterBuildingId : "";
+
+        String currentOri = town.getCurrentOrientation();
+        String orientationLabel = mainOri.equals(currentOri)
+            ? mainLabel
+            : EraTransitionDataHandler.getAll().stream()
+                .filter(t -> t.nextOrientation.equals(currentOri))
+                .map(t -> t.orientationLabel)
+                .findFirst().orElse(currentOri);
+
+        progressionData.putString("OrientationLabel", orientationLabel);
+        progressionData.putString("Namespace", town.getCultureNamespace());
+        progressionData.putString("StarterBuildingId", starterBuildingId);
+
+        ListTag eraUnlockedTag = new ListTag();
+        for (String id : town.getUnlockedBuildingIds()) eraUnlockedTag.add(StringTag.valueOf(id));
+        progressionData.put("EraUnlockedIds", eraUnlockedTag);
+
         ListTag sigBuildings = new ListTag();
         for (Town.SignatureBuildingProgress p : town.getSignatureBuildingProgress()) {
             CompoundTag entry = new CompoundTag();

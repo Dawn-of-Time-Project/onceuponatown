@@ -16,8 +16,10 @@ import org.dawnoftime.onceuponatown.town.TransformationRecipe;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import net.minecraft.world.item.Item;
 
 public class ProductionManager {
@@ -31,25 +33,22 @@ public class ProductionManager {
         boolean changed = false;
 
         int currentActiveResidents = town.getActiveResidents();
-        double bonusMultiplier = 1.0 + town.getBuildings().stream()
-            .mapToDouble(b -> {
-                BuildingDef bDef = BuildingDataHandler.get(b.getDefId()).orElse(null);
-                if (bDef == null) return 0.0;
-                double resolved = b.resolvedProductionBonus(bDef);
-                if (resolved == 0.0) return 0.0;
-                if (bDef.requiredResidents > 0 && currentActiveResidents < bDef.requiredResidents) return 0.0;
-                return resolved;
-            })
-            .sum();
-
+        double rawBonus = 0.0;
+        int townStockBonus = 0;
         // Town-wide stock bonus: extra capacity stacks added to every productive building (granary mechanic).
-        int townStockBonus = town.getBuildings().stream()
-            .mapToInt(b -> {
-                BuildingDef bDef = BuildingDataHandler.get(b.getDefId()).orElse(null);
-                return bDef == null ? 0 : b.resolvedStockBonus(bDef);
-            })
-            .sum();
+        for (PlacedBuilding b : town.getBuildings()) {
+            BuildingDef bDef = BuildingDataHandler.get(b.getDefId()).orElse(null);
+            if (bDef == null) continue;
+            double resolved = b.resolvedProductionBonus(bDef);
+            if (resolved != 0.0 && (bDef.requiredResidents <= 0 || currentActiveResidents >= bDef.requiredResidents)) {
+                rawBonus += resolved;
+            }
+            townStockBonus += b.resolvedStockBonus(bDef);
+        }
+        double bonusMultiplier = 1.0 + rawBonus;
 
+        // Track which item types have already received the town stock bonus — applied once per item, not per building.
+        Set<Item> bonusItemsConsumed = new HashSet<>();
         for (PlacedBuilding building : town.getBuildings()) {
             BuildingDef def = BuildingDataHandler.get(building.getDefId()).orElse(null);
             if (def == null) continue;
@@ -69,9 +68,8 @@ public class ProductionManager {
                 if (gameTime % effectiveTicks != 0) continue;
                 double totalMultiplier = bonusMultiplier * building.getInstanceProductionMultiplier();
                 int boostedAmount = (int) Math.round(entry.amount() * totalMultiplier);
-                int resolvedCapacity = entry.capacityUnits() >= 0
-                    ? entry.capacityUnits()
-                    : (entry.capacityStacks() + townStockBonus) * 64;
+                int bonusSlots = bonusItemsConsumed.add(entry.item()) ? townStockBonus : 0;
+                int resolvedCapacity = entry.capacity() + bonusSlots * entry.slotSize();
                 if (building.produce(entry.item(), boostedAmount, resolvedCapacity)) changed = true;
             }
 
@@ -129,7 +127,7 @@ public class ProductionManager {
                 boolean canAfford = recipe.inputs().stream()
                     .allMatch(input -> budget.getOrDefault(input.item(), 0) >= input.amount());
                 int currentOutput = building.getStock(recipe.outputItem());
-                if (!canAfford || currentOutput + recipe.outputAmount() > recipe.outputCapacityItems()) continue;
+                if (!canAfford || currentOutput + recipe.outputAmount() > recipe.outputCapacity()) continue;
                 for (ItemCost input : recipe.inputs()) {
                     budget.merge(input.item(), -input.amount(), Integer::sum);
                     consumed.merge(input.item(), input.amount(), Integer::sum);

@@ -562,6 +562,9 @@ public class TownSummaryWidget extends DraggableWidget {
             case "builder"              -> new float[]{48f, 32f};
             case "merchant"             -> new float[]{64f, 16f};
             case "miner"                -> new float[]{64f, 0f};
+            case "toolsmith"            -> new float[]{64f, 48f};
+            case "potato_farmer",
+                 "wheat_farmer"         -> new float[]{64f, 32f};
             default                     -> new float[]{48f, 48f};
         };
     }

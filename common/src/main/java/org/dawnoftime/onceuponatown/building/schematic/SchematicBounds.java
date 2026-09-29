@@ -52,7 +52,7 @@ public final class SchematicBounds {
         Optional<StructureTemplate> template = level.getStructureManager().get(nbtLocation);
         if (template.isEmpty()) return Optional.empty();
 
-        List<SchematicBlock> allBlocks = SchematicReader.readSortedBlocks(template.get(), rotation);
+        List<SchematicBlock> allBlocks = SchematicReader.readSortedBlocks(template.get(), rotation).blocks();
         if (allBlocks.isEmpty()) return computeBoundingBox(level, originPos, nbtLocation, rotation);
 
         // Ground-layer blocks: one per XZ column, the one with the lowest Y.
@@ -123,7 +123,7 @@ public final class SchematicBounds {
         Optional<StructureTemplate> templateOpt = level.getStructureManager().get(nbtLocation);
         if (templateOpt.isEmpty()) return false;
 
-        List<SchematicBlock> blocks = SchematicReader.readSortedBlocks(templateOpt.get(), rotation);
+        List<SchematicBlock> blocks = SchematicReader.readSortedBlocks(templateOpt.get(), rotation).blocks();
 
         Set<Long> visited = new HashSet<>();
         for (SchematicBlock b : blocks) {

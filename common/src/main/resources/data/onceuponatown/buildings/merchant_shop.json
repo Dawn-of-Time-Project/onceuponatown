@@ -5,24 +5,18 @@
   "icon_item": "minecraft:emerald",
   "category": "jobs",
   "weight": 3,
+
   "spawns_npc": "merchant",
   "signature": true,
 
   "required_residents": 6,
+
   "construction_cost": [
-    {
-      "item": "minecraft:oak_log",
-      "amount": 25
-    },
-    {
-      "item": "minecraft:cobblestone",
-      "amount": 10
-    },
-    {
-      "item": "minecraft:white_bed",
-      "amount": 1
-    }
+    { "item": "minecraft:oak_log",     "amount": 25 },
+    { "item": "minecraft:cobblestone", "amount": 10 },
+    { "item": "minecraft:white_bed",   "amount": 1 }
   ],
+
   "nbt_levels": [
     "onceuponatown:plains/jobs/merchant_shop_lvl1",
     "onceuponatown:plains/jobs/merchant_shop_lvl2",
@@ -31,6 +25,5 @@
     "onceuponatown:plains/jobs/merchant_shop_lvl5",
     "onceuponatown:plains/jobs/merchant_shop_lvl6",
     "onceuponatown:plains/jobs/merchant_shop_lvl7"
-
   ]
 }

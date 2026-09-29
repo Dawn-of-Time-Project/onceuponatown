@@ -1,6 +1,7 @@
 package org.dawnoftime.onceuponatown.client.gui.widgets;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.BlockPos;
@@ -18,7 +19,9 @@ import org.dawnoftime.onceuponatown.registry.ItemRegistry;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 public class ProgressionWidget extends DraggableWidget {
 
@@ -66,6 +69,10 @@ public class ProgressionWidget extends DraggableWidget {
 
     private List<BuildingRow> rows = new ArrayList<>();
     private boolean medalClaimed = false;
+    private String orientationLabel = "";
+    private String namespace = "";
+    private String starterBuildingId = "";
+    private List<String> eraUnlockedIds = new ArrayList<>();
     private final BlockPos anchorPos;
     private final Consumer<BlockPos> onClaimMedal;
 
@@ -82,6 +89,7 @@ public class ProgressionWidget extends DraggableWidget {
     // Tooltip collected during renderContent, flushed at the end
     private String pendingTooltip = null;
     private int pendingTooltipX, pendingTooltipY;
+    private List<Component> pendingTooltipComponents = null;
 
     public ProgressionWidget(int x, int y, int freeZoneMaxX, int screenH,
                              CompoundTag progressionData, BlockPos anchorPos,
@@ -103,6 +111,12 @@ public class ProgressionWidget extends DraggableWidget {
     private void parseData(CompoundTag data) {
         if (data == null) return;
         medalClaimed = data.getBoolean("MedalClaimed");
+        orientationLabel = data.getString("OrientationLabel");
+        namespace = data.getString("Namespace");
+        starterBuildingId = data.getString("StarterBuildingId");
+        eraUnlockedIds = new ArrayList<>();
+        ListTag eraUnlockedTag = data.getList("EraUnlockedIds", Tag.TAG_STRING);
+        for (int i = 0; i < eraUnlockedTag.size(); i++) eraUnlockedIds.add(eraUnlockedTag.getString(i));
         rows.clear();
         ListTag list = data.getList("SignatureBuildings", Tag.TAG_COMPOUND);
         for (int i = 0; i < list.size(); i++) {
@@ -138,6 +152,7 @@ public class ProgressionWidget extends DraggableWidget {
                                   int mouseX, int mouseY, float delta) {
         g.fill(cx, cy, cx + cw, cy + ch, COL_BG);
         pendingTooltip = null;
+        pendingTooltipComponents = null;
 
         int scrollH  = ch - CLAIM_H;
         boolean hasScroll = totalH > scrollH;
@@ -179,7 +194,10 @@ public class ProgressionWidget extends DraggableWidget {
 
         renderClaimSection(g, cx, cy + scrollH, cw, mouseX, mouseY);
 
-        if (pendingTooltip != null) {
+        if (pendingTooltipComponents != null) {
+            g.renderComponentTooltip(Minecraft.getInstance().font,
+                pendingTooltipComponents, pendingTooltipX, pendingTooltipY);
+        } else if (pendingTooltip != null) {
             g.renderTooltip(Minecraft.getInstance().font,
                 Component.literal(pendingTooltip),
                 pendingTooltipX, pendingTooltipY);
@@ -217,7 +235,7 @@ public class ProgressionWidget extends DraggableWidget {
         } else if (row.maxed()) {
             levelStr = "Level " + row.maxLevel() + "/" + row.maxLevel();
         } else {
-            levelStr = "Level " + (row.currentLevel() + 1) + "/" + row.maxLevel();
+            levelStr = "Level " + row.currentLevel() + "/" + row.maxLevel();
         }
 
         int textY    = cy + 3;
@@ -258,7 +276,7 @@ public class ProgressionWidget extends DraggableWidget {
                 fillW = barW;
             } else {
                 fillW = Math.max(0, Math.min(barW,
-                    (int)((float)(row.currentLevel() + 1) / row.maxLevel() * barW)));
+                    (int)((float)row.currentLevel() / row.maxLevel() * barW)));
             }
         }
         if (fillW > 0) {
@@ -282,6 +300,44 @@ public class ProgressionWidget extends DraggableWidget {
 
         if (!medalClaimed && anyMaxed && ItemRegistry.RECOGNITION_MEDAL != null) {
             g.renderFakeItem(new ItemStack(ItemRegistry.RECOGNITION_MEDAL), slotX, slotY);
+
+            if (slotHover) {
+                List<Component> tooltip = new ArrayList<>();
+                String oriValue = orientationLabel.isEmpty() ? namespace : orientationLabel;
+                tooltip.add(Component.translatable("onceuponatown.tooltip.medal.orientation")
+                    .append(Component.literal(": " + oriValue))
+                    .withStyle(ChatFormatting.WHITE));
+                tooltip.add(Component.translatable("onceuponatown.tooltip.medal.culture")
+                    .append(Component.literal(": " + namespace))
+                    .withStyle(ChatFormatting.WHITE));
+                tooltip.add(Component.literal(""));
+                Set<String> sigIds = rows.stream()
+                    .filter(BuildingRow::maxed)
+                    .map(BuildingRow::defId)
+                    .collect(Collectors.toSet());
+                if (!sigIds.isEmpty() || !eraUnlockedIds.isEmpty()) {
+                    tooltip.add(Component.translatable("onceuponatown.tooltip.medal.unlocked_buildings")
+                        .append(Component.literal(":"))
+                        .withStyle(ChatFormatting.WHITE));
+                    for (String id : sigIds) {
+                        tooltip.add(Component.literal("  - ")
+                            .append(Component.translatable("onceuponatown.building." + id))
+                            .withStyle(ChatFormatting.GOLD));
+                    }
+                    for (String id : eraUnlockedIds) {
+                        if (sigIds.contains(id)) continue;
+                        tooltip.add(Component.literal("  - ")
+                            .append(Component.translatable("onceuponatown.building." + id))
+                            .withStyle(ChatFormatting.WHITE));
+                    }
+                }
+                tooltip.add(Component.literal(""));
+                tooltip.add(Component.translatable("onceuponatown.tooltip.medal.deposit_hint")
+                    .withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC));
+                pendingTooltipComponents = tooltip;
+                pendingTooltipX = mx;
+                pendingTooltipY = my;
+            }
         }
 
         // Claim button
@@ -390,7 +446,7 @@ public class ProgressionWidget extends DraggableWidget {
     private static void drawCenteredStr(GuiGraphics g, String text, int bx, int by, int bw, int bh, int col) {
         int tw = Minecraft.getInstance().font.width(text);
         g.drawString(Minecraft.getInstance().font, text,
-            bx + (bw - tw) / 2, by + (bh - FONT_H) / 2, col, false);
+            bx + (bw - tw) / 2, by + (bh - FONT_H) / 2 + 2, col, false);
     }
 
     private static String buildingName(BuildingRow row) {

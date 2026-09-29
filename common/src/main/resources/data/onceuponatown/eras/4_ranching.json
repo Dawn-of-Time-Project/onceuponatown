@@ -18,10 +18,10 @@
     { "defId": "cow_farm", "count": 1 }
   ],
 
-  "auto_build_sequence": [{"defId": "wild_stone", "count": 2}, {"defId": "cow_field", "count": 2}, "cow_farm", "market", "mine"],
+  "auto_build_sequence": [{"defId": "wild_stone", "count": 2}, {"defId": "cow_field", "count": 2}, "mine", "cow_farm"],
   "auto_upgrade_ids": ["settlement_2"],
 
-  "unlocked_building_ids": ["leather_workshop", "house_slot", "carpenter"],
+  "unlocked_building_ids": ["leather_workshop", "house_slot", "granary"],
 
   "next_orientation": "ranching"
 }

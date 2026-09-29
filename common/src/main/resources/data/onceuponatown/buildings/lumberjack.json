@@ -5,101 +5,115 @@
   "icon_item": "minecraft:wooden_axe",
   "category": "jobs",
   "weight": 2,
+
   "spawns_npc": "lumberjack",
   "residents": 1,
 
   "required_buildings": [
     { "defId": "grove", "count": 1 },
     { "defId": "workshop", "count": 1 }
+  ],
 
-  ],
   "construction_cost": [
-    {
-      "item": "minecraft:oak_log",
-      "amount": 35
-    },
-    {
-      "item": "minecraft:cobblestone",
-      "amount": 10
-    },
-    {
-      "item": "minecraft:white_wool",
-      "amount": 3
-    }
+    { "item": "minecraft:oak_log",     "amount": 35 },
+    { "item": "minecraft:cobblestone", "amount": 10 },
+    { "item": "minecraft:white_wool",  "amount": 3 }
   ],
+
   "production": [
     {
       "item": "minecraft:oak_log",
       "amount": 3,
       "every_ticks": 1600,
-      "capacity_stacks": 2
+      "slots": 2,
+      "slot_size": 64
     },
     {
       "item": "minecraft:oak_sapling",
       "amount": 1,
       "every_ticks": 1800,
-      "capacity_stacks": 1
+      "slots": 1,
+      "slot_size": 64
     },
     {
       "item": "minecraft:apple",
       "amount": 1,
       "every_ticks": 1800,
-      "capacity_stacks": 1
+      "slots": 1,
+      "slot_size": 64
     },
     {
       "item": "minecraft:stick",
       "amount": 1,
       "every_ticks": 1800,
-      "capacity_stacks": 1
+      "slots": 1,
+      "slot_size": 64
     },
     {
       "item": "minecraft:oak_wood",
       "amount": 1,
       "every_ticks": 3100,
-      "capacity_stacks": 1,
-      "unlock_at_level": 2
+      "unlock_at_level": 2,
+      "slots": 1,
+      "slot_size": 64
     },
     {
       "item": "minecraft:stripped_oak_log",
       "amount": 1,
       "every_ticks": 3100,
-      "capacity_stacks": 1,
-      "unlock_at_level": 4
+      "unlock_at_level": 4,
+      "slots": 1,
+      "slot_size": 64
     },
     {
       "item": "minecraft:stripped_oak_wood",
       "amount": 1,
       "every_ticks": 3100,
-      "capacity_stacks": 1,
-      "unlock_at_level": 4
+      "unlock_at_level": 4,
+      "slots": 1,
+      "slot_size": 64
     }
   ],
+
   "upgrades": [
     {
-      "capacity_stacks_add": 1,
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 20 }]
+      "slots_add": 1,
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 20 }
+      ]
     },
     {
       "amount_add": 1,
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 30 }]
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 30 }
+      ]
     },
     {
-      "capacity_stacks_add": 1,
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 40 }]
+      "slots_add": 1,
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 40 }
+      ]
     },
     {
-      "cadence_multiplier": 0.10,
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 60 }]
+      "cadence_multiplier": 0.1,
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 60 }
+      ]
     },
     {
       "amount_add": 1,
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 80 }]
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 80 }
+      ]
     },
     {
-      "cadence_multiplier": 0.20,
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 100 }]
+      "cadence_multiplier": 0.2,
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 100 }
+      ]
     }
   ],
+
   "nbt_levels": [
     "onceuponatown:plains/jobs/lumberjack_lvl1",
     "onceuponatown:plains/jobs/lumberjack_lvl2",

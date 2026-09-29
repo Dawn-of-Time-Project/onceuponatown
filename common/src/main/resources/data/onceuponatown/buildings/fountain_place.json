@@ -8,18 +8,10 @@
 
   "production_bonus": 0.05,
   "required_residents": 10,
+
   "construction_cost": [
-    {
-      "item": "minecraft:oak_log",
-      "amount": 35
-    },
-    {
-      "item": "minecraft:cobblestone",
-      "amount": 10
-    },
-    {
-      "item": "minecraft:white_wool",
-      "amount": 5
-    }
+    { "item": "minecraft:oak_log",     "amount": 35 },
+    { "item": "minecraft:cobblestone", "amount": 10 },
+    { "item": "minecraft:white_wool",  "amount": 5 }
   ]
 }

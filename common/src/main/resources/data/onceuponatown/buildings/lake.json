@@ -7,9 +7,6 @@
   "weight": 1,
 
   "construction_cost": [
-    {
-      "item": "minecraft:oak_log",
-      "amount": 5
-    }
+    { "item": "minecraft:oak_log", "amount": 5 }
   ]
 }

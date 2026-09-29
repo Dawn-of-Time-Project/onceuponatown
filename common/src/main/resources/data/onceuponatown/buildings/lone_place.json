@@ -8,10 +8,8 @@
 
   "production_bonus": 0.03,
   "required_residents": 5,
+
   "construction_cost": [
-    {
-      "item": "minecraft:oak_log",
-      "amount": 25
-    }
+    { "item": "minecraft:oak_log", "amount": 25 }
   ]
 }

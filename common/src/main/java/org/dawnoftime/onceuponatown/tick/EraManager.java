@@ -21,13 +21,21 @@ public class EraManager {
 
     // Called each server tick. Drives autonomous era transitions and building queue injection.
     public static void tick(Town town, ServerLevel level, long gameTime, long anchorKey) {
-        if (!town.isAutonomyEnabled()) return;
+        if (!town.isAutonomyEnabled()) {
+            if (gameTime % 200 != 0) return;
+            BlockPos anchorPos = BlockPos.of(anchorKey);
+            tickPlayerEraCheck(town, level, anchorPos);
+            if (town.isAutoUpgradeEnabled()) {
+                tickUpgradeSlot(town, level, anchorPos, gameTime);
+            }
+            return;
+        }
 
         BlockPos anchorPos = BlockPos.of(anchorKey);
         String orientation = town.getCurrentOrientation();
 
         // Slot U runs independently so it continues at the final era (no further transitions).
-        if (gameTime % 200 == 0) {
+        if (gameTime % 200 == 0 && town.isAutoUpgradeEnabled()) {
             tickUpgradeSlot(town, level, anchorPos, gameTime);
         }
 
@@ -113,6 +121,20 @@ public class EraManager {
                 NetworkHelper.pushLogEntryToWatchers(level, town, anchorPos, logEntry);
                 LevelTowns.get(level).markDirty();
                 NetworkHelper.pushBuildingListToWatchers(level, town, anchorPos);
+            }
+        }
+    }
+
+    // Checks era transition prerequisites for player-controlled villages (no autonomous sequence required).
+    private static void tickPlayerEraCheck(Town town, ServerLevel level, BlockPos anchorPos) {
+        String orientation = town.getCurrentOrientation();
+        List<EraTransitionDef> available = EraTransitionDataHandler.getAvailableTransitions(
+            town.getCurrentEra(), orientation, town.getCultureNamespace());
+        if (available.isEmpty()) return;
+        for (EraTransitionDef t : available) {
+            if (town.meetsEraTransitionPrereqs(t)) {
+                advance(town, t.id, level, anchorPos);
+                return;
             }
         }
     }
@@ -205,11 +227,13 @@ public class EraManager {
     }
 
     // Picks the housing building that best covers the resident deficit.
+    // Only buildings with category "buildings" (houses) are eligible -- prevents
+    // production buildings that happen to have residents>0 from being injected here.
     // Exact match or smallest overshoot is preferred; undershoots rank below overshoots.
     private static String pickResidentBuilding(Town town, int deficit) {
         return BuildingDataHandler.getAll(town.getCultureNamespace()).stream()
             .filter(def -> def.residents > 0)
-            .filter(def -> !"town_center".equals(def.category))
+            .filter(def -> "buildings".equals(def.category))
             .filter(def -> meetsStructuralPrereqs(town, def.id))
             .min(java.util.Comparator.comparingInt(def -> {
                 int r = def.residents;

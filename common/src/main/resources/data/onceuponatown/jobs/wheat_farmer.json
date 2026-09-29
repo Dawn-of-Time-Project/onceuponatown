@@ -1,0 +1,37 @@
+{
+  "walk_speed": 0.6,
+
+  "farm_buildings": ["wheat_farm", "wheat_field", "well"],
+  "work_reach": 2.0,
+  "harvest_speed": [0.3, 0.7],
+  "plant_speed": [0.3, 0.6],
+
+  "rest_buildings": ["wheat_farm"],
+  "bedtime": 13000,
+  "wakeup_time": 1000,
+
+  "production_buildings": ["wheat_farm", "wheat_field"],
+
+  "secondary_activities": [
+    {
+      "requiredBuilding": "market",
+      "heldItem": "minecraft:air",
+      "animationType": "SELL",
+      "stand_type": "sell_farmer"
+    },
+    {
+      "requiredBuilding": "wheat_farm",
+      "heldItem": "minecraft:bread",
+      "animationType": "CRAFT",
+      "target_block": "minecraft:crafting_table",
+      "work_reach": 2.0
+    },
+    {
+      "requiredBuilding": "kitchen",
+      "heldItem": "minecraft:bread",
+      "animationType": "CRAFT",
+      "target_block": "minecraft:crafting_table",
+      "work_reach": 2.0
+    }
+  ]
+}

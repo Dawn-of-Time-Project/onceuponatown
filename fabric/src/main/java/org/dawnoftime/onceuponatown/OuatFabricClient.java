@@ -38,6 +38,7 @@ import org.dawnoftime.onceuponatown.network.C2SRemoveQueuedBuildingPacket;
 import org.dawnoftime.onceuponatown.network.C2SRequestNbtPacket;
 import org.dawnoftime.onceuponatown.network.C2SRequestStockPacket;
 import org.dawnoftime.onceuponatown.network.C2SToggleChatBroadcastPacket;
+import org.dawnoftime.onceuponatown.network.C2SToggleAutoUpgradePacket;
 import org.dawnoftime.onceuponatown.network.C2SUpgradeBuildingPacket;
 import org.dawnoftime.onceuponatown.network.C2SRepairBuildingPacket;
 import org.dawnoftime.onceuponatown.network.NetworkHelper;
@@ -178,6 +179,11 @@ public class OuatFabricClient implements ClientModInitializer {
             var buf = PacketByteBufs.create();
             new C2SToggleChatBroadcastPacket(pos).encode(buf);
             ClientPlayNetworking.send(C2SToggleChatBroadcastPacket.ID, buf);
+        };
+        NetworkHelper.sendToggleAutoUpgradePacket = pos -> {
+            var buf = PacketByteBufs.create();
+            new C2SToggleAutoUpgradePacket(pos).encode(buf);
+            ClientPlayNetworking.send(C2SToggleAutoUpgradePacket.ID, buf);
         };
         NetworkHelper.sendRequestNbtPacket = (pos, path) -> {
             var buf = PacketByteBufs.create();

@@ -8,21 +8,22 @@
   "signature": true,
 
   "herd": 2,
+
   "required_buildings": [
     { "defId": "carrot_field", "count": 1 }
   ],
+
   "construction_cost": [
-    {
-      "item": "minecraft:oak_log",
-      "amount": 12
-    }
+    { "item": "minecraft:oak_log", "amount": 12 }
   ],
+
   "production": [
     {
       "item": "minecraft:porkchop",
       "amount": 1,
       "every_ticks": 1600,
-      "capacity_stacks": 1
+      "slots": 1,
+      "slot_size": 64
     }
   ]
 }

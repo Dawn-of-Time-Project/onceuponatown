@@ -25,17 +25,21 @@ import java.util.List;
 public class SchematicReader {
     private static final Logger LOGGER = LoggerFactory.getLogger(SchematicReader.class);
 
+    // Pair of the regular block list and barrier marker positions (both rotation-applied, relative to origin).
+    public record SchematicReadResult(List<SchematicBlock> blocks, List<BlockPos> markerPositions) {}
+
     // Extracts a sorted, rotation-applied block list from an already-loaded StructureTemplate.
-    // Filters out: AIR, CAVE_AIR, STRUCTURE_VOID, JIGSAW.
-    // Block positions in the returned list are rotated (relative to origin 0,0,0 of the template).
+    // Filters out: AIR, CAVE_AIR, STRUCTURE_VOID, JIGSAW, BARRIER.
+    // BARRIER blocks are collected separately into markerPositions and are never placed in the world.
+    // Block positions in the returned lists are rotated (relative to origin 0,0,0 of the template).
     // Add finalPlacementPos to get world coordinates.
-    public static List<SchematicBlock> readSortedBlocks(StructureTemplate template, Rotation rotation) {
+    public static SchematicReadResult readSortedBlocks(StructureTemplate template, Rotation rotation) {
         CompoundTag nbt;
         try {
             nbt = template.save(new CompoundTag());
         } catch (Exception e) {
             LOGGER.error("[OUAT] Failed to serialize StructureTemplate to NBT for block extraction", e);
-            return List.of();
+            return new SchematicReadResult(List.of(), List.of());
         }
 
         HolderGetter<Block> blockGetter = BuiltInRegistries.BLOCK.asLookup();
@@ -49,7 +53,7 @@ public class SchematicReader {
         }
         ListTag blocksTag = nbt.getList("blocks", 10);
 
-        if (paletteTag.isEmpty() || blocksTag.isEmpty()) return List.of();
+        if (paletteTag.isEmpty() || blocksTag.isEmpty()) return new SchematicReadResult(List.of(), List.of());
 
         // Build palette array: index -> BlockState.
         BlockState[] palette = new BlockState[paletteTag.size()];
@@ -58,6 +62,7 @@ public class SchematicReader {
         }
 
         List<SchematicBlock> result = new ArrayList<>(blocksTag.size());
+        List<BlockPos> markerPositions = new ArrayList<>();
         for (int i = 0; i < blocksTag.size(); i++) {
             CompoundTag blockTag = blocksTag.getCompound(i);
             int stateIdx = blockTag.getInt("state");
@@ -68,6 +73,17 @@ public class SchematicReader {
 
             // Skip non-placeable blocks.
             if (block == Blocks.AIR || block == Blocks.CAVE_AIR || block == Blocks.STRUCTURE_VOID) continue;
+
+            // Barrier blocks are stand markers: collect position for NPC/stand discovery AND
+            // add as AIR so the builder explicitly clears terrain at that position.
+            if (block == Blocks.BARRIER) {
+                ListTag markerPosTag = blockTag.getList("pos", 3);
+                BlockPos markerLocal = new BlockPos(markerPosTag.getInt(0), markerPosTag.getInt(1), markerPosTag.getInt(2));
+                BlockPos markerRotated = StructureTemplate.transform(markerLocal, Mirror.NONE, rotation, BlockPos.ZERO);
+                markerPositions.add(markerRotated);
+                result.add(new SchematicBlock(markerRotated, Blocks.AIR.defaultBlockState(), null));
+                continue;
+            }
 
             // Jigsaw blocks are connector markers: replace them with their final_state instead of skipping.
             if (block == Blocks.JIGSAW) {
@@ -103,7 +119,7 @@ public class SchematicReader {
         }
 
         ConstructionUtils.sortBlocks(result);
-        return result;
+        return new SchematicReadResult(result, markerPositions);
     }
 
     // Extracts entities from a StructureTemplate and returns them with absolute world positions.

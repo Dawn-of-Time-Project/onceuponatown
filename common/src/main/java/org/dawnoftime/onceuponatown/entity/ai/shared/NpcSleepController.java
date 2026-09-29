@@ -8,6 +8,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BedPart;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import org.dawnoftime.onceuponatown.entity.Npc;
+import org.dawnoftime.onceuponatown.entity.ai.AbstractNpcJob;
 import org.dawnoftime.onceuponatown.town.PlacedBuilding;
 import org.dawnoftime.onceuponatown.town.Town;
 
@@ -18,9 +19,10 @@ public class NpcSleepController {
     // so NPCs don't all transition at the same tick.
     private final int sleepOffset;
     private final int wakeOffset;
-    private BlockPos sleepBedPos   = null;
-    private BlockPos sleepStandPos = null;
-    private GoToPosition sleepGoTo = null;
+    private BlockPos sleepBedPos     = null;
+    private BlockPos sleepStandPos   = null;
+    private BuildingEntryNav sleepEntryNav = null;
+    private GoToPosition sleepGoTo   = null;
 
     public NpcSleepController(Npc npc, NpcTimingProfile timing) {
         this.npc = npc;
@@ -41,9 +43,10 @@ public class NpcSleepController {
 
     // Clears all navigation state. Called on enterSleep and on wakeup.
     public void reset() {
-        sleepBedPos   = null;
-        sleepStandPos = null;
-        sleepGoTo     = null;
+        sleepBedPos    = null;
+        sleepStandPos  = null;
+        sleepEntryNav  = null;
+        sleepGoTo      = null;
     }
 
     public enum SleepCheck { NONE, RESYNC, TRIGGER }
@@ -68,7 +71,7 @@ public class NpcSleepController {
     // Returns true  -> caller stays in SLEEPING state.
     // Returns false -> sleep window ended, caller must switch to IDLE.
     public boolean tick(ServerLevel level, Town town, SleepConfig cfg) {
-        long dayTime = level.getDayTime() % 24000;
+        long dayTime = level.getDayTime() % AbstractNpcJob.DAY_TICKS;
 
         if (!isSleepTime(dayTime, cfg)) {
             if (npc.isSleeping()) {
@@ -106,7 +109,13 @@ public class NpcSleepController {
                 sleepBedPos = null;
                 return true;
             }
-            sleepGoTo = new GoToPosition(npc, sleepStandPos, cfg.getWalkSpeed(), 2.0);
+            sleepEntryNav = new BuildingEntryNav(npc, BuildingEntryNav.resolveEntryPos(level, restBuilding), cfg.getWalkSpeed());
+        }
+
+        if (sleepEntryNav != null) {
+            if (!sleepEntryNav.tick()) return true;
+            sleepEntryNav = null;
+            sleepGoTo = new GoToPosition(npc, sleepStandPos, cfg.getWalkSpeed());
         }
 
         // sleepBedPos is set but sleepGoTo is null: navigation completed but startSleeping didn't

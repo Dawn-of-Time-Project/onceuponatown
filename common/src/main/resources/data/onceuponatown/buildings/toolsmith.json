@@ -1,0 +1,261 @@
+{
+  "id": "toolsmith",
+  "nbt": "onceuponatown:plains/jobs/toolsmith",
+  "entry_pool": "onceuponatown:jobs",
+  "icon_item": "minecraft:smithing_table",
+  "category": "jobs",
+  "weight": 3,
+  "signature": true,
+
+  "spawns_npc": "toolsmith",
+  "residents": 1,
+
+  "required_buildings": [
+    { "defId": "carpenter", "count": 1 },
+    { "defId": "mine", "count": 1 }
+  ],
+
+  "construction_cost": [
+    { "item": "minecraft:oak_log",     "amount": 25 },
+    { "item": "minecraft:cobblestone", "amount": 5 },
+    { "item": "minecraft:white_bed",   "amount": 1 }
+  ],
+
+  "stands": [
+    {
+      "type": "smithing",
+      "associated_block": "minecraft:stone",
+      "radius": 4
+    },
+    {
+      "type": "smithing",
+      "associated_block": "minecraft:smooth_stone",
+      "radius": 4
+    },
+    {
+      "type": "smithing",
+      "associated_block": "minecraft:chipped_anvil",
+      "radius": 4
+    }
+  ],
+
+  "transform_input_ratio": 0.1,
+  "transform_every_ticks": 1600,
+
+  "transformations": [
+    {
+      "inputs": [
+        { "item": "minecraft:stone", "amount": 1 },
+        { "item": "minecraft:stick", "amount": 2 }
+      ],
+      "output": "minecraft:stone_shovel",
+      "output_amount": 1,
+      "output_slots": 1,
+      "output_slot_size": 1
+    },
+    {
+      "inputs": [
+        { "item": "minecraft:stone", "amount": 3 },
+        { "item": "minecraft:stick", "amount": 2 }
+      ],
+      "output": "minecraft:stone_pickaxe",
+      "output_amount": 1,
+      "output_slots": 1,
+      "output_slot_size": 1
+    },
+    {
+      "inputs": [
+        { "item": "minecraft:stone", "amount": 3 },
+        { "item": "minecraft:stick", "amount": 2 }
+      ],
+      "output": "minecraft:stone_axe",
+      "output_amount": 1,
+      "output_slots": 1,
+      "output_slot_size": 1
+    },
+    {
+      "inputs": [
+        { "item": "minecraft:stone", "amount": 2 },
+        { "item": "minecraft:stick", "amount": 2 }
+      ],
+      "output": "minecraft:stone_hoe",
+      "output_amount": 1,
+      "output_slots": 1,
+      "output_slot_size": 1
+    },
+    {
+      "inputs": [
+        { "item": "minecraft:raw_iron", "amount": 1 },
+        { "item": "minecraft:coal", "amount": 3 }
+      ],
+      "output": "minecraft:iron_ingot",
+      "output_amount": 1,
+      "output_slots": 1,
+      "output_slot_size": 64
+    },
+    {
+      "inputs": [
+        { "item": "minecraft:iron_ingot", "amount": 1 }
+      ],
+      "output": "minecraft:iron_nugget",
+      "output_amount": 9,
+      "output_slots": 1,
+      "output_slot_size": 64
+    },
+    {
+      "inputs": [
+        { "item": "minecraft:iron_ingot", "amount": 1 },
+        { "item": "minecraft:stick", "amount": 1 },
+        { "item": "minecraft:oak_planks", "amount": 1 }
+      ],
+      "output": "minecraft:tripwire_hook",
+      "output_amount": 1,
+      "output_slots": 1,
+      "output_slot_size": 64
+    },
+    {
+      "inputs": [
+        { "item": "minecraft:iron_nugget", "amount": 8 },
+        { "item": "minecraft:torch", "amount": 1 }
+      ],
+      "output": "minecraft:lantern",
+      "output_amount": 1,
+      "output_slots": 3,
+      "output_slot_size": 64
+    },
+    {
+      "inputs": [
+        { "item": "minecraft:iron_ingot", "amount": 1 },
+        { "item": "minecraft:iron_nugget", "amount": 2 }
+      ],
+      "output": "minecraft:chain",
+      "output_amount": 1,
+      "output_slots": 1,
+      "output_slot_size": 64
+    },
+    {
+      "inputs": [
+        { "item": "minecraft:stripped_oak_log", "amount": 6 },
+        { "item": "minecraft:chain", "amount": 2 }
+      ],
+      "output": "minecraft:oak_hanging_sign",
+      "output_amount": 6,
+      "output_slots": 1,
+      "output_slot_size": 16
+    },
+    {
+      "inputs": [
+        { "item": "minecraft:iron_ingot", "amount": 3 }
+      ],
+      "output": "minecraft:bucket",
+      "output_amount": 1,
+      "output_slots": 1,
+      "output_slot_size": 16
+    },
+    {
+      "inputs": [
+        { "item": "minecraft:iron_ingot", "amount": 2 }
+      ],
+      "output": "minecraft:shears",
+      "output_amount": 1,
+      "output_slots": 1,
+      "output_slot_size": 1
+    },
+    {
+      "inputs": [
+        { "item": "minecraft:iron_ingot", "amount": 1 },
+        { "item": "minecraft:flint", "amount": 1 }
+      ],
+      "output": "minecraft:flint_and_steel",
+      "output_amount": 1,
+      "output_slots": 1,
+      "output_slot_size": 1
+    },
+    {
+      "inputs": [
+        { "item": "minecraft:iron_ingot", "amount": 1 },
+        { "item": "minecraft:stick", "amount": 2 }
+      ],
+      "output": "minecraft:iron_shovel",
+      "output_amount": 1,
+      "output_slots": 1,
+      "output_slot_size": 1,
+      "unlock_at_level": 6
+    },
+    {
+      "inputs": [
+        { "item": "minecraft:iron_ingot", "amount": 3 },
+        { "item": "minecraft:stick", "amount": 2 }
+      ],
+      "output": "minecraft:iron_pickaxe",
+      "output_amount": 1,
+      "output_slots": 1,
+      "output_slot_size": 1,
+      "unlock_at_level": 6
+    },
+    {
+      "inputs": [
+        { "item": "minecraft:iron_ingot", "amount": 3 },
+        { "item": "minecraft:stick", "amount": 2 }
+      ],
+      "output": "minecraft:iron_axe",
+      "output_amount": 1,
+      "output_slots": 1,
+      "output_slot_size": 1,
+      "unlock_at_level": 6
+    },
+    {
+      "inputs": [
+        { "item": "minecraft:iron_ingot", "amount": 2 },
+        { "item": "minecraft:stick", "amount": 2 }
+      ],
+      "output": "minecraft:iron_hoe",
+      "output_amount": 1,
+      "output_slots": 1,
+      "output_slot_size": 1,
+      "unlock_at_level": 6
+    }
+  ],
+
+  "upgrades": [
+    {
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 20 }
+      ]
+    },
+    {
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 30 }
+      ]
+    },
+    {
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 40 }
+      ]
+    },
+    {
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 60 }
+      ]
+    },
+    {
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 80 }
+      ]
+    },
+    {
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 100 }
+      ]
+    }
+  ],
+
+  "nbt_levels": [
+    "onceuponatown:plains/jobs/toolsmith_lvl1",
+    "onceuponatown:plains/jobs/toolsmith_lvl2",
+    "onceuponatown:plains/jobs/toolsmith_lvl3",
+    "onceuponatown:plains/jobs/toolsmith_lvl4",
+    "onceuponatown:plains/jobs/toolsmith_lvl5",
+    "onceuponatown:plains/jobs/toolsmith_lvl6"
+  ]
+}

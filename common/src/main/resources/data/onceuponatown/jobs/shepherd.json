@@ -1,37 +1,47 @@
 {
   "walk_speed": 0.6,
-  "shear_delay_ticks": 20,
-  "breed_delay_ticks": 40,
-  "sheep_buildings": ["sheep_field", "settlement_2", "sheep_farm"],
+
+  "work_buildings": ["sheep_field", "settlement_2", "sheep_farm"],
+  "work_reach": 2.0,
+  "animal_type": "minecraft:sheep",
+  "breeding_food": "minecraft:wheat",
+  "breed_speed": [1.5, 2.5],
+  "shear_speed": [0.5, 1.5],
+  "can_shear": true,
+
   "rest_buildings": ["sheep_farm"],
   "bedtime": 13000,
   "wakeup_time": 1000,
+
+  "production_buildings": ["sheep_field", "sheep_farm"],
 
   "secondary_activities": [
     {
       "requiredBuilding": "sheep_farm",
       "heldItem": "minecraft:mutton",
       "animationType": "SMELT",
-      "target_block": "minecraft:furnace"
+      "target_block": "minecraft:furnace",
+      "work_reach": 2.0
     },
     {
       "requiredBuilding": "sheep_farm",
       "heldItem": "minecraft:mutton",
       "animationType": "SMELT",
-      "target_block": "minecraft:smoker"
+      "target_block": "minecraft:smoker",
+      "work_reach": 2.0
     },
     {
       "requiredBuilding": "sheep_farm",
       "heldItem": "minecraft:white_wool",
       "animationType": "CRAFT",
-      "target_block": "minecraft:crafting_table"
+      "target_block": "minecraft:crafting_table",
+      "work_reach": 2.0
     },
     {
       "requiredBuilding": "market",
       "heldItem": "minecraft:air",
       "animationType": "SELL",
-      "target_block": "minecraft:crafting_table",
-      "productionBuildings": ["sheep_field","sheep_farm"]
+      "stand_type": "sell_shepherd"
     }
   ]
 }

@@ -1,19 +1,20 @@
 {
-    "id":  "street_3",
-    "nbt":  "onceuponatown:plains/streets/street_3",
-    "entry_pool":  "onceuponatown:streets",
-    "terrain_matching":  true,
-    "icon_item":  "minecraft:dirt_path",
-    "footprint":  [
-                      "111111110000000",
-                      "111111111111111",
-                      "000001111111111",
-                      "000000011100000",
-                      "000000011000000",
-                      "000000011000000",
-                      "000000011000000",
-                      "000000011000000",
-                      "000000011000000"
-                  ],
-    "weight": 0
+  "id": "street_3",
+  "nbt": "onceuponatown:plains/streets/street_3",
+  "entry_pool": "onceuponatown:streets",
+  "terrain_matching": true,
+  "icon_item": "minecraft:dirt_path",
+  "weight": 0,
+
+  "footprint": [
+    "111111110000000",
+    "111111111111111",
+    "000001111111111",
+    "000000011100000",
+    "000000011000000",
+    "000000011000000",
+    "000000011000000",
+    "000000011000000",
+    "000000011000000"
+  ]
 }

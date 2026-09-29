@@ -36,10 +36,10 @@ public record C2SClaimMedalPacket(BlockPos anchorPos) {
             if (town.isMedalClaimed()) return;
 
             Town.MedalSnapshot snapshot = town.claimMedal();
-            if (snapshot.unlockedIds().isEmpty()) return;
+            if (snapshot.signatureIds().isEmpty() && snapshot.eraUnlockedIds().isEmpty()) return;
 
             ItemStack medal = new ItemStack(ItemRegistry.RECOGNITION_MEDAL);
-            RecognitionMedalItem.write(medal, snapshot.namespace(), snapshot.unlockedIds());
+            RecognitionMedalItem.write(medal, snapshot);
             if (!player.getInventory().add(medal)) player.drop(medal, false);
 
             LevelTowns.get(level).markDirty();

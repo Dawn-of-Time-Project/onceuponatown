@@ -15,13 +15,13 @@
 
   "required_residents": 8,
   "required_buildings": [
-    { "defId": "granary", "count": 1 }
+    { "defId": "potato_farm", "count": 1 }
   ],
 
-  "auto_build_sequence": [{"defId": "wild_stone", "count": 2}, "granary", "market", "mine"],
+  "auto_build_sequence": [{"defId": "wild_stone", "count": 2}, {"defId": "potato_field", "count": 2}, "mine", "potato_farm"],
   "auto_upgrade_ids": ["settlement_3"],
 
-  "unlocked_building_ids": ["house_slot", "carpenter"],
+  "unlocked_building_ids": ["barn","house_slot", "granary"],
 
   "next_orientation": "rural"
 }

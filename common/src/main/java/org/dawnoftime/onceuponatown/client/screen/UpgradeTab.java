@@ -1,6 +1,7 @@
 package org.dawnoftime.onceuponatown.client.screen;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
@@ -90,6 +91,25 @@ class UpgradeTab {
         }
 
         renderUpgradeBuildingGrid(g, leftPos, topPos, mx, my, ctx.upgradedBuildings(), ctx.stockSnapshot(), ctx.maxUpgradeLevel(), ctx.font());
+
+        // Auto-upgrade toggle button (top-right corner, mirrors ghost-slot button in StockTab)
+        int autoUpgradeBtnX = leftPos + 155;
+        int autoUpgradeBtnY = topPos + 5;
+        g.blit(TEXTURE_UPGRADE, autoUpgradeBtnX, autoUpgradeBtnY, 193, 1, 10, 10);
+        if (ctx.autoUpgradeEnabled()) {
+            g.fill(autoUpgradeBtnX, autoUpgradeBtnY, autoUpgradeBtnX + 10, autoUpgradeBtnY + 10, 0x66FFFFFF);
+        }
+        boolean autoUpgradeHover = mx >= autoUpgradeBtnX && mx < autoUpgradeBtnX + 10
+            && my >= autoUpgradeBtnY && my < autoUpgradeBtnY + 10;
+        if (autoUpgradeHover) {
+            Component stateLabel = ctx.autoUpgradeEnabled()
+                ? Component.translatable("onceuponatown.ui.auto_upgrade_toggle.tooltip.on").withStyle(ChatFormatting.GREEN)
+                : Component.translatable("onceuponatown.ui.auto_upgrade_toggle.tooltip.off").withStyle(ChatFormatting.GRAY);
+            g.renderComponentTooltip(ctx.font(), List.of(
+                Component.translatable("onceuponatown.ui.auto_upgrade_toggle.tooltip"),
+                stateLabel
+            ), mx, my);
+        }
     }
 
     void renderTooltips(GuiGraphics g, int leftPos, int topPos, int mx, int my, TownHubTabContext ctx) {
@@ -150,6 +170,15 @@ class UpgradeTab {
 
     boolean handleClick(double mX, double mY, int button, int leftPos, int topPos, TownHubTabContext ctx) {
         if (button != 0) return true;
+
+        // Auto-upgrade toggle button
+        int autoUpgradeBtnX = leftPos + 155;
+        int autoUpgradeBtnY = topPos + 5;
+        if (mX >= autoUpgradeBtnX && mX < autoUpgradeBtnX + 10
+                && mY >= autoUpgradeBtnY && mY < autoUpgradeBtnY + 10) {
+            NetworkHelper.sendToggleAutoUpgradePacket.accept(ctx.anchorPos());
+            return true;
+        }
 
         UpgradeBuildingEntry sel = getSelectedUpgradeEntry(ctx.upgradedBuildings());
         if (sel != null) {
@@ -262,6 +291,7 @@ class UpgradeTab {
         double totalStock = 0.0, curStock = 0.0, ghostStock = 0.0;
         int totalTradeSlots = 0, curTradeSlots = 0, ghostTradeSlots = 0;
         float totalPriceDiscount = 0f, curPriceDiscount = 0f, ghostPriceDiscount = 0f;
+        float totalContractRatio = 0f, curContractRatio = 0f, ghostContractRatio = 0f;
 
         // Herd: maxHerdsTarget is the absolute target herd size set by that upgrade (0 = no change).
         int baseHerd     = defEntry.baseHerd();
@@ -273,33 +303,36 @@ class UpgradeTab {
             var lvl = defEntry.upgrades().get(i);
             totalCadence       += lvl.cadenceMultiplier();
             totalAmount        += lvl.amountAdd();
-            totalCapacity      += lvl.capacityStacksAdd();
+            totalCapacity      += lvl.slotsAdd();
             totalResidents     += lvl.residentsAdd();
             totalStockBonus    += lvl.stockBonusAdd();
             totalStock         += lvl.productionBonusAdd();
             totalTradeSlots    += lvl.tradeSlotsAdd();
             totalPriceDiscount += lvl.priceDiscountAdd();
+            totalContractRatio += lvl.contractRatioAdd();
             if (lvl.maxHerdsTarget() > 0) totalMaxHerd = Math.max(totalMaxHerd, lvl.maxHerdsTarget());
             if (i < currentLevel) {
                 curCadence       += lvl.cadenceMultiplier();
                 curAmount        += lvl.amountAdd();
-                curCapacity      += lvl.capacityStacksAdd();
+                curCapacity      += lvl.slotsAdd();
                 curResidents     += lvl.residentsAdd();
                 curStockBonus    += lvl.stockBonusAdd();
                 curStock         += lvl.productionBonusAdd();
                 curTradeSlots    += lvl.tradeSlotsAdd();
                 curPriceDiscount += lvl.priceDiscountAdd();
+                curContractRatio += lvl.contractRatioAdd();
                 if (lvl.maxHerdsTarget() > 0) curHerd = lvl.maxHerdsTarget();
             }
             if (showGhost && i == currentLevel) {
                 ghostCadence      = lvl.cadenceMultiplier();
                 ghostAmount       = lvl.amountAdd();
-                ghostCapacity     = lvl.capacityStacksAdd();
+                ghostCapacity     = lvl.slotsAdd();
                 ghostResidentsVal = lvl.residentsAdd();
                 ghostStockBonus   = lvl.stockBonusAdd();
                 ghostStock        = lvl.productionBonusAdd();
                 ghostTradeSlots   = lvl.tradeSlotsAdd();
                 ghostPriceDiscount = lvl.priceDiscountAdd();
+                ghostContractRatio = lvl.contractRatioAdd();
                 if (lvl.maxHerdsTarget() > 0) ghostHerd = lvl.maxHerdsTarget() - curHerd;
             }
         }
@@ -335,7 +368,7 @@ class UpgradeTab {
             g.blit(TEXTURE_UPGRADE, barX, gaugeY, iconW, iconW, 177f, 49f, iconW, iconW, 256, 256);
             renderStatBar(g, barX + barOffX, gaugeY + barOffY, barW, barH, fill, ghost);
             barLabelYs[numActiveBars] = gaugeY;
-            barTooltips[numActiveBars] = "Capacity: " + curCapacity + "/" + totalCapacity + " stacks";
+            barTooltips[numActiveBars] = "Capacity: " + curCapacity + "/" + totalCapacity + " slots";
             numActiveBars++;
             gaugeY += rowStep;
         }
@@ -396,6 +429,16 @@ class UpgradeTab {
             renderStatBar(g, barX + barOffX, gaugeY + barOffY, barW, barH, fill, ghost);
             barLabelYs[numActiveBars] = gaugeY;
             barTooltips[numActiveBars] = "Price discount: " + (int)(curPriceDiscount * 100) + "/" + (int)(totalPriceDiscount * 100) + "%";
+            numActiveBars++;
+            gaugeY += rowStep;
+        }
+        if (totalContractRatio > 0.001f) {
+            float fill = curContractRatio / totalContractRatio;
+            float ghost = showGhost ? ghostContractRatio / totalContractRatio : 0f;
+            g.blit(TEXTURE_UPGRADE, barX, gaugeY, iconW, iconW, 187f, 69f, iconW, iconW, 256, 256);
+            renderStatBar(g, barX + barOffX, gaugeY + barOffY, barW, barH, fill, ghost);
+            barLabelYs[numActiveBars] = gaugeY;
+            barTooltips[numActiveBars] = "Trade ratio: +" + (int)(curContractRatio * 100) + "/" + (int)(totalContractRatio * 100) + "%";
             numActiveBars++;
             gaugeY += rowStep;
         }

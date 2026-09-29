@@ -15,13 +15,14 @@ public class ClientBuildingDefsRegistry {
 
     public record CostEntry(String itemId, int amount) {}
 
-    public record UpgradeLevelClient(float cadenceMultiplier, int capacityStacksAdd, int amountAdd,
+    public record UpgradeLevelClient(float cadenceMultiplier, int slotsAdd, int amountAdd,
                                       int residentsAdd,
                                       double productionBonusAdd,
                                       int stockBonusAdd,
                                       int maxHerdsTarget,
                                       int tradeSlotsAdd,
                                       float priceDiscountAdd,
+                                      float contractRatioAdd,
                                       List<String> unlockedDisplay,
                                       List<CostEntry> upgradeCost) {}
 
@@ -54,6 +55,7 @@ public class ClientBuildingDefsRegistry {
                 int maxHerdsTarget   = ut.getInt("MaxHerdsTarget");
                 int tradeSlotsAdd    = ut.getInt("TradeSlotsAdd");
                 float priceDiscountAdd = ut.getFloat("PriceDiscountAdd");
+                float contractRatioAdd = ut.getFloat("ContractRatioAdd");
                 List<String> unlocksDisplay = new ArrayList<>();
                 for (Tag t : ut.getList("UnlocksDisplay", Tag.TAG_STRING)) {
                     unlocksDisplay.add(t.getAsString());
@@ -64,7 +66,7 @@ public class ClientBuildingDefsRegistry {
                     cost.add(new CostEntry(ct.getString("Item"), ct.getInt("Amount")));
                 }
                 upgrades.add(new UpgradeLevelClient(cadenceMult, capAdd, amountAdd, residentsAdd,
-                    prodBonusAdd, stockBonusAdd, maxHerdsTarget, tradeSlotsAdd, priceDiscountAdd,
+                    prodBonusAdd, stockBonusAdd, maxHerdsTarget, tradeSlotsAdd, priceDiscountAdd, contractRatioAdd,
                     unlocksDisplay, cost));
             }
             DEFS.put(id, new DefEntry(baseCap, baseAmount, baseResidents, baseHerd, baseProdBonus, upgrades));

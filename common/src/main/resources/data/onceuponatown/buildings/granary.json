@@ -5,48 +5,59 @@
   "icon_item": "minecraft:cobweb",
   "category": "jobs",
   "weight": 3,
-  "signature": true,
+
+  "stock_bonus": 1,
 
   "required_buildings": [
     { "defId": "wheat_farm", "count": 1 }
   ],
+
   "construction_cost": [
-    {
-      "item": "minecraft:oak_log",
-      "amount": 25
-    },
-    {
-      "item": "minecraft:cobblestone",
-      "amount": 5
-    }
+    { "item": "minecraft:oak_log",     "amount": 25 },
+    { "item": "minecraft:cobblestone", "amount": 5 }
   ],
-  "stock_bonus": 1,
+
   "upgrades": [
     {
       "stock_bonus_add": 1,
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 20 }]
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 20 }
+      ]
     },
     {
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 30 }]
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 30 }
+      ]
     },
     {
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 40 }]
-    },
-    {
-      "stock_bonus_add": 1,
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 60 }]
-    },
-    {
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 80 }]
-    },
-    {
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 100 }]
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 40 }
+      ]
     },
     {
       "stock_bonus_add": 1,
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 130 }]
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 60 }
+      ]
+    },
+    {
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 80 }
+      ]
+    },
+    {
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 100 }
+      ]
+    },
+    {
+      "stock_bonus_add": 1,
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 130 }
+      ]
     }
   ],
+
   "nbt_levels": [
     "onceuponatown:plains/jobs/granary_lvl1",
     "onceuponatown:plains/jobs/granary_lvl2",

@@ -1,7 +1,6 @@
 package org.dawnoftime.onceuponatown.entity.ai.shared;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.level.block.Block;
@@ -22,6 +21,9 @@ import java.util.List;
 public class OpenDoorGoal extends Goal {
 
     private static final double PROXIMITY_SQ = 2.0 * 2.0;
+    // Triggers even with no path or collision (covers load/restart cases where async pathfinding
+    // hasn't returned yet and the NPC is standing directly in front of a barrier).
+    private static final double VERY_CLOSE_SQ = 3.0 * 3.0;
     private static final int DETECT_RADIUS = 2;
 
     private final Mob mob;
@@ -36,7 +38,7 @@ public class OpenDoorGoal extends Goal {
     public boolean canUse() {
         barrierPositions.clear();
         findAllClosedBarriers(barrierPositions);
-        return !barrierPositions.isEmpty() && (mob.horizontalCollision || anyOnActivePath());
+        return !barrierPositions.isEmpty() && (mob.horizontalCollision || anyOnActivePath() || anyBarrierVeryClose());
     }
 
     @Override
@@ -46,6 +48,15 @@ public class OpenDoorGoal extends Goal {
 
     @Override
     public boolean canContinueToUse() {
+        // Re-scan to pick up new barriers that entered range while the goal is running.
+        List<BlockPos> newBarriers = new ArrayList<>();
+        findAllClosedBarriers(newBarriers);
+        for (BlockPos pos : newBarriers) {
+            if (!barrierPositions.contains(pos)) {
+                barrierPositions.add(pos);
+                setBarrierOpen(pos, true);
+            }
+        }
         return !barrierPositions.isEmpty() && barrierPositions.stream().anyMatch(this::isStillOpen);
     }
 
@@ -99,13 +110,13 @@ public class OpenDoorGoal extends Goal {
         return false;
     }
 
-    // Collects all closed barriers within DETECT_RADIUS in each cardinal direction.
+    // Collects all closed barriers within DETECT_RADIUS in a full cuboid around the NPC.
     private void findAllClosedBarriers(List<BlockPos> out) {
         BlockPos npcPos = mob.blockPosition();
-        for (Direction dir : Direction.Plane.HORIZONTAL) {
-            for (int dist = 1; dist <= DETECT_RADIUS; dist++) {
-                for (int dy = 0; dy <= 1; dy++) {
-                    BlockPos candidate = npcPos.relative(dir, dist).above(dy);
+        for (int dx = -DETECT_RADIUS; dx <= DETECT_RADIUS; dx++) {
+            for (int dy = 0; dy <= 1; dy++) {
+                for (int dz = -DETECT_RADIUS; dz <= DETECT_RADIUS; dz++) {
+                    BlockPos candidate = npcPos.offset(dx, dy, dz);
                     BlockPos result = closedBarrierPosAt(candidate);
                     if (result != null && !out.contains(result)) {
                         out.add(result);
@@ -141,6 +152,13 @@ public class OpenDoorGoal extends Goal {
                     return true;
                 }
             }
+        }
+        return false;
+    }
+
+    private boolean anyBarrierVeryClose() {
+        for (BlockPos barrier : barrierPositions) {
+            if (mob.distanceToSqr(Vec3.atCenterOf(barrier)) <= VERY_CLOSE_SQ) return true;
         }
         return false;
     }

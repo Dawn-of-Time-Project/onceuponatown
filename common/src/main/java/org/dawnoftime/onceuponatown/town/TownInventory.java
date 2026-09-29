@@ -23,9 +23,9 @@ public class TownInventory {
             + town.getContractStock().getOrDefault(item, 0);
     }
 
-    // Sum of capacity_stacks * 64 for this item across all placed buildings.
+    // Sum of slots * slotSize for this item across all placed buildings.
     // Covers both direct production entries and transformation outputs.
-    // Each slot also receives the town-wide stock bonus (extra stacks from granaries etc.).
+    // Each extra slot from granaries/barns is scaled by the item's own slotSize.
     public int getMaxStock(Item item) {
         int townStockBonus = buildings.stream()
             .mapToInt(b -> {
@@ -33,25 +33,25 @@ public class TownInventory {
                 return def == null ? 0 : b.resolvedStockBonus(def);
             })
             .sum();
-        int max = buildings.stream()
-            .mapToInt(b -> {
-                BuildingDef def = BuildingDataHandler.get(b.getDefId()).orElse(null);
-                if (def == null) return 0;
-                int fromProduction = def.production.stream()
-                    .filter(p -> p.item() == item)
-                    .mapToInt(p -> p.capacityUnits() >= 0
-                        ? p.capacityUnits()
-                        : (p.capacityStacks() + townStockBonus) * 64)
-                    .sum();
-                int fromTransformations = def.transformations.stream()
-                    .filter(t -> t.outputItem() == item)
-                    .mapToInt(t -> t.outputCapacityUnits() >= 0
-                        ? t.outputCapacityUnits()
-                        : (t.outputCapacityStacks() + townStockBonus) * 64)
-                    .sum();
-                return fromProduction + fromTransformations;
-            })
-            .sum();
+        int max = 0;
+        int itemSlotSize = 64;
+        for (PlacedBuilding b : buildings) {
+            BuildingDef def = BuildingDataHandler.get(b.getDefId()).orElse(null);
+            if (def == null) continue;
+            for (ProductionEntry p : def.resolveAtLevel(b.getUpgradeLevel()).production()) {
+                if (p.item() == item) {
+                    max += p.capacity();
+                    itemSlotSize = p.slotSize();
+                }
+            }
+            for (TransformationRecipe t : def.transformations) {
+                if (t.outputItem() == item) {
+                    max += t.outputCapacity();
+                    itemSlotSize = t.outputSlotSize();
+                }
+            }
+        }
+        if (max > 0) max += townStockBonus * itemSlotSize;
         List<ContractEntry> contract = town.getActiveContract();
         if (contract != null) {
             for (ContractEntry e : contract) {

@@ -15,13 +15,13 @@
 
   "required_residents": 8,
   "required_buildings": [
-    { "defId": "merchant_shop", "count": 1 }
+    { "defId": "market", "count": 1 }
   ],
 
-  "auto_build_sequence": [{"defId": "grove", "count": 3}, {"defId": "wild_stone", "count": 2}, "merchant_shop"],
+  "auto_build_sequence": [{"defId": "grove", "count": 3}, {"defId": "wild_stone", "count": 2}, "market"],
   "auto_upgrade_ids": ["settlement_3"],
 
-  "unlocked_building_ids": ["market", "mine"],
+  "unlocked_building_ids": ["merchant_shop", "mine"],
 
   "next_orientation": "urban"
 }

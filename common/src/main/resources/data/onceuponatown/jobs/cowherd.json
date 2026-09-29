@@ -1,36 +1,46 @@
 {
   "walk_speed": 0.6,
-  "breed_delay_ticks": 40,
-  "cow_buildings": ["cow_field", "cow_farm"],
+
+  "work_buildings": ["cow_field", "cow_farm"],
+  "work_reach": 2.0,
+  "animal_type": "minecraft:cow",
+  "breeding_food": "minecraft:wheat",
+  "breed_speed": [1.5, 2.5],
+  "can_shear": false,
+
   "rest_buildings": ["cow_farm"],
   "bedtime": 13000,
   "wakeup_time": 1000,
+
+  "production_buildings": ["cow_field", "cow_farm"],
 
   "secondary_activities": [
     {
       "requiredBuilding": "cow_farm",
       "heldItem": "minecraft:beef",
       "animationType": "SMELT",
-      "target_block": "minecraft:furnace"
+      "target_block": "minecraft:furnace",
+      "work_reach": 2.0
     },
     {
       "requiredBuilding": "cow_farm",
       "heldItem": "minecraft:beef",
       "animationType": "SMELT",
-      "target_block": "minecraft:smoker"
+      "target_block": "minecraft:smoker",
+      "work_reach": 2.0
     },
     {
       "requiredBuilding": "cow_farm",
       "heldItem": "minecraft:leather",
       "animationType": "CRAFT",
-      "target_block": "minecraft:crafting_table"
+      "target_block": "minecraft:crafting_table",
+      "work_reach": 2.0
     },
     {
       "requiredBuilding": "market",
       "heldItem": "minecraft:air",
       "animationType": "SELL",
-      "target_block": "minecraft:crafting_table",
-      "productionBuildings": ["cow_field","cow_farm"]
+      "stand_type": "sell_cowherd"
     }
   ]
 }

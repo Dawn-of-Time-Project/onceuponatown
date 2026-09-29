@@ -5,6 +5,8 @@
   "structure_label": "Village",
   "icon_item": "minecraft:wheat_seeds",
 
+  "unlock_npc_counts": { "builder": 1 },
+
   "weight_cap_increase": 10,
   "max_upgrade_level": 2,
 
@@ -20,10 +22,9 @@
     { "defId": "potato_field", "count": 1 }
   ],
 
-  "auto_build_sequence": [{"defId": "grove", "count": 2}, "carrot_field", "oven", "potato_field", "lumberjack"],
+  "auto_build_sequence": [{"defId": "grove", "count": 2}, "carrot_field", "oven", "lumberjack", "potato_field"],
 
   "unlocked_building_ids": ["lone_place", "fisherman", "wheat_farm", "brownfield"],
-  "unlock_npc_counts": { "builder": 1 },
   "auto_upgrade_ids": ["settlement_3"],
 
   "next_orientation": "rural"

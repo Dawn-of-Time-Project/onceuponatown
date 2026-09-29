@@ -7,16 +7,45 @@
   "weight": 2,
 
   "residents": 2,
+
   "construction_cost": [
+    { "item": "minecraft:oak_log",    "amount": 20 },
+    { "item": "minecraft:white_wool", "amount": 6 }
+  ],
+  "upgrades": [
     {
-      "item": "minecraft:oak_log",
-      "amount": 20
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 20 }
+      ]
     },
     {
-      "item": "minecraft:white_wool",
-      "amount": 6
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 30 }
+      ]
+    },
+    {
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 40 }
+      ]
+    },
+    {
+      "residents_add": 1,
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 60 }
+      ]
+    },
+    {
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 80 }
+      ]
+    },
+    {
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 100 }
+      ]
     }
   ],
+
   "nbt_levels": [
     "onceuponatown:plains/houses/house_2_lvl1",
     "onceuponatown:plains/houses/house_2_lvl2",
@@ -24,26 +53,5 @@
     "onceuponatown:plains/houses/house_2_lvl4",
     "onceuponatown:plains/houses/house_2_lvl5",
     "onceuponatown:plains/houses/house_2_lvl6"
-  ],
-  "upgrades": [
-    {
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 20 }]
-    },
-    {
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 30 }]
-    },
-    {
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 40 }]
-    },
-    {
-      "residents_add": 1,
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 60 }]
-    },
-    {
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 80 }]
-    },
-    {
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 100 }]
-    }
   ]
 }

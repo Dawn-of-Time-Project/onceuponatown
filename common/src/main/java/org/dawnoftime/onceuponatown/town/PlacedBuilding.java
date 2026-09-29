@@ -3,19 +3,26 @@ package org.dawnoftime.onceuponatown.town;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.LongArrayTag;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 public class PlacedBuilding {
+    private static final Logger LOGGER = LoggerFactory.getLogger(PlacedBuilding.class);
+
     public final String defId;
     public final BlockPos worldPos;
     // World bounding box of this building. Null for buildings loaded from saves that predate this field.
@@ -28,6 +35,11 @@ public class PlacedBuilding {
     // Road-facing connection point used when the NPC originally built this building.
     // Always set for NPC-built buildings; null for worldgen starters (ChunkGeneratorMixin).
     public final @Nullable BlockPos entryPos;
+    // World-space barrier positions extracted at build/upgrade/repair time. Not persisted.
+    private List<BlockPos> barrierPositions = List.of();
+    // Physical market stands discovered from barrier positions. Persisted to avoid re-scan on load.
+    private final List<StandSlot> stands = new ArrayList<>();
+
     // Per-instance production multiplier. 1.0 = normal. Set to 1.15 for orientation bootstrap buildings.
     private double instanceProductionMultiplier = 1.0;
     private int upgradeLevel = 0;
@@ -98,6 +110,61 @@ public class PlacedBuilding {
         return bonus;
     }
 
+    public void setBarrierPositions(List<BlockPos> positions) {
+        this.barrierPositions = positions != null ? List.copyOf(positions) : List.of();
+    }
+
+    // Scans world around each barrier position to match a StandDef by its associated_block.
+    // Called at end of build/upgrade/repair onComplete(), once all blocks are placed.
+    public void discoverStands(ServerLevel level, BuildingDef def) {
+        stands.clear();
+        if (def.stands.isEmpty() || barrierPositions.isEmpty()) return;
+        for (BlockPos barrierPos : barrierPositions) {
+            boolean matched = false;
+            for (BuildingDef.StandDef standDef : def.stands) {
+                if (matched) break;
+                int r = standDef.radius();
+                for (int dx = -r; dx <= r && !matched; dx++) {
+                    for (int dy = -r; dy <= r && !matched; dy++) {
+                        for (int dz = -r; dz <= r && !matched; dz++) {
+                            BlockPos assocPos = barrierPos.offset(dx, dy, dz);
+                            if (level.getBlockState(assocPos).is(standDef.associatedBlock())) {
+                                stands.add(new StandSlot(barrierPos, standDef.type(), null, standDef.toolItem(), assocPos));
+                                matched = true;
+                            }
+                        }
+                    }
+                }
+            }
+            if (!matched) {
+                LOGGER.warn("[OUAT] Stand barrier at {} in building '{}' matched no stand type", barrierPos, defId);
+            }
+        }
+    }
+
+    // Acquires the first free stand of the given type. Sets occupant and returns the slot, or null if none free.
+    // Also returns a slot already held by npcUuid so NPCs can reclaim their stand after a world reload.
+    public @Nullable StandSlot acquireStand(String type, UUID npcUuid) {
+        for (StandSlot slot : stands) {
+            if (slot.type.equals(type) && (slot.occupant == null || npcUuid.equals(slot.occupant))) {
+                slot.occupant = npcUuid;
+                return slot;
+            }
+        }
+        return null;
+    }
+
+    // Releases the stand held by npcUuid. Returns true if a slot was found and freed.
+    public boolean releaseStand(UUID npcUuid) {
+        for (StandSlot slot : stands) {
+            if (npcUuid.equals(slot.occupant)) {
+                slot.occupant = null;
+                return true;
+            }
+        }
+        return false;
+    }
+
     public CompoundTag toNbt() {
         CompoundTag tag = new CompoundTag();
         tag.putString("DefId", defId);
@@ -131,6 +198,28 @@ public class PlacedBuilding {
         if (!herdFed)
             tag.putBoolean("HerdFed", false);
         if (entryPos != null) tag.putLong("EntryPos", entryPos.asLong());
+        if (!stands.isEmpty()) {
+            ListTag standsTag = new ListTag();
+            for (StandSlot slot : stands) {
+                CompoundTag st = new CompoundTag();
+                st.putString("Type", slot.type);
+                st.putInt("PosX", slot.position.getX());
+                st.putInt("PosY", slot.position.getY());
+                st.putInt("PosZ", slot.position.getZ());
+                if (slot.occupant != null) {
+                    st.putLong("OccupantMost", slot.occupant.getMostSignificantBits());
+                    st.putLong("OccupantLeast", slot.occupant.getLeastSignificantBits());
+                }
+                if (slot.toolItem != null) st.putString("ToolItem", slot.toolItem);
+                if (slot.associatedBlockPos != null) {
+                    st.putInt("AssocPosX", slot.associatedBlockPos.getX());
+                    st.putInt("AssocPosY", slot.associatedBlockPos.getY());
+                    st.putInt("AssocPosZ", slot.associatedBlockPos.getZ());
+                }
+                standsTag.add(st);
+            }
+            tag.put("Stands", standsTag);
+        }
         return tag;
     }
 
@@ -163,6 +252,20 @@ public class PlacedBuilding {
         for (String key : stockTag.getAllKeys()) {
             Item item = BuiltInRegistries.ITEM.get(new ResourceLocation(key));
             b.stock.put(item, stockTag.getInt(key));
+        }
+        if (tag.contains("Stands")) {
+            ListTag standsTag = tag.getList("Stands", 10);
+            for (int i = 0; i < standsTag.size(); i++) {
+                CompoundTag st = standsTag.getCompound(i);
+                String type = st.getString("Type");
+                BlockPos standPos = new BlockPos(st.getInt("PosX"), st.getInt("PosY"), st.getInt("PosZ"));
+                UUID occupant = st.contains("OccupantMost")
+                    ? new UUID(st.getLong("OccupantMost"), st.getLong("OccupantLeast")) : null;
+                String toolItem = st.contains("ToolItem") ? st.getString("ToolItem") : null;
+                BlockPos assocPos = st.contains("AssocPosX")
+                    ? new BlockPos(st.getInt("AssocPosX"), st.getInt("AssocPosY"), st.getInt("AssocPosZ")) : null;
+                b.stands.add(new StandSlot(standPos, type, occupant, toolItem, assocPos));
+            }
         }
         return b;
     }

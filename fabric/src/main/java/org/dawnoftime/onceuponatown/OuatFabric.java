@@ -19,14 +19,15 @@ import org.dawnoftime.onceuponatown.datapack.BuilderConfigDataHandler;
 import org.dawnoftime.onceuponatown.datapack.BuildingDataHandler;
 import org.dawnoftime.onceuponatown.datapack.LumberjackConfigDataHandler;
 import org.dawnoftime.onceuponatown.datapack.MinerConfigDataHandler;
-import org.dawnoftime.onceuponatown.datapack.CowHerdConfigDataHandler;
-import org.dawnoftime.onceuponatown.datapack.ShepherdConfigDataHandler;
-import org.dawnoftime.onceuponatown.datapack.SwineherdConfigDataHandler;
+import org.dawnoftime.onceuponatown.datapack.ToolsmithConfigDataHandler;
+import org.dawnoftime.onceuponatown.datapack.BreederConfigDataHandler;
+import org.dawnoftime.onceuponatown.datapack.FarmerConfigDataHandler;
 import org.dawnoftime.onceuponatown.datapack.BuildingListDataHandler;
 import org.dawnoftime.onceuponatown.datapack.EraTransitionDataHandler;
 import org.dawnoftime.onceuponatown.datapack.FoodListDataHandler;
 import org.dawnoftime.onceuponatown.datapack.QuestDataHandler;
 import org.dawnoftime.onceuponatown.datapack.TradePriceDataHandler;
+import org.dawnoftime.onceuponatown.building.schematic.ConnectorReader;
 import org.dawnoftime.onceuponatown.entity.Npc;
 
 import org.dawnoftime.onceuponatown.network.C2SSelectEraPathPacket;
@@ -40,6 +41,7 @@ import org.dawnoftime.onceuponatown.network.C2SRemoveQueuedBuildingPacket;
 import org.dawnoftime.onceuponatown.network.C2SRequestNbtPacket;
 import org.dawnoftime.onceuponatown.network.C2SRequestStockPacket;
 import org.dawnoftime.onceuponatown.network.C2SToggleChatBroadcastPacket;
+import org.dawnoftime.onceuponatown.network.C2SToggleAutoUpgradePacket;
 import org.dawnoftime.onceuponatown.network.C2SUpgradeBuildingPacket;
 import org.dawnoftime.onceuponatown.network.C2SClaimMedalPacket;
 import org.dawnoftime.onceuponatown.network.C2SRepairBuildingPacket;
@@ -77,17 +79,27 @@ public class OuatFabric implements ModInitializer {
         ItemRegistry.RECOGNITION_MEDAL = Registry.register(BuiltInRegistries.ITEM,
             Ouat.modResource("recognition_medal"),
             new org.dawnoftime.onceuponatown.item.RecognitionMedalItem(new net.minecraft.world.item.Item.Properties().stacksTo(1)));
+        ItemRegistry.VILLAGE_BANNER = Registry.register(BuiltInRegistries.ITEM,
+            Ouat.modResource("village_banner"),
+            new org.dawnoftime.onceuponatown.item.VillageBannerItem(new net.minecraft.world.item.Item.Properties().stacksTo(1)));
+        Registry.register(BuiltInRegistries.RECIPE_SERIALIZER,
+            Ouat.modResource("village_banner_crafting"),
+            org.dawnoftime.onceuponatown.recipe.VillageBannerRecipe.SERIALIZER);
         FabricDefaultAttributeRegistry.register(EntityRegistry.NPC, Npc.createAttributes());
         CommandRegistrationCallback.EVENT.register((dispatcher, context, env) ->
             TownCommand.register(dispatcher, context));
+        ServerLifecycleEvents.SERVER_STARTING.register(server -> ConnectorReader.clearCache());
         ServerLifecycleEvents.SERVER_STARTING.register(BeekeeperConfigDataHandler::reload);
         ServerLifecycleEvents.SERVER_STARTING.register(MerchantConfigDataHandler::reload);
         ServerLifecycleEvents.SERVER_STARTING.register(BuilderConfigDataHandler::reload);
-        ServerLifecycleEvents.SERVER_STARTING.register(CowHerdConfigDataHandler::reload);
+        ServerLifecycleEvents.SERVER_STARTING.register(s -> BreederConfigDataHandler.reload(s, "cowherd"));
         ServerLifecycleEvents.SERVER_STARTING.register(LumberjackConfigDataHandler::reload);
         ServerLifecycleEvents.SERVER_STARTING.register(MinerConfigDataHandler::reload);
-        ServerLifecycleEvents.SERVER_STARTING.register(ShepherdConfigDataHandler::reload);
-        ServerLifecycleEvents.SERVER_STARTING.register(SwineherdConfigDataHandler::reload);
+        ServerLifecycleEvents.SERVER_STARTING.register(ToolsmithConfigDataHandler::reload);
+        ServerLifecycleEvents.SERVER_STARTING.register(s -> BreederConfigDataHandler.reload(s, "shepherd"));
+        ServerLifecycleEvents.SERVER_STARTING.register(s -> BreederConfigDataHandler.reload(s, "swineherd"));
+        ServerLifecycleEvents.SERVER_STARTING.register(s -> FarmerConfigDataHandler.reload(s, "wheat_farmer"));
+        ServerLifecycleEvents.SERVER_STARTING.register(s -> FarmerConfigDataHandler.reload(s, "potato_farmer"));
         ServerLifecycleEvents.SERVER_STARTING.register(BuildingDataHandler::reload);
         ServerLifecycleEvents.SERVER_STARTING.register(BuildingListDataHandler::reload);
         ServerLifecycleEvents.SERVER_STARTING.register(EraTransitionDataHandler::reload);
@@ -164,6 +176,11 @@ public class OuatFabric implements ModInitializer {
             (server, player, handler, buf, responseSender) -> {
                 C2SToggleChatBroadcastPacket packet = C2SToggleChatBroadcastPacket.decode(buf);
                 server.execute(() -> C2SToggleChatBroadcastPacket.Handler.handle(packet, player));
+            });
+        ServerPlayNetworking.registerGlobalReceiver(C2SToggleAutoUpgradePacket.ID,
+            (server, player, handler, buf, responseSender) -> {
+                C2SToggleAutoUpgradePacket packet = C2SToggleAutoUpgradePacket.decode(buf);
+                server.execute(() -> C2SToggleAutoUpgradePacket.Handler.handle(packet, player));
             });
         ServerPlayNetworking.registerGlobalReceiver(C2SRequestNbtPacket.ID,
             (server, player, handler, buf, responseSender) -> {

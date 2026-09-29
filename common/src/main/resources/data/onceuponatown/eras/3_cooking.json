@@ -18,10 +18,10 @@
     { "defId": "kitchen", "count": 1 }
   ],
 
-  "auto_build_sequence": [{"defId": "grove", "count": 3}, "kitchen", "bee_field", {"defId": "wild_stone", "count": 2}],
+  "auto_build_sequence": [{"defId": "grove", "count": 3}, "bee_field", {"defId": "wild_stone", "count": 2}, "kitchen"],
   "auto_upgrade_ids": ["settlement_2"],
 
-  "unlocked_building_ids": ["beekeeper", "market", "mine"],
+  "unlocked_building_ids": ["beekeeper", "mine"],
 
   "next_orientation": "cooking"
 }

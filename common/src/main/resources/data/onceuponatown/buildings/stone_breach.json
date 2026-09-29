@@ -5,14 +5,23 @@
   "icon_item": "minecraft:wooden_pickaxe",
   "category": "jobs",
   "weight": 2,
-  "spawns_npc": "miner",
-  "residents": 1,
   "signature": true,
 
+  "spawns_npc": "miner",
+  "residents": 1,
+
+  "underground_foundation": true,
+
   "construction_cost": [
+    { "item": "minecraft:cobblestone", "amount": 15 }
+  ],
+
+  "stands": [
     {
-      "item": "minecraft:cobblestone",
-      "amount": 15
+      "type": "mine_spot",
+      "associated_block": "minecraft:stone",
+      "radius": 2,
+      "tool": "minecraft:wooden_pickaxe"
     }
   ],
   "production": [
@@ -20,7 +29,8 @@
       "item": "minecraft:cobblestone",
       "amount": 2,
       "every_ticks": 1800,
-      "capacity_stacks": 1
+      "slots": 1,
+      "slot_size": 64
     }
   ]
 }

@@ -5,85 +5,100 @@
   "icon_item": "minecraft:campfire",
   "category": "town_center",
   "weight": 0,
+
   "residents": 1,
 
   "herd": 1,
+
   "initial_stock": [
-    { "item": "minecraft:oak_log", "amount": 5 },
-    { "item": "minecraft:porkchop", "amount": 5 },
+    { "item": "minecraft:oak_log",     "amount": 5 },
+    { "item": "minecraft:porkchop",    "amount": 5 },
     { "item": "minecraft:cobblestone", "amount": 5 }
   ],
+
   "production": [
     {
       "item": "minecraft:oak_log",
       "amount": 1,
       "every_ticks": 1200,
-      "capacity_stacks": 2
+      "slots": 2,
+      "slot_size": 64
     },
     {
       "item": "minecraft:porkchop",
       "amount": 1,
       "every_ticks": 1800,
-      "capacity_stacks": 1
+      "slots": 1,
+      "slot_size": 64
     },
     {
       "item": "minecraft:cobblestone",
       "amount": 1,
       "every_ticks": 8000,
-      "capacity_stacks": 1
+      "slots": 1,
+      "slot_size": 64
     },
     {
       "item": "minecraft:mutton",
       "amount": 1,
       "every_ticks": 1800,
-      "capacity_stacks": 1,
-      "unlock_at_level": 1
+      "unlock_at_level": 1,
+      "slots": 1,
+      "slot_size": 64
     },
     {
       "item": "minecraft:white_wool",
       "amount": 1,
       "every_ticks": 2100,
-      "capacity_stacks": 1,
-      "unlock_at_level": 1
+      "unlock_at_level": 1,
+      "slots": 1,
+      "slot_size": 64
     },
     {
       "item": "minecraft:beef",
       "amount": 1,
       "every_ticks": 1800,
-      "capacity_stacks": 1,
-      "unlock_at_level": 2
+      "unlock_at_level": 2,
+      "slots": 1,
+      "slot_size": 64
     },
     {
       "item": "minecraft:leather",
       "amount": 1,
       "every_ticks": 2400,
-      "capacity_stacks": 1,
-      "unlock_at_level": 2
+      "unlock_at_level": 2,
+      "slots": 1,
+      "slot_size": 64
     },
     {
       "item": "minecraft:chicken",
       "amount": 1,
       "every_ticks": 1800,
-      "capacity_stacks": 1,
-      "unlock_at_level": 4
+      "unlock_at_level": 4,
+      "slots": 1,
+      "slot_size": 64
     },
     {
       "item": "minecraft:egg",
       "amount": 1,
       "every_ticks": 1800,
-      "capacity_stacks": 1,
-      "unlock_at_level": 4
+      "unlock_at_level": 4,
+      "slots": 1,
+      "slot_size": 64
     },
     {
       "item": "minecraft:feather",
       "amount": 1,
       "every_ticks": 2000,
-      "capacity_stacks": 1,
-      "unlock_at_level": 4
+      "unlock_at_level": 4,
+      "slots": 1,
+      "slot_size": 64
     }
   ],
+
   "transform_input_ratio": 0.1,
   "transform_every_ticks": 1600,
+
   "transformations": [
     {
       "inputs": [
@@ -92,68 +107,86 @@
       ],
       "output": "minecraft:cooked_porkchop",
       "output_amount": 3,
-      "output_capacity_stacks": 1,
-      "unlock_at_level": 1
+      "unlock_at_level": 1,
+      "output_slots": 1,
+      "output_slot_size": 64
     },
     {
       "inputs": [
-        { "item": "minecraft:mutton", "amount": 3 },
+        { "item": "minecraft:mutton",   "amount": 3 },
         { "item": "minecraft:charcoal", "amount": 1 }
       ],
       "output": "minecraft:cooked_mutton",
       "output_amount": 3,
-      "output_capacity_stacks": 1,
-      "unlock_at_level": 1
+      "unlock_at_level": 1,
+      "output_slots": 1,
+      "output_slot_size": 64
     },
     {
       "inputs": [
-        { "item": "minecraft:beef", "amount": 3 },
+        { "item": "minecraft:beef",     "amount": 3 },
         { "item": "minecraft:charcoal", "amount": 1 }
       ],
       "output": "minecraft:cooked_beef",
       "output_amount": 3,
-      "output_capacity_stacks": 1,
-      "unlock_at_level": 2
+      "unlock_at_level": 2,
+      "output_slots": 1,
+      "output_slot_size": 64
     },
     {
       "inputs": [
-        { "item": "minecraft:chicken", "amount": 3 },
+        { "item": "minecraft:chicken",  "amount": 3 },
         { "item": "minecraft:charcoal", "amount": 1 }
       ],
       "output": "minecraft:cooked_chicken",
       "output_amount": 3,
-      "output_capacity_stacks": 1,
-      "unlock_at_level": 4
+      "unlock_at_level": 4,
+      "output_slots": 1,
+      "output_slot_size": 64
     }
   ],
+
   "upgrades": [
     {
       "herd_add": 2,
-      "consumption_per_herd_add": 2.0,
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 0 }]
+      "consumption_per_herd_add": 2,
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 0 }
+      ]
     },
     {
       "herd_add": 2,
-      "consumption_per_herd_add": 2.0,
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 20 }]
+      "consumption_per_herd_add": 2,
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 20 }
+      ]
     },
     {
       "herd_add": 1,
-      "consumption_per_herd_add": 1.0,
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 40 }]
+      "consumption_per_herd_add": 1,
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 40 }
+      ]
     },
     {
       "herd_add": 2,
-      "consumption_per_herd_add": 2.0,
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 60 }]
+      "consumption_per_herd_add": 2,
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 60 }
+      ]
     },
     {
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 80 }]
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 80 }
+      ]
     },
     {
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 100 }]
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 100 }
+      ]
     }
   ],
+
   "nbt_levels": [
     "onceuponatown:plains/starters/settlement_2_lvl1",
     "onceuponatown:plains/starters/settlement_2_lvl2",

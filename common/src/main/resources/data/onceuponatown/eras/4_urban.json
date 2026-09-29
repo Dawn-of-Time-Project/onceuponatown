@@ -14,11 +14,13 @@
   ],
 
   "required_residents": 10,
-
-  "auto_build_sequence": ["market", "mine"],
+  "required_buildings": [
+    { "defId": "merchant_shop", "count": 1 }
+  ],
+  "auto_build_sequence": ["mine", "merchant_shop"],
   "auto_upgrade_ids": ["settlement_3"],
 
-  "unlocked_building_ids": ["house_slot", "carpenter"],
+  "unlocked_building_ids": ["house_slot", "granary"],
 
   "next_orientation": "urban"
 }

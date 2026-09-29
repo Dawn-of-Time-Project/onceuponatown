@@ -21,7 +21,7 @@
   "auto_build_sequence": [{"defId": "grove", "count": 3}, "open_mine"],
   "auto_upgrade_ids": ["settlement"],
 
-  "unlocked_building_ids": ["market", "mine"],
+  "unlocked_building_ids": ["mine"],
 
   "next_orientation": "excavator"
 }

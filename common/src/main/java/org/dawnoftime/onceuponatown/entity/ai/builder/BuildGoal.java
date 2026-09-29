@@ -10,12 +10,12 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.BedBlock;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.properties.BedPart;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
-import net.minecraft.world.phys.Vec3;
 import org.dawnoftime.onceuponatown.building.schematic.BlockStep;
 import org.dawnoftime.onceuponatown.building.schematic.SchematicBounds;
 import org.dawnoftime.onceuponatown.building.schematic.EntityStep;
@@ -24,7 +24,6 @@ import org.dawnoftime.onceuponatown.datapack.BuilderConfigDataHandler;
 import org.dawnoftime.onceuponatown.datapack.BuildingDataHandler;
 import org.dawnoftime.onceuponatown.entity.Npc;
 import org.dawnoftime.onceuponatown.entity.ai.shared.GoToPosition;
-import org.dawnoftime.onceuponatown.entity.ai.shared.StandingPositionFinder;
 import org.dawnoftime.onceuponatown.town.ActiveBuildState;
 import org.dawnoftime.onceuponatown.town.BuildingDef;
 import org.dawnoftime.onceuponatown.town.ConnectionPoint;
@@ -57,14 +56,12 @@ public class BuildGoal implements BuildTask {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(BuildGoal.class);
 
-    private static int blockDelay()           { return BuilderConfigDataHandler.get().blockDelayTicks; }
-    private static int burstPauseMin()        { return BuilderConfigDataHandler.get().burstPauseMinTicks; }
-    private static int burstPauseMax()        { return BuilderConfigDataHandler.get().burstPauseMaxTicks; }
-    private static int maxBurstExtra()        { return BuilderConfigDataHandler.get().maxBurstExtraBlocks; }
-    private static double reachDist()         { return BuilderConfigDataHandler.get().blockReachDistance; }
+    private static float blockSpeedMin()      { return BuilderConfigDataHandler.get().blockSpeedMin; }
+    private static float blockSpeedMax()      { return BuilderConfigDataHandler.get().blockSpeedMax; }
+    private static double workReach()         { return BuilderConfigDataHandler.get().blockReachDistance; }
     private static float planReadChance()     { return BuilderConfigDataHandler.get().planReadChance; }
-    private static int planReadMin()          { return BuilderConfigDataHandler.get().planReadMinTicks; }
-    private static int planReadMax()          { return BuilderConfigDataHandler.get().planReadMaxTicks; }
+    private static float planReadPauseMin()   { return BuilderConfigDataHandler.get().planReadPauseMin; }
+    private static float planReadPauseMax()   { return BuilderConfigDataHandler.get().planReadPauseMax; }
     private final Npc npc;
     private final BuilderAction action;
     private Phase phase = Phase.MOVING;
@@ -74,16 +71,18 @@ public class BuildGoal implements BuildTask {
     private List<PlacementStep> steps = null;
     private int buildProgress = 0;
     private int buildSpeedCooldown = 0;
-    private int burstBlocksLeft = 0;
     private GoToPosition buildGoTo = null;
     private BlockPos currentBuildTarget = null;
-    private BlockPos standingTarget = null;
+
+    // Stall counters for freeze diagnostics
+    private int movingStallTicks = 0;
+    private int buildStallTicks = 0;
 
 
     public BuildGoal(Npc npc, BuilderAction action) {
         this.npc = npc;
         this.action = action;
-        this.goTo = new GoToPosition(npc, action.getTargetPos(), BuilderConfigDataHandler.get().walkSpeed, reachDist());
+        this.goTo = new GoToPosition(npc, action.getTargetPos(), BuilderConfigDataHandler.get().walkSpeed);
     }
 
     @Override
@@ -102,7 +101,15 @@ public class BuildGoal implements BuildTask {
     }
 
     private boolean tickMoving() {
-        if (!goTo.tick()) return false;
+        if (!goTo.tick()) {
+            movingStallTicks++;
+            if (movingStallTicks == 100 || movingStallTicks % 400 == 0) {
+                LOGGER.warn("[OUAT-FREEZE] Builder {} stuck navigating to build site for {} ticks (target={}, action={})",
+                    npc.getUUID(), movingStallTicks, action.getTargetPos(), action.getClass().getSimpleName());
+            }
+            return false;
+        }
+        movingStallTicks = 0;
 
         action.onArrived(npc);
 
@@ -151,22 +158,23 @@ public class BuildGoal implements BuildTask {
         BlockPos nextWorldPos = steps.get(buildProgress).targetPos();
         npc.getLookControl().setLookAt(nextWorldPos.getX() + 0.5, nextWorldPos.getY() + 0.5, nextWorldPos.getZ() + 0.5);
 
-        double distSq = npc.distanceToSqr(Vec3.atCenterOf(nextWorldPos));
-        boolean inReach = distSq <= reachDist() * reachDist();
-
-        if (!inReach) {
-            if (!nextWorldPos.equals(currentBuildTarget)) {
-                currentBuildTarget = nextWorldPos;
-                standingTarget = StandingPositionFinder.find(sl, nextWorldPos, reachDist());
-                BlockPos navTarget = standingTarget != null ? standingTarget : nextWorldPos;
-                double arrivalRadius = standingTarget != null ? 1.5 : reachDist();
-                buildGoTo = new GoToPosition(npc, navTarget, BuilderConfigDataHandler.get().walkSpeed, arrivalRadius);
-            }
-            buildGoTo.tick();
-            return false;
+        if (!nextWorldPos.equals(currentBuildTarget)) {
+            currentBuildTarget = nextWorldPos;
+            buildGoTo = new GoToPosition(npc, nextWorldPos, BuilderConfigDataHandler.get().walkSpeed, workReach());
         }
 
-        npc.getNavigation().stop();
+        BuilderDebug.tick(sl, npc, currentBuildTarget);
+
+        if (!buildGoTo.tick()) {
+            buildStallTicks++;
+            if (buildStallTicks == 100 || buildStallTicks % 400 == 0) {
+                LOGGER.warn("[OUAT-FREEZE] Builder {} stuck navigating to block {} for {} ticks (progress={}/{})",
+                    npc.getUUID(), currentBuildTarget, buildStallTicks,
+                    buildProgress, steps != null ? steps.size() : -1);
+            }
+            return false;
+        }
+        buildStallTicks = 0;
 
         if (buildSpeedCooldown > 0) { buildSpeedCooldown--; return false; }
 
@@ -174,8 +182,18 @@ public class BuildGoal implements BuildTask {
         PlacementStep step = steps.get(buildProgress);
 
         if (step instanceof BlockStep bs) {
-            ItemStack handItem = new ItemStack(bs.state().getBlock().asItem());
-            if (!handItem.isEmpty()) npc.holdInMainHand(handItem);
+            if (bs.state().isAir()) {
+                // Removing a block: hold the tool suited for the block being destroyed.
+                BlockState existing = sl.getBlockState(bs.worldPos());
+                ItemStack tool = BlockToolSelector.getDestructionTool(existing);
+                if (!tool.isEmpty()) npc.holdInMainHand(tool);
+                else npc.freeHands();
+            } else {
+                // Placing a block: hold a water bucket for water, otherwise the block item.
+                ItemStack handItem = BlockToolSelector.getPlacementItem(bs.state());
+                if (!handItem.isEmpty()) npc.holdInMainHand(handItem);
+                else npc.freeHands();
+            }
 
             npc.getLookControl().setLookAt(bs.worldPos().getX() + 0.5, bs.worldPos().getY() + 0.5, bs.worldPos().getZ() + 0.5);
             sl.setBlock(bs.worldPos(), bs.state(), Block.UPDATE_ALL);
@@ -203,16 +221,28 @@ public class BuildGoal implements BuildTask {
                 }
             }
 
-            // Beds are 2-block-wide structures. Place the head half immediately when placing the foot
-            // half so the bed is never left in a broken single-block state.
-            if (bs.state().getBlock() instanceof BedBlock &&
-                    bs.state().getValue(BedBlock.PART) == BedPart.FOOT) {
-                BlockPos headPos = bs.worldPos().relative(bs.state().getValue(BedBlock.FACING));
-                for (int k = buildProgress + 1; k < steps.size(); k++) {
-                    if (steps.get(k) instanceof BlockStep head && head.worldPos().equals(headPos)) {
-                        sl.setBlock(head.worldPos(), head.state(), Block.UPDATE_ALL);
-                        steps.remove(k);
-                        break;
+            // Beds are 2-block-wide structures. Both halves must be placed atomically to prevent
+            // Minecraft's updateShape from popping the lone half off as an item drop.
+            // FOOT first: place HEAD immediately after.
+            // HEAD first: place FOOT first so the head has a valid partner when set.
+            if (bs.state().getBlock() instanceof BedBlock) {
+                if (bs.state().getValue(BedBlock.PART) == BedPart.FOOT) {
+                    BlockPos headPos = bs.worldPos().relative(bs.state().getValue(BedBlock.FACING));
+                    for (int k = buildProgress + 1; k < steps.size(); k++) {
+                        if (steps.get(k) instanceof BlockStep head && head.worldPos().equals(headPos)) {
+                            sl.setBlock(head.worldPos(), head.state(), Block.UPDATE_ALL);
+                            steps.remove(k);
+                            break;
+                        }
+                    }
+                } else {
+                    BlockPos footPos = bs.worldPos().relative(bs.state().getValue(BedBlock.FACING).getOpposite());
+                    for (int k = buildProgress + 1; k < steps.size(); k++) {
+                        if (steps.get(k) instanceof BlockStep foot && foot.worldPos().equals(footPos)) {
+                            sl.setBlock(foot.worldPos(), foot.state(), Block.UPDATE_ALL);
+                            steps.remove(k);
+                            break;
+                        }
                     }
                 }
             }
@@ -236,16 +266,11 @@ public class BuildGoal implements BuildTask {
         npc.notifyBlockPlaced();
         npc.swing(InteractionHand.MAIN_HAND);
 
-        // Burst rhythm: quick follow-up within a burst, longer pause between bursts.
-        if (burstBlocksLeft > 0) {
-            burstBlocksLeft--;
-            buildSpeedCooldown = blockDelay();
-        } else {
-            burstBlocksLeft = npc.getRandom().nextInt(maxBurstExtra() + 1);
-            buildSpeedCooldown = burstPauseMin() + npc.getRandom().nextInt(burstPauseMax() - burstPauseMin() + 1);
-            if (npc.getRandom().nextFloat() < planReadChance()) {
-                npc.startReading(planReadMin() + npc.getRandom().nextInt(planReadMax() - planReadMin() + 1));
-            }
+        float speed = blockSpeedMin() + npc.getRandom().nextFloat() * (blockSpeedMax() - blockSpeedMin());
+        buildSpeedCooldown = Math.max(1, (int)(speed * 20));
+        if (npc.getRandom().nextFloat() < planReadChance()) {
+            float pause = planReadPauseMin() + npc.getRandom().nextFloat() * (planReadPauseMax() - planReadPauseMin());
+            npc.startReading(Math.max(1, (int)(pause * 20)));
         }
 
         if (buildProgress >= steps.size()) {
@@ -272,7 +297,7 @@ public class BuildGoal implements BuildTask {
             PlacedBuilding building = town.getBuildings().stream()
                 .filter(b -> b.worldPos.equals(state.placementPos())).findFirst().orElse(null);
             if (building == null) return null;
-            return new BuildGoal(npc, new RepairAction(building, def, town));
+            return new BuildGoal(npc, new RepairAction(building, def, town, level));
         }
 
         if (state.fromLevel() >= 0) {
@@ -281,7 +306,7 @@ public class BuildGoal implements BuildTask {
                 .filter(b -> b.worldPos.equals(state.placementPos()))
                 .findFirst().orElse(null);
             if (building == null) return null;
-            UpgradeAction action = new UpgradeAction(building, def, state.fromLevel(), town);
+            UpgradeAction action = new UpgradeAction(building, def, state.fromLevel(), town, level);
             action.skipDiff = true;
             return new BuildGoal(npc, action);
         }

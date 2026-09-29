@@ -5,25 +5,23 @@
   "icon_item": "minecraft:honeycomb",
   "category": "jobs",
   "weight": 2,
-  "spawns_npc": "beekeeper",
   "signature": true,
-
 
   "required_buildings": [
     { "defId": "wild_bee", "count": 2 }
   ],
+
   "construction_cost": [
-    {
-      "item": "minecraft:oak_log",
-      "amount": 30
-    }
+    { "item": "minecraft:oak_log", "amount": 30 }
   ],
+
   "production": [
     {
       "item": "minecraft:honeycomb",
       "amount": 1,
       "every_ticks": 2100,
-      "capacity_stacks": 1
+      "slots": 1,
+      "slot_size": 64
     }
   ]
 }

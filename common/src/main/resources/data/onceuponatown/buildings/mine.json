@@ -4,22 +4,52 @@
   "entry_pool": "onceuponatown:jobs",
   "icon_item": "minecraft:minecart",
   "category": "jobs",
-  "weight": 4,
+  "weight": 3,
+
   "spawns_npc": "miner",
   "residents": 1,
+
+  "underground_foundation": true,
 
   "required_buildings": [
     { "defId": "wild_stone", "count": 2 }
   ],
 
   "construction_cost": [
+    { "item": "minecraft:oak_log", "amount": 45 },
+    { "item": "minecraft:cobblestone", "amount": 55 }
+  ],
+
+  "stands": [
     {
-      "item": "minecraft:oak_log",
-      "amount": 45
+      "type": "mine_spot",
+      "associated_block": "minecraft:stone",
+      "radius": 2,
+      "tool": "minecraft:wooden_pickaxe"
     },
     {
-      "item": "minecraft:cobblestone",
-      "amount": 55
+      "type": "mine_spot",
+      "associated_block": "minecraft:calcite",
+      "radius": 2,
+      "tool": "minecraft:wooden_pickaxe"
+    },
+    {
+      "type": "mine_spot",
+      "associated_block": "minecraft:iron_ore",
+      "radius": 2,
+      "tool": "minecraft:stone_pickaxe"
+    },
+    {
+      "type": "mine_spot",
+      "associated_block": "minecraft:clay",
+      "radius": 2,
+      "tool": "minecraft:wooden_shovel"
+    },
+    {
+      "type": "mine_spot",
+      "associated_block": "minecraft:coal_ore",
+      "radius": 2,
+      "tool": "minecraft:stone_pickaxe"
     }
   ],
 
@@ -28,94 +58,118 @@
       "item": "minecraft:cobblestone",
       "amount": 3,
       "every_ticks": 1800,
-      "capacity_stacks": 1
+      "slots": 1,
+      "slot_size": 64
     },
     {
       "item": "minecraft:granite",
       "amount": 1,
       "every_ticks": 2200,
-      "capacity_stacks": 1
+      "slots": 1,
+      "slot_size": 64
     },
     {
       "item": "minecraft:andesite",
       "amount": 1,
       "every_ticks": 2200,
-      "capacity_stacks": 1
+      "slots": 1,
+      "slot_size": 64
     },
     {
       "item": "minecraft:diorite",
       "amount": 1,
       "every_ticks": 2200,
-      "capacity_stacks": 1
+      "slots": 1,
+      "slot_size": 64
     },
     {
       "item": "minecraft:tuff",
       "amount": 1,
       "every_ticks": 2200,
-      "capacity_stacks": 1
+      "slots": 1,
+      "slot_size": 64
     },
     {
       "item": "minecraft:gravel",
       "amount": 1,
       "every_ticks": 2000,
-      "capacity_stacks": 1,
-      "unlock_at_level": 3
+      "slots": 1,
+      "slot_size": 64,
+      "unlock_at_level": 2
     },
     {
       "item": "minecraft:flint",
       "amount": 1,
       "every_ticks": 2400,
-      "capacity_stacks": 1,
-      "unlock_at_level": 3
+      "slots": 1,
+      "slot_size": 64,
+      "unlock_at_level": 2
     },
     {
       "item": "minecraft:coal",
       "amount": 1,
-      "every_ticks": 3100,
-      "capacity_stacks": 1,
-      "unlock_at_level": 6
-    }
-  ],
-  "transform_input_ratio": 0.1,
-  "transform_every_ticks": 1600,
-  "transformations": [
+      "every_ticks": 2800,
+      "slots": 1,
+      "slot_size": 64,
+      "unlock_at_level": 3
+    },
     {
-      "inputs": [
-        { "item": "minecraft:cobblestone", "amount": 3 },
-        { "item": "minecraft:charcoal", "amount": 1 }
-      ],
-      "output": "minecraft:stone",
-      "output_amount": 3,
-      "output_capacity_stacks": 1,
-      "unlock_at_level": 1
+      "item": "minecraft:clay_ball",
+      "amount": 1,
+      "every_ticks": 3000,
+      "slots": 1,
+      "slot_size": 64,
+      "unlock_at_level": 4
+    },
+    {
+      "item": "minecraft:raw_iron",
+      "amount": 1,
+      "every_ticks": 3200,
+      "slots": 1,
+      "slot_size": 64,
+      "unlock_at_level": 5
     }
   ],
+
   "upgrades": [
     {
-      "capacity_stacks_add": 1,
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 20 }]
+      "slots_add": 1,
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 20 }
+      ]
     },
     {
       "amount_add": 1,
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 30 }]
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 30 }
+      ]
     },
     {
-      "capacity_stacks_add": 1,
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 40 }]
+      "slots_add": 1,
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 40 }
+      ]
     },
     {
-      "cadence_multiplier": 0.10,
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 60 }]
+      "cadence_multiplier": 0.1,
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 60 }
+      ]
     },
     {
       "amount_add": 1,
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 80 }]
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 80 }
+      ]
     },
     {
-      "cadence_multiplier": 0.20,
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 100 }]
+      "cadence_multiplier": 0.2,
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 100 }
+      ]
     }
   ],
+
   "nbt_levels": [
     "onceuponatown:plains/jobs/mine_lvl1",
     "onceuponatown:plains/jobs/mine_lvl2",

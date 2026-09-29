@@ -4,48 +4,90 @@
   "entry_pool": "onceuponatown:jobs",
   "icon_item": "minecraft:emerald",
   "category": "jobs",
-  "weight": 4,
-  "spawns_npc": "merchant",
+  "weight": 3,
 
+  "spawns_npc": "merchant",
   "required_residents": 6,
 
   "construction_cost": [
+    { "item": "minecraft:oak_log",     "amount": 35 },
+    { "item": "minecraft:cobblestone", "amount": 10 }
+  ],
+
+  "stands": [
     {
-      "item": "minecraft:oak_log",
-      "amount": 35
+      "type": "merchant",
+      "associated_block": "minecraft:crafting_table",
+      "radius": 4
     },
     {
-      "item": "minecraft:cobblestone",
-      "amount": 10
+      "type": "sell_lumberjack",
+      "associated_block": "minecraft:chest",
+      "radius": 4
+    },
+    {
+      "type": "sell_beekeeper",
+      "associated_block": "minecraft:chest",
+      "radius": 4
+    },
+    {
+      "type": "sell_shepherd",
+      "associated_block": "minecraft:chest",
+      "radius": 4
+    },
+    {
+      "type": "sell_cowherd",
+      "associated_block": "minecraft:chest",
+      "radius": 4
+    },
+    {
+      "type": "sell_swineherd",
+      "associated_block": "minecraft:chest",
+      "radius": 4
     }
   ],
 
   "upgrades": [
     {
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 20 }],
-      "price_discount_add": 0.05
+      "price_discount_add": 0.05,
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 20 }
+      ]
     },
     {
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 30 }],
-      "trade_slots_add": 1
-    },
-    {
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 40 }],
       "trade_slots_add": 1,
-      "price_discount_add": 0.05
+      "contract_ratio_add": 0.01,
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 30 }
+      ]
     },
     {
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 60 }],
-      "trade_slots_add": 1
-    },
-    {
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 80 }],
-      "price_discount_add": 0.05
-    },
-    {
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 100 }],
       "trade_slots_add": 1,
-      "price_discount_add": 0.05
+      "price_discount_add": 0.05,
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 40 }
+      ]
+    },
+    {
+      "trade_slots_add": 1,
+      "contract_ratio_add": 0.01,
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 60 }
+      ]
+    },
+    {
+      "price_discount_add": 0.05,
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 80 }
+      ]
+    },
+    {
+      "trade_slots_add": 1,
+      "price_discount_add": 0.05,
+      "contract_ratio_add": 0.01,
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 100 }
+      ]
     }
   ],
 

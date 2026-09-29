@@ -31,7 +31,13 @@ import net.minecraft.world.level.Level;
 import org.dawnoftime.onceuponatown.entity.ai.shared.OpenDoorGoal;
 import org.dawnoftime.onceuponatown.entity.ai.NpcJob;
 import org.dawnoftime.onceuponatown.entity.ai.NpcJobRegistry;
+import org.dawnoftime.onceuponatown.entity.ai.AbstractNpcJob;
+import org.dawnoftime.onceuponatown.entity.ai.standbased.AbstractStandBasedJob;
+import org.dawnoftime.onceuponatown.entity.ai.beekeeper.BeekeeperJob;
 import org.dawnoftime.onceuponatown.entity.ai.builder.BuilderJob;
+import org.dawnoftime.onceuponatown.entity.ai.farmer.AbstractFarmerJob;
+import org.dawnoftime.onceuponatown.entity.ai.herder.BreederJob;
+import org.dawnoftime.onceuponatown.entity.ai.lumberjack.LumberjackJob;
 import org.dawnoftime.onceuponatown.town.LevelTowns;
 import org.dawnoftime.onceuponatown.town.Town;
 
@@ -58,6 +64,7 @@ public class Npc extends PathfinderMob {
     private String jobId = "builder";
     // Server-side countdown -- cleared to 0 when the reading animation ends.
     private int readingTicksRemaining = 0;
+    private int itemPullCooldown = 0;
     // Set to true by the job while the NPC is actively placing blocks, so LookAtPlayerGoal is suppressed.
     private boolean suppressLookAtPlayer = false;
     // Anchor position of the town this builder belongs to; saved so the builder can self-validate on load.
@@ -89,7 +96,7 @@ public class Npc extends PathfinderMob {
             protected PathFinder createPathFinder(int maxVisitedNodes) {
                 this.nodeEvaluator = new OuatWalkNodeEvaluator();
                 this.nodeEvaluator.setCanPassDoors(true);
-                return new PathFinder(this.nodeEvaluator, maxVisitedNodes);
+                return new PathFinder(this.nodeEvaluator, maxVisitedNodes * 8);
             }
         };
         nav.setCanOpenDoors(true);
@@ -127,25 +134,35 @@ public class Npc extends PathfinderMob {
                     return;
                 }
             }
-            if (job == null) job = NpcJobRegistry.create(jobId, this);
+            if (job == null) {
+                job = NpcJobRegistry.create(jobId, this);
+                if (job instanceof AbstractNpcJob abstractJob && level() instanceof ServerLevel sl && townAnchorPos != null) {
+                    Town town = LevelTowns.get(sl).getTownAt(townAnchorPos).orElse(null);
+                    if (town != null) abstractJob.dispatchOnInit(sl, town);
+                }
+            }
             job.tick();
             if (readingTicksRemaining > 0 && --readingTicksRemaining == 0) {
                 entityData.set(DATA_IS_READING, false);
                 setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
             }
-            List<ItemEntity> nearbyItems = level().getEntitiesOfClass(ItemEntity.class, getBoundingBox().inflate(1.5));
-            for (ItemEntity item : nearbyItems) {
-                Vec3 pull = position().subtract(item.position()).normalize().scale(0.15);
-                item.setDeltaMovement(item.getDeltaMovement().add(pull));
-                if (distanceTo(item) < 1.0f) item.discard();
+            if (--itemPullCooldown <= 0) {
+                itemPullCooldown = 20;
+                List<ItemEntity> nearbyItems = level().getEntitiesOfClass(ItemEntity.class, getBoundingBox().inflate(1.5));
+                for (ItemEntity item : nearbyItems) {
+                    Vec3 pull = position().subtract(item.position()).normalize().scale(0.15);
+                    item.setDeltaMovement(item.getDeltaMovement().add(pull));
+                    if (distanceTo(item) < 1.0f) item.discard();
+                }
             }
         }
     }
 
     @Override
     public void remove(Entity.RemovalReason reason) {
-        if (!level().isClientSide && job instanceof BuilderJob builderJob) {
-            builderJob.onRemoved();
+        if (!level().isClientSide) {
+            if (job instanceof BuilderJob builderJob) builderJob.onRemoved();
+            else if (job instanceof AbstractNpcJob npcJob) npcJob.onRemoved();
         }
         super.remove(reason);
     }
@@ -255,6 +272,30 @@ public class Npc extends PathfinderMob {
     }
 
     public void setSuppressLookAtPlayer(boolean suppress) { this.suppressLookAtPlayer = suppress; }
+
+    public BuilderJob getBuilderJob() {
+        return job instanceof BuilderJob bj ? bj : null;
+    }
+
+    public AbstractFarmerJob getFarmerJob() {
+        return job instanceof AbstractFarmerJob fj ? fj : null;
+    }
+
+    public AbstractStandBasedJob getStandBasedJob() {
+        return job instanceof AbstractStandBasedJob sb ? sb : null;
+    }
+
+    public BreederJob getBreederJob() {
+        return job instanceof BreederJob bj ? bj : null;
+    }
+
+    public LumberjackJob getLumberjackJob() {
+        return job instanceof LumberjackJob lj ? lj : null;
+    }
+
+    public BeekeeperJob getBeekeeperJob() {
+        return job instanceof BeekeeperJob bj ? bj : null;
+    }
 
     public boolean isReading() { return entityData.get(DATA_IS_READING); }
     public int getBuildGeneration() { return entityData.get(DATA_BUILD_GENERATION); }

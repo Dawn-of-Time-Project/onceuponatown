@@ -1,0 +1,37 @@
+{
+  "walk_speed": 0.6,
+
+  "farm_buildings": ["potato_farm", "potato_field"],
+  "work_reach": 2.0,
+  "harvest_speed": [0.3, 0.7],
+  "plant_speed": [0.3, 0.6],
+
+  "rest_buildings": ["potato_farm"],
+  "bedtime": 13000,
+  "wakeup_time": 1000,
+
+  "production_buildings": ["potato_farm", "potato_field"],
+
+  "secondary_activities": [
+    {
+      "requiredBuilding": "market",
+      "heldItem": "minecraft:air",
+      "animationType": "SELL",
+      "stand_type": "sell_farmer"
+    },
+    {
+      "requiredBuilding": "potato_farm",
+      "heldItem": "minecraft:potato",
+      "animationType": "SMELT",
+      "target_block": "minecraft:furnace",
+      "work_reach": 2.0
+    },
+    {
+      "requiredBuilding": "kitchen",
+      "heldItem": "minecraft:potato",
+      "animationType": "SMELT",
+      "target_block": "minecraft:furnace",
+      "work_reach": 2.0
+    }
+  ]
+}

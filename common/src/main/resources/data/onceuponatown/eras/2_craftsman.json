@@ -1,0 +1,29 @@
+﻿{
+  "from_era": 1,
+  "from_orientation": "industrial",
+  "orientation_label": "Craftsman",
+  "structure_label": "Village",
+  "icon_item": "minecraft:anvil",
+
+  "unlock_npc_counts": { "builder": 1 },
+
+  "weight_cap_increase": 10,
+  "max_upgrade_level": 2,
+
+  "resource_cost": [
+    { "item": "minecraft:oak_log", "amount": 42 },
+    { "item": "minecraft:cobblestone", "amount": 10 }
+  ],
+
+  "required_residents": 4,
+  "required_buildings": [
+    { "defId": "stone_breach", "count": 1 }
+  ],
+
+  "auto_build_sequence": [{"defId": "grove", "count": 2}, "oven", "lumberjack", "stone_breach"],
+
+  "unlocked_building_ids": ["lone_place", "fisherman", "brownfield", "carpenter"],
+  "auto_upgrade_ids": ["settlement"],
+
+  "next_orientation": "craftsman"
+}

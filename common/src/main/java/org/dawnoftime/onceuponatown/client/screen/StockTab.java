@@ -44,18 +44,7 @@ class StockTab {
 
     // Order from trade_prices.json — loaded once from the jar classpath.
     // Items in the stock not present in this list fall back to the end.
-    private static final List<String> TRADE_PRICE_ORDER = loadTradePriceOrder();
-
-    private static List<String> loadTradePriceOrder() {
-        List<String> order = new ArrayList<>();
-        try (var stream = StockTab.class.getResourceAsStream("/data/onceuponatown/config/trade_prices.json")) {
-            if (stream == null) return order;
-            var json = com.google.gson.JsonParser.parseReader(new java.io.InputStreamReader(stream)).getAsJsonObject();
-            for (var elem : json.getAsJsonArray("prices"))
-                order.add(elem.getAsJsonObject().get("item").getAsString());
-        } catch (Exception ignored) {}
-        return order;
-    }
+    private static final List<String> TRADE_PRICE_ORDER = TownHubTypes.loadTradePriceOrder();
 
     private static final ResourceLocation TEXTURE =
         new ResourceLocation("onceuponatown", "textures/gui/town_hub.png");
@@ -152,11 +141,15 @@ class StockTab {
                     stack.getOrCreateTag().put("ContractEntries", contractEntriesTag);
                 }
                 if (medalDataTag != null && "onceuponatown:recognition_medal".equals(itemId)) {
-                    String ns = medalDataTag.getString("Namespace");
-                    ListTag idsTag = medalDataTag.getList("Ids", Tag.TAG_STRING);
-                    Set<String> ids = new java.util.HashSet<>();
-                    for (int j = 0; j < idsTag.size(); j++) ids.add(idsTag.getString(j));
-                    RecognitionMedalItem.write(stack, ns, ids);
+                    net.minecraft.nbt.CompoundTag medalTag = stack.getOrCreateTag();
+                    medalTag.putString("CultureNamespace", medalDataTag.getString("CultureNamespace"));
+                    medalTag.putString("MainOrientation", medalDataTag.getString("MainOrientation"));
+                    medalTag.putString("MainOrientationLabel", medalDataTag.getString("MainOrientationLabel"));
+                    medalTag.putString("CurrentOrientation", medalDataTag.getString("CurrentOrientation"));
+                    medalTag.putString("CurrentOrientationLabel", medalDataTag.getString("CurrentOrientationLabel"));
+                    medalTag.putString("StarterBuildingId", medalDataTag.getString("StarterBuildingId"));
+                    medalTag.put("EraUnlockedIds", medalDataTag.getList("EraUnlockedIds", Tag.TAG_STRING).copy());
+                    medalTag.put("SignatureIds", medalDataTag.getList("SignatureIds", Tag.TAG_STRING).copy());
                 }
                 allStockItems.add(stack);
                 remaining -= stackSize;

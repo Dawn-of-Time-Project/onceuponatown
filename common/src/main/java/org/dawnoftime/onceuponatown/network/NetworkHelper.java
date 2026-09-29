@@ -29,6 +29,7 @@ public class NetworkHelper {
 
     // C2S delegates (set by each platform client-side init)
     public static Consumer<BlockPos>            sendToggleChatBroadcastPacket  = pos              -> {};
+    public static Consumer<BlockPos>            sendToggleAutoUpgradePacket    = pos              -> {};
     public static BiConsumer<BlockPos, String>  sendQueueBuildingPacket        = (pos, defId)     -> {};
     public static BiConsumer<BlockPos, Integer> sendRemoveQueuedBuildingPacket = (pos, index)     -> {};
     public static BiConsumer<BlockPos, Long>    sendUpgradeBuildingPacket      = (pos, worldPos)  -> {};

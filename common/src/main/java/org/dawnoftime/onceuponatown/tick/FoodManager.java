@@ -3,6 +3,7 @@ package org.dawnoftime.onceuponatown.tick;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import org.dawnoftime.onceuponatown.datapack.BuildingDataHandler;
+import org.dawnoftime.onceuponatown.entity.ai.AbstractNpcJob;
 import org.dawnoftime.onceuponatown.network.NetworkHelper;
 import org.dawnoftime.onceuponatown.town.BuildingDef;
 import org.dawnoftime.onceuponatown.town.FoodRegistry;
@@ -20,9 +21,9 @@ import java.util.Map;
 
 public class FoodManager {
 
-    // Fires at each tick listed in feeding_schedule (ticks within a 24000-tick day).
+    // Fires at each tick listed in feeding_schedule (ticks within a Minecraft day).
     public static void tick(Town town, ServerLevel level, long gameTime, long anchorKey) {
-        if (!FoodRegistry.getFeedingSchedule().contains(gameTime % 24000)) return;
+        if (!FoodRegistry.getFeedingSchedule().contains(gameTime % AbstractNpcJob.DAY_TICKS)) return;
         run(town, level, gameTime, anchorKey);
     }
 

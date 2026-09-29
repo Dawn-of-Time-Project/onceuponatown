@@ -6,6 +6,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
 import org.dawnoftime.onceuponatown.building.schematic.BlockStep;
+import org.dawnoftime.onceuponatown.entity.ai.shared.BuildingEntryNav;
 import org.dawnoftime.onceuponatown.building.schematic.PlacementStep;
 import org.dawnoftime.onceuponatown.building.schematic.SchematicBlock;
 import org.dawnoftime.onceuponatown.building.schematic.SchematicConstants;
@@ -27,17 +28,29 @@ public class RepairAction implements BuilderAction {
     private final PlacedBuilding building;
     private final BuildingDef def;
     private final Town town;
+    // Walk target resolved at construction time: entryPos for NPC-built, primary jigsaw for worldgen starters.
+    private final BlockPos targetPos;
+    // World-space barrier marker positions read from the current-level template.
+    private List<BlockPos> pendingMarkerPositions = List.of();
 
-    public RepairAction(PlacedBuilding building, BuildingDef def, Town town) {
+    public RepairAction(PlacedBuilding building, BuildingDef def, Town town, ServerLevel level) {
         this.building = building;
         this.def = def;
         this.town = town;
+        this.targetPos = resolveTargetPos(level, building, def);
         town.addUnderUpgrade(building.worldPos);
+    }
+
+    private static BlockPos resolveTargetPos(ServerLevel level, PlacedBuilding building, BuildingDef def) {
+        int upgradeLevel = building.getUpgradeLevel();
+        ResourceLocation nbt = (upgradeLevel == 0) ? def.nbt
+            : (upgradeLevel - 1 < def.nbtLevels.size() ? def.nbtLevels.get(upgradeLevel - 1).nbt() : def.nbt);
+        return BuildingEntryNav.resolveEntryPos(level, building, nbt, building.rotation);
     }
 
     @Override
     public BlockPos getTargetPos() {
-        return building.entryPos != null ? building.entryPos : building.worldPos;
+        return targetPos;
     }
 
     @Override
@@ -65,7 +78,10 @@ public class RepairAction implements BuilderAction {
         Optional<StructureTemplate> templateOpt = level.getStructureManager().get(nbtPath);
         if (templateOpt.isEmpty()) return List.of();
 
-        List<SchematicBlock> templateBlocks = SchematicReader.readSortedBlocks(templateOpt.get(), building.rotation);
+        SchematicReader.SchematicReadResult readResult = SchematicReader.readSortedBlocks(templateOpt.get(), building.rotation);
+        pendingMarkerPositions = readResult.markerPositions().stream()
+            .map(pos -> building.worldPos.offset(pos)).toList();
+        List<SchematicBlock> templateBlocks = readResult.blocks();
         List<PlacementStep> normal = new ArrayList<>();
         List<PlacementStep> deferred = new ArrayList<>();
         for (SchematicBlock b : templateBlocks) {
@@ -87,6 +103,10 @@ public class RepairAction implements BuilderAction {
     @Override
     public void onComplete(ServerLevel level, Npc npc) {
         town.removeUnderUpgrade(building.worldPos);
+        if (!pendingMarkerPositions.isEmpty()) {
+            building.setBarrierPositions(pendingMarkerPositions);
+            building.discoverStands(level, def);
+        }
         LevelTowns.get(level).markDirty();
         npc.freeHands();
     }

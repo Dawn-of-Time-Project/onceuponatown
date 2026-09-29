@@ -1,0 +1,27 @@
+﻿{
+  "from_era": 2,
+  "from_orientation": "craftsman",
+  "orientation_label": "Craftsman",
+  "structure_label": "Village",
+  "icon_item": "minecraft:anvil",
+
+  "weight_cap_increase": 10,
+  "max_upgrade_level": 3,
+
+  "resource_cost": [
+    { "item": "minecraft:oak_log", "amount": 64 },
+    { "item": "minecraft:cobblestone", "amount": 35 }
+  ],
+
+  "required_residents": 6,
+  "required_buildings": [
+    { "defId": "carpenter", "count": 1 }
+  ],
+
+  "auto_upgrade_ids": ["settlement"],
+  "auto_build_sequence": [{"defId": "wild_stone", "count": 2}, {"defId": "grove", "count": 3}, "carpenter"],
+
+  "unlocked_building_ids": ["mine", "toolsmith"],
+
+  "next_orientation": "craftsman"
+}

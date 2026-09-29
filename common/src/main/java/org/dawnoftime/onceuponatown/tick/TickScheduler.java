@@ -30,65 +30,68 @@ public class TickScheduler {
         for (ServerLevel level : server.getAllLevels()) {
             LevelTowns levelTowns = LevelTowns.get(level);
             long gameTime = level.getGameTime();
+            boolean runEverySecond = (gameTime % 20 == 0);
 
             for (Map.Entry<Long, Town> townEntry : levelTowns.getAllTownEntries()) {
                 Town town = townEntry.getValue();
                 long anchorKey = townEntry.getKey();
 
-                ProductionManager.tick(town, level, gameTime, anchorKey);
+                if (runEverySecond) ProductionManager.tick(town, level, gameTime, anchorKey);
                 FoodManager.tick(town, level, gameTime, anchorKey);
                 tickQuests(town, level, gameTime, anchorKey);
                 EraManager.tick(town, level, gameTime, anchorKey);
-            }
+                BuilderJobController.tick(town, level, gameTime, anchorKey);
+                FarmerJobController.tick(town, level, gameTime, anchorKey);
+                HerderJobController.tick(town, level, gameTime, anchorKey);
+                LumberjackJobController.tick(town, level, gameTime, anchorKey);
+                BeekeeperJobController.tick(town, level, gameTime, anchorKey);
+                StandJobController.tick(town, level, gameTime, anchorKey);
 
-            // Spawn builders for each slot up to targetBuilderCount, once a player is nearby.
-            if (gameTime % 20 == 0) {
-                for (Map.Entry<Long, Town> entry : levelTowns.getAllTownEntries()) {
-                    Town town = entry.getValue();
-                    BlockPos anchorPos = BlockPos.of(entry.getKey());
-
+                // Spawn NPCs for each slot up to targetBuilderCount, once a player is nearby.
+                if (runEverySecond) {
+                    BlockPos anchorPos = BlockPos.of(anchorKey);
                     boolean playerNearby = level.players().stream().anyMatch(p ->
                         p.distanceToSqr(anchorPos.getX() + 0.5, anchorPos.getY(), anchorPos.getZ() + 0.5) < 128.0 * 128.0);
-                    if (!playerNearby) continue;
+                    if (playerNearby) {
+                        boolean dirty = false;
+                        for (Map.Entry<String, Integer> jobEntry : town.getTargetNpcCounts().entrySet()) {
+                            String jobId = jobEntry.getKey();
+                            int targetCount = jobEntry.getValue();
+                            List<UUID> ids = town.getNpcsByJob(jobId);
+                            for (int slot = 0; slot < targetCount; slot++) {
+                                UUID slotId = slot < ids.size() ? ids.get(slot) : null;
+                                net.minecraft.world.entity.Entity existing = slotId != null ? level.getEntity(slotId) : null;
+                                if (existing != null) continue;
 
-                    boolean dirty = false;
-                    for (Map.Entry<String, Integer> jobEntry : town.getTargetNpcCounts().entrySet()) {
-                        String jobId = jobEntry.getKey();
-                        int targetCount = jobEntry.getValue();
-                        List<UUID> ids = town.getNpcsByJob(jobId);
-                        for (int slot = 0; slot < targetCount; slot++) {
-                            UUID slotId = slot < ids.size() ? ids.get(slot) : null;
-                            net.minecraft.world.entity.Entity existing = slotId != null ? level.getEntity(slotId) : null;
-                            if (existing != null) continue;
+                                // NPC not found in loaded entities. Check if the NPC's chunk is simply unloaded
+                                // before spawning a replacement -- the NPC is immortal so absence = chunk not loaded.
+                                ActiveBuildState buildState = town.getActiveBuild(slot);
+                                BlockPos checkPos = buildState != null ? buildState.placementPos() : anchorPos;
+                                if (!areChunksLoaded(level, checkPos)) continue;
 
-                            // NPC not found in loaded entities. Check if the NPC's chunk is simply unloaded
-                            // before spawning a replacement -- the NPC is immortal so absence = chunk not loaded.
-                            ActiveBuildState buildState = town.getActiveBuild(slot);
-                            BlockPos checkPos = buildState != null ? buildState.placementPos() : anchorPos;
-                            if (!areChunksLoaded(level, checkPos)) continue;
+                                // All 9 chunks around the expected position are loaded but NPC is still missing:
+                                // coherence issue (e.g. entity deleted externally). Spawn a replacement.
+                                // Release any stand or queue claims the dead NPC held so the new one can resume.
+                                if (slotId != null) town.releaseStand(slotId);
+                                Npc npc = EntityRegistry.NPC.create(level);
+                                if (npc == null) continue;
 
-                            // All 9 chunks around the expected position are loaded but NPC is still missing:
-                            // coherence issue (e.g. entity deleted externally). Spawn a replacement.
-                            // Release any queue claims the dead NPC held so the new one can resume.
-                            if (slotId != null) town.releaseAllClaimsForBuilder(slotId);
-                            Npc npc = EntityRegistry.NPC.create(level);
-                            if (npc == null) continue;
+                                npc.setPersistenceRequired();
+                                npc.setJobId(jobId);
+                                npc.setTownAnchorPos(anchorPos);
 
-                            npc.setPersistenceRequired();
-                            npc.setJobId(jobId);
-                            npc.setTownAnchorPos(anchorPos);
+                                int surfaceY = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                                    anchorPos.getX(), anchorPos.getZ());
+                                npc.moveTo(anchorPos.getX() + 0.5, surfaceY + 1.0, anchorPos.getZ() + 0.5);
 
-                            int surfaceY = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
-                                anchorPos.getX(), anchorPos.getZ());
-                            npc.moveTo(anchorPos.getX() + 0.5, surfaceY + 1.0, anchorPos.getZ() + 0.5);
-
-                            if (level.addFreshEntity(npc)) {
-                                town.setNpcIdAtSlot(jobId, slot, npc.getUUID());
-                                dirty = true;
+                                if (level.addFreshEntity(npc)) {
+                                    town.setNpcIdAtSlot(jobId, slot, npc.getUUID());
+                                    dirty = true;
+                                }
                             }
                         }
+                        if (dirty) levelTowns.markDirty();
                     }
-                    if (dirty) levelTowns.markDirty();
                 }
             }
         }
@@ -110,6 +113,7 @@ public class TickScheduler {
     }
 
     private static void tickQuests(Town town, ServerLevel level, long gameTime, long anchorKey) {
+        if (gameTime % 100 != 0) return;
         BlockPos anchorPos = BlockPos.of(anchorKey);
         boolean changed = false;
         TownInventory inventory = town.getTownInventory();

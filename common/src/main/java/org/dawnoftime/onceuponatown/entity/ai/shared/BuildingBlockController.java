@@ -34,26 +34,24 @@ public class BuildingBlockController {
         @Nullable BlockPos scan(ServerLevel level, PlacedBuilding building);
     }
 
-    private enum Phase { IDLE, NAVIGATING, PERFORMING }
+    private enum Phase { IDLE, ENTERING_BUILDING, NAVIGATING, PERFORMING }
 
     private final Npc npc;
-    private final double blockArrivalRadius;
 
     private Phase phase = Phase.IDLE;
+    private List<PlacedBuilding> cachedEligible = null;
     private int buildingCursor = 0;
-    private PlacedBuilding currentBuilding = null;
-    private GoToPosition nav = null;
-    private BlockPos targetBlockPos = null;
+    private @Nullable PlacedBuilding currentBuilding = null;
+    private @Nullable BuildingEntryNav entryNav = null;
+    private @Nullable GoToPosition nav = null;
+    private @Nullable BlockPos targetBlockPos = null;
 
-    public BuildingBlockController(Npc npc, double blockArrivalRadius) {
+    public BuildingBlockController(Npc npc) {
         this.npc = npc;
-        this.blockArrivalRadius = blockArrivalRadius;
     }
 
-    public Result tick(ServerLevel level, Town town, List<String> workBuildings, double walkSpeed, BlockScanner scanner) {
-        List<PlacedBuilding> eligible = town.getBuildings().stream()
-            .filter(b -> workBuildings.contains(b.defId))
-            .toList();
+    public Result tick(ServerLevel level, Town town, List<String> workBuildings, double walkSpeed, double workReach, BlockScanner scanner) {
+        List<PlacedBuilding> eligible = getEligibleBuildings(town, workBuildings);
         if (eligible.isEmpty()) return Result.NOT_FOUND;
 
         if (phase == Phase.IDLE) {
@@ -66,19 +64,25 @@ public class BuildingBlockController {
             }
             currentBuilding = building;
             targetBlockPos = scanned;
+            entryNav = new BuildingEntryNav(npc, BuildingEntryNav.resolveEntryPos(level, building), walkSpeed);
+            phase = Phase.ENTERING_BUILDING;
+            return Result.SEARCHING;
+        }
+
+        if (phase == Phase.ENTERING_BUILDING) {
+            if (!entryNav.tick()) return Result.SEARCHING;
+            entryNav = null;
             // Scanner returns building center when the job handles its own per-target navigation.
             BlockPos center = new BlockPos(
-                (building.bb.minX() + building.bb.maxX()) / 2,
-                building.bb.minY(),
-                (building.bb.minZ() + building.bb.maxZ()) / 2
+                (currentBuilding.bb.minX() + currentBuilding.bb.maxX()) / 2,
+                currentBuilding.bb.minY(),
+                (currentBuilding.bb.minZ() + currentBuilding.bb.maxZ()) / 2
             );
-            if (scanned.equals(center)) {
+            if (targetBlockPos.equals(center)) {
                 phase = Phase.PERFORMING;
                 return Result.PERFORMING;
             }
-            BlockPos standingPos = StandingPositionFinder.find(level, scanned, blockArrivalRadius);
-            BlockPos navTarget = standingPos != null ? standingPos : scanned;
-            nav = new GoToPosition(npc, navTarget, walkSpeed, blockArrivalRadius);
+            nav = new GoToPosition(npc, targetBlockPos, walkSpeed, workReach);
             phase = Phase.NAVIGATING;
             return Result.SEARCHING;
         }
@@ -95,9 +99,9 @@ public class BuildingBlockController {
         return Result.PERFORMING;
     }
 
-    // Convenience overload: accepts a WorkConfig instead of raw list + speed.
+    // Convenience overload: accepts a WorkConfig instead of raw list + speed + radius.
     public Result tick(ServerLevel level, Town town, WorkConfig cfg, BlockScanner scanner) {
-        return tick(level, town, cfg.getWorkBuildings(), cfg.getWalkSpeed(), scanner);
+        return tick(level, town, cfg.getWorkBuildings(), cfg.getWalkSpeed(), cfg.getWorkReach(), scanner);
     }
 
     /** Returns the target block position when in PERFORMING phase, or null for center-only activities. */
@@ -108,12 +112,36 @@ public class BuildingBlockController {
     @Nullable
     public PlacedBuilding getCurrentBuilding() { return currentBuilding; }
 
+    /** Returns true when the controller is navigating or performing (not waiting for a new scan). */
+    public boolean isActive() { return phase != Phase.IDLE; }
+
     /** Resets to IDLE and clears all navigation. Call when interrupted (e.g., sleep trigger). */
     public void reset() {
         phase = Phase.IDLE;
         currentBuilding = null;
+        entryNav = null;
         nav = null;
         targetBlockPos = null;
+        cachedEligible = null;
+    }
+
+    // Starts a work cycle directly for a given building and optional target block,
+    // bypassing the cursor rotation. Used by controllers that already selected the building.
+    public void startFor(PlacedBuilding building, ServerLevel level, double walkSpeed, @Nullable BlockPos targetBlock) {
+        reset();
+        this.currentBuilding = building;
+        if (targetBlock != null) this.targetBlockPos = targetBlock;
+        this.entryNav = new BuildingEntryNav(npc, BuildingEntryNav.resolveEntryPos(level, building), walkSpeed);
+        this.phase = Phase.ENTERING_BUILDING;
+    }
+
+    // Registers the building without any navigation — goes straight to PERFORMING.
+    // Used when the job handles its own block-level navigation (e.g. farmers navigating to crops).
+    public void startFor(PlacedBuilding building, @Nullable BlockPos targetBlock) {
+        reset();
+        this.currentBuilding = building;
+        if (targetBlock != null) this.targetBlockPos = targetBlock;
+        this.phase = Phase.PERFORMING;
     }
 
     // Convenience overload: accepts a WorkConfig instead of a raw building list.
@@ -121,17 +149,27 @@ public class BuildingBlockController {
         advanceCursor(town, cfg.getWorkBuildings());
     }
 
+    // Resets state when the building was selected externally (e.g., by a job controller).
+    public void advanceCursor() {
+        reset();
+    }
+
     /**
      * Advances the round-robin cursor to the next eligible building, then resets.
      * Call after successfully completing work in the current building, or to skip to the next one.
      */
     public void advanceCursor(Town town, List<String> workBuildings) {
-        List<PlacedBuilding> eligible = town.getBuildings().stream()
-            .filter(b -> workBuildings.contains(b.defId))
-            .toList();
+        List<PlacedBuilding> eligible = getEligibleBuildings(town, workBuildings);
         if (!eligible.isEmpty()) {
             buildingCursor = (buildingCursor + 1) % eligible.size();
         }
         reset();
+    }
+
+    private List<PlacedBuilding> getEligibleBuildings(Town town, List<String> workBuildings) {
+        if (cachedEligible == null)
+            cachedEligible = town.getBuildings().stream()
+                .filter(b -> workBuildings.contains(b.defId)).toList();
+        return cachedEligible;
     }
 }

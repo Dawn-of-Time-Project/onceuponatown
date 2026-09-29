@@ -15,10 +15,10 @@
 
   "required_residents": 8,
 
-  "auto_build_sequence": ["market", "mine"],
+  "auto_build_sequence": ["mine"],
   "auto_upgrade_ids": ["settlement"],
 
-  "unlocked_building_ids": ["house_slot", "carpenter"],
+  "unlocked_building_ids": ["house_slot", "granary"],
 
   "next_orientation": "excavator"
 }

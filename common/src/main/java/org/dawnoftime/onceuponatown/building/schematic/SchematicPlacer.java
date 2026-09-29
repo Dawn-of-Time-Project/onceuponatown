@@ -95,7 +95,7 @@ public final class SchematicPlacer {
             LOGGER.error("[OUAT-BUILD] Template not found for remaining blocks -- nbt='{}'", nbtId);
             return List.of();
         }
-        List<SchematicBlock> full = SchematicReader.readSortedBlocks(templateOpt.get(), rotation);
+        List<SchematicBlock> full = SchematicReader.readSortedBlocks(templateOpt.get(), rotation).blocks();
         List<SchematicBlock> remaining = new ArrayList<>();
         for (SchematicBlock b : full) {
             BlockPos worldPos = origin.offset(b.localPos());

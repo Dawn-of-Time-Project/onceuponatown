@@ -1,36 +1,43 @@
 {
   "walk_speed": 0.6,
-  "harvest_delay_ticks": 20,
+
   "bee_buildings": ["bee_field", "beekeeper"],
+  "work_reach": 2.0,
+  "harvest_speed": [0.5, 1.5],
+
   "rest_buildings": ["beekeeper", "house", "house_2", "house_3"],
   "bedtime": 13000,
   "wakeup_time": 1000,
+
+  "production_buildings": ["bee_field", "beekeeper"],
 
   "secondary_activities": [
     {
       "requiredBuilding": "workshop",
       "heldItem": "minecraft:honeycomb",
       "animationType": "CRAFT",
-      "target_block": "minecraft:crafting_table"
+      "target_block": "minecraft:crafting_table",
+      "work_reach": 2.0
     },
     {
       "requiredBuilding": "bee_field",
       "heldItem": "minecraft:honeycomb",
       "animationType": "CRAFT",
-      "target_block": "minecraft:crafting_table"
+      "target_block": "minecraft:crafting_table",
+      "work_reach": 2.0
     },
     {
       "requiredBuilding": "beekeeper",
       "heldItem": "minecraft:honeycomb",
       "animationType": "CRAFT",
-      "target_block": "minecraft:crafting_table"
+      "target_block": "minecraft:crafting_table",
+      "work_reach": 2.0
     },
     {
       "requiredBuilding": "market",
       "heldItem": "minecraft:air",
       "animationType": "SELL",
-      "target_block": "minecraft:crafting_table",
-      "productionBuildings": ["bee_field", "beekeeper"]
+      "stand_type": "sell_beekeeper"
     }
   ]
 }

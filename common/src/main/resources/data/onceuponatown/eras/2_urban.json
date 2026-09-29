@@ -5,6 +5,8 @@
   "structure_label": "Village",
   "icon_item": "minecraft:emerald",
 
+  "unlock_npc_counts": { "builder": 1 },
+
   "weight_cap_increase": 10,
   "max_upgrade_level": 2,
 
@@ -18,11 +20,10 @@
     { "defId": "wild_spot", "count": 1 }
   ],
 
-  "auto_build_sequence": [{"defId": "grove", "count": 2}, "oven", "wild_spot", "lumberjack"],
+  "auto_build_sequence": [{"defId": "grove", "count": 2}, "oven", "lumberjack", "wild_spot"],
 
+  "unlocked_building_ids": ["lone_garden", "fisherman", "market", "lone_place", "fountain_place", "brownfield"],
 
-  "unlocked_building_ids": ["lone_garden", "fisherman", "merchant_shop", "lone_place", "fountain_place", "brownfield"],
-  "unlock_npc_counts": { "builder": 1 },
   "auto_upgrade_ids": ["settlement_3"],
 
   "next_orientation": "urban"

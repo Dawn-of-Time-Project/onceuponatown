@@ -2,9 +2,8 @@ package org.dawnoftime.onceuponatown.entity.ai.lumberjack;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.sounds.SoundEvents;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
@@ -18,66 +17,96 @@ import org.dawnoftime.onceuponatown.datapack.BuildingDataHandler;
 import org.dawnoftime.onceuponatown.datapack.LumberjackConfigDataHandler;
 import org.dawnoftime.onceuponatown.entity.Npc;
 import org.dawnoftime.onceuponatown.entity.ai.AbstractNpcJob;
-import org.dawnoftime.onceuponatown.entity.ai.shared.BuildingBlockController;
-import org.dawnoftime.onceuponatown.entity.ai.shared.NpcSleepController;
-import org.dawnoftime.onceuponatown.entity.ai.shared.SecondaryActivityController;
+import org.dawnoftime.onceuponatown.entity.ai.ActivityDef;
+import org.dawnoftime.onceuponatown.entity.ai.shared.GoToPosition;
+import org.dawnoftime.onceuponatown.tick.LumberjackJobController;
 import org.dawnoftime.onceuponatown.town.BuildingDef;
 import org.dawnoftime.onceuponatown.town.PlacedBuilding;
 import org.dawnoftime.onceuponatown.town.Town;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
 public class LumberjackJob extends AbstractNpcJob {
 
     private static final int SCAN_Y_EXTENSION = 16;
-    private static final Set<Block> LOG_BLOCKS = Set.of(
-        Blocks.OAK_LOG,    Blocks.SPRUCE_LOG, Blocks.BIRCH_LOG,
-        Blocks.JUNGLE_LOG, Blocks.ACACIA_LOG, Blocks.DARK_OAK_LOG,
-        Blocks.OAK_WOOD,   Blocks.STRIPPED_OAK_LOG,
-        Blocks.BEE_NEST
-    );
     private static final Set<Block> SAPLING_BLOCKS = Set.of(
         Blocks.OAK_SAPLING,    Blocks.SPRUCE_SAPLING, Blocks.BIRCH_SAPLING,
         Blocks.JUNGLE_SAPLING, Blocks.ACACIA_SAPLING, Blocks.DARK_OAK_SAPLING
     );
 
-    private enum State { IDLE, CHOPPING, PLANTING, SLEEPING, ACTIVITY, EATING }
+    private enum WorkState { CHOPPING, PLANTING }
 
-    private State current = State.IDLE;
+    private WorkState workState = WorkState.CHOPPING;
+    private PlacedBuilding assignedBuilding = null;
     private List<BlockPos> chopList = new ArrayList<>();
-    private int chopCursor = 0;
-    private int chopTickCounter = 0;
-
-    private final BuildingBlockController workController;
-    private final BuildingBlockController.BlockScanner workScanner;
-
+    private BlockPos currentChopTarget = null;
+    private BlockPos currentPlantTarget = null;
+    private int actionTickCounter = 0;
+    private GoToPosition blockNav = null;
+    private Map<BlockPos, BlockState> saplingMap = null;
 
     public LumberjackJob(Npc npc) {
         super(npc);
-        this.workController = new BuildingBlockController(npc, 4.0);
-        // Scanner: find logs in the building, populate chopList, return the lowest-Y log
-        // closest to the NPC as the navigation target (arrivalRadius 4.0 gives branch clearance).
-        this.workScanner = (level, building) -> {
-            List<BlockPos> logs = scanLogs(level, building.bb);
-            if (logs.isEmpty()) return null;
-            chopList = new ArrayList<>(logs);
-            chopCursor = 0;
-            chopTickCounter = 0;
-            npc.holdInMainHand(new ItemStack(Items.WOODEN_AXE));
-            int minY = logs.stream().mapToInt(BlockPos::getY).min().orElse(0);
-            return logs.stream()
-                .filter(p -> p.getY() == minY)
-                .min(Comparator.comparingDouble(p -> npc.distanceToSqr(p.getX() + 0.5, p.getY() + 0.5, p.getZ() + 0.5)))
-                .orElse(logs.get(logs.size() - 1));
-        };
     }
 
     @Override
     public String getJobId() { return "lumberjack"; }
+
+    @Override
+    public java.util.List<String> getProductionBuildings() {
+        LumberjackConfigDataHandler.Config cfg = LumberjackConfigDataHandler.get();
+        return cfg == null ? java.util.List.of() : cfg.productionBuildings;
+    }
+
+    @Override
+    protected void dispatchFromController(ServerLevel level, Town town) {
+        LumberjackJobController.dispatchForNpc(this, town, level);
+    }
+
+    @Override
+    public long getAssignedBuildingId() {
+        return assignedBuilding != null ? assignedBuilding.worldPos.asLong() : -1L;
+    }
+
+    @Override
+    protected void onControllerAssignMain(PlacedBuilding building, ServerLevel level, Town town) {
+        LumberjackConfigDataHandler.Config cfg = LumberjackConfigDataHandler.get();
+        assignedBuilding = building;
+        workState = WorkState.CHOPPING;
+        npc.holdInMainHand(new ItemStack(Items.WOODEN_AXE));
+        chopList.clear();
+        populateChopList(level, building);
+        if (chopList.isEmpty()) {
+            onMainWorkComplete(level, town);
+            return;
+        }
+        currentChopTarget = chopList.get(0);
+        double reach = cfg != null ? cfg.workReach : 6.0;
+        double speed = cfg != null ? cfg.walkSpeed : 0.6;
+        blockNav = new GoToPosition(npc, chopList.get(chopList.size() - 1), speed, reach);
+    }
+
+    @Override
+    protected void onControllerAssignSecondary(ActivityDef def, PlacedBuilding building, ServerLevel level, Town town) {
+        activityController.startWith(town, npc, def, building);
+    }
+
+    @Override
+    protected void onResetWork() {
+        assignedBuilding = null;
+        currentChopTarget = null;
+        currentPlantTarget = null;
+        blockNav = null;
+        actionTickCounter = 0;
+        saplingMap = null;
+        chopList.clear();
+    }
 
     @Override
     public void tick() {
@@ -87,147 +116,184 @@ public class LumberjackJob extends AbstractNpcJob {
         Town town = findTown(level, npc);
         if (town == null) return;
 
-        long dayTime = level.getDayTime() % 24000;
+        tickSharedPreamble(level, town, cfg);
 
-        NpcSleepController.SleepCheck sc = sleepController.checkTick(dayTime, cfg, current == State.SLEEPING);
-        if (sc == NpcSleepController.SleepCheck.RESYNC)   current = State.SLEEPING;
-        if (sc == NpcSleepController.SleepCheck.TRIGGER)  enterSleep();
-
-        if (current != State.SLEEPING && current != State.EATING && town.isMealTimeFor(level.getGameTime(), timing.eatStartOffset, 0)) {
-            enterEating(town);
-        }
-
-        npc.setSuppressLookAtPlayer(current != State.IDLE && current != State.SLEEPING && current != State.EATING);
-
-        switch (current) {
-            case EATING -> {
-                if (!town.isMealTimeFor(level.getGameTime(), 0, timing.eatEndOffset)) exitEating();
-                else { tryStartEatingAnimation(town); if (npc.isEating()) emitEatParticles(); }
-            }
-            case IDLE -> {
-                if (!hasAvailableLogs(level, town, cfg)) {
-                    workController.reset();
-                    if (activityController.tryStart(town, npc, cfg.secondaryActivities)) {
-                        current = State.ACTIVITY;
-                    } else {
-                        maybeWander();
-                    }
-                } else {
-                    BuildingBlockController.Result r = workController.tick(level, town, cfg, workScanner);
-                    if (r == BuildingBlockController.Result.PERFORMING) {
-                        current = State.CHOPPING;
-                    }
-                }
-            }
-            case CHOPPING  -> tickChopping(level, town, cfg);
-            case PLANTING  -> tickPlanting(level, town, cfg);
-            case SLEEPING  -> tickSleeping(level, town, cfg);
-            case ACTIVITY  -> {
-                if (hasAvailableLogs(level, town, cfg)) {
-                    activityController.cancel(npc);
-                    current = State.IDLE;
-                } else {
-                    SecondaryActivityController.Result r = activityController.tick(level, town, npc, cfg.walkSpeed);
-                    if (r == SecondaryActivityController.Result.NOT_FOUND) current = State.IDLE;
-                }
-            }
+        switch (baseState) {
+            case SLEEPING  -> tickSleepingBase(level, town, cfg);
+            case EATING    -> tickEatingBase(level, town);
+            case SECONDARY -> tickSecondaryBase(level, town, cfg);
+            case WANDER    -> maybeWander();
+            case MAIN      -> tickMain(level, town);
         }
     }
 
-    private void tickChopping(ServerLevel level, Town town, LumberjackConfigDataHandler.Config cfg) {
-        if (chopCursor < chopList.size()) {
-            BlockPos target = chopList.get(chopCursor);
-            npc.getLookControl().setLookAt(target.getX() + 0.5, target.getY() + 0.5, target.getZ() + 0.5, 10f, 10f);
+    private void tickMain(ServerLevel level, Town town) {
+        switch (workState) {
+            case CHOPPING -> tickChopping(level, town);
+            case PLANTING -> tickPlanting(level, town);
+        }
+    }
+
+    private void tickChopping(ServerLevel level, Town town) {
+        LumberjackConfigDataHandler.Config cfg = LumberjackConfigDataHandler.get();
+        if (cfg == null) return;
+
+        if (blockNav != null) {
+            if (blockNav.tick()) blockNav = null;
+            return;
         }
 
-        chopTickCounter++;
-        if (chopTickCounter < cfg.chopDelayTicks) return;
-        chopTickCounter = 0;
+        if (currentChopTarget != null) {
+            npc.getLookControl().setLookAt(currentChopTarget.getX() + 0.5, currentChopTarget.getY() + 0.5, currentChopTarget.getZ() + 0.5, 10f, 10f);
+        }
 
-        while (chopCursor < chopList.size()) {
-            BlockPos pos = chopList.get(chopCursor);
-            chopCursor++;
+        if (actionTickCounter > 0) {
+            actionTickCounter--;
+            return;
+        }
+
+        while (!chopList.isEmpty() && !isChoppable(level.getBlockState(chopList.get(0)))) {
+            chopList.remove(0);
+        }
+
+        if (!chopList.isEmpty()) {
+            BlockPos target = chopList.remove(0);
+            currentChopTarget = target;
+            npc.getLookControl().setLookAt(target.getX() + 0.5, target.getY() + 0.5, target.getZ() + 0.5, 10f, 10f);
             npc.swing(InteractionHand.MAIN_HAND);
             npc.notifyBlockPlaced();
-            if (LOG_BLOCKS.contains(level.getBlockState(pos).getBlock())) {
-                level.removeBlock(pos, false);
-                return;
-            }
+            level.removeBlock(target, false);
+            float speed = cfg.chopSpeedMin + npc.getRandom().nextFloat() * (cfg.chopSpeedMax - cfg.chopSpeedMin);
+            actionTickCounter = speedToTicks(speed);
+            return;
         }
 
         npc.freeHands();
-        current = State.PLANTING;
+        currentChopTarget = null;
+        workState = WorkState.PLANTING;
     }
 
-    private void tickPlanting(ServerLevel level, Town town, LumberjackConfigDataHandler.Config cfg) {
-        PlacedBuilding building = workController.getCurrentBuilding();
-        if (building != null) {
-            Optional<BuildingDef> defOpt = BuildingDataHandler.get(building.defId);
-            if (defOpt.isPresent()) {
-                Optional<StructureTemplate> templateOpt = level.getStructureManager().get(defOpt.get().nbt);
-                if (templateOpt.isPresent()) {
-                    List<SchematicBlock> blocks = SchematicReader.readSortedBlocks(templateOpt.get(), building.rotation);
-                    for (SchematicBlock b : blocks) {
-                        if (SAPLING_BLOCKS.contains(b.state().getBlock())) {
-                            level.setBlock(building.worldPos.offset(b.localPos()), b.state(), Block.UPDATE_ALL);
+    private void tickPlanting(ServerLevel level, Town town) {
+        LumberjackConfigDataHandler.Config cfg = LumberjackConfigDataHandler.get();
+        if (cfg == null) return;
+
+        if (currentPlantTarget != null) {
+            npc.getLookControl().setLookAt(currentPlantTarget.getX() + 0.5, currentPlantTarget.getY() + 0.5, currentPlantTarget.getZ() + 0.5, 10f, 10f);
+        }
+
+        if (saplingMap == null) {
+            saplingMap = new HashMap<>();
+            if (assignedBuilding != null) {
+                Optional<BuildingDef> defOpt = BuildingDataHandler.get(assignedBuilding.defId);
+                if (defOpt.isPresent()) {
+                    Optional<StructureTemplate> templateOpt = level.getStructureManager().get(defOpt.get().nbt);
+                    if (templateOpt.isPresent()) {
+                        List<SchematicBlock> blocks = SchematicReader.readSortedBlocks(templateOpt.get(), assignedBuilding.rotation).blocks();
+                        for (SchematicBlock b : blocks) {
+                            if (SAPLING_BLOCKS.contains(b.state().getBlock())) {
+                                saplingMap.put(assignedBuilding.worldPos.offset(b.localPos()), b.state());
+                            }
                         }
                     }
                 }
             }
+            if (!saplingMap.isEmpty()) {
+                npc.holdInMainHand(new ItemStack(saplingMap.values().iterator().next().getBlock().asItem()));
+            }
         }
-        workController.advanceCursor(town, cfg);
-        current = State.IDLE;
-    }
 
-    private void enterEating(Town town) {
-        if (current == State.ACTIVITY) activityController.cancel(npc);
-        npc.freeHands();
-        workController.reset();
-        navigateToMealSpot(town);
-        current = State.EATING;
-    }
-
-    private void exitEating() {
-        mealNavigating = false;
-        npc.setEating(false);
-        npc.freeHands();
-        current = State.IDLE;
-    }
-
-    // Interrupts whatever the NPC was doing and switches to the SLEEPING state.
-    private void enterSleep() {
-        if (current == State.ACTIVITY) activityController.cancel(npc);
-        npc.getNavigation().stop();
-        npc.freeHands();
-        workController.reset();
-        sleepController.reset();
-        current = State.SLEEPING;
-    }
-
-    private void tickSleeping(ServerLevel level, Town town, LumberjackConfigDataHandler.Config cfg) {
-        if (!sleepController.tick(level, town, cfg)) {
-            current = State.IDLE;
+        if (blockNav != null) {
+            if (blockNav.tick()) blockNav = null;
+            return;
         }
+
+        if (actionTickCounter > 0) {
+            actionTickCounter--;
+            return;
+        }
+
+        double workReachSq = cfg.workReach * cfg.workReach;
+
+        BlockPos inReach = null;
+        for (BlockPos pos : saplingMap.keySet()) {
+            if (npc.distanceToSqr(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5) <= workReachSq) {
+                inReach = pos;
+                break;
+            }
+        }
+
+        if (inReach != null) {
+            currentPlantTarget = inReach;
+            BlockState state = saplingMap.remove(inReach);
+            level.setBlock(inReach, state, Block.UPDATE_ALL);
+            npc.swing(InteractionHand.MAIN_HAND);
+            npc.notifyBlockPlaced();
+            float speed = cfg.plantSpeedMin + npc.getRandom().nextFloat() * (cfg.plantSpeedMax - cfg.plantSpeedMin);
+            actionTickCounter = speedToTicks(speed);
+            return;
+        }
+
+        if (!saplingMap.isEmpty()) {
+            BlockPos nearest = saplingMap.keySet().stream()
+                .min(Comparator.comparingDouble(p -> npc.distanceToSqr(p.getX() + 0.5, p.getY() + 0.5, p.getZ() + 0.5)))
+                .orElse(saplingMap.keySet().iterator().next());
+            currentPlantTarget = nearest;
+            blockNav = new GoToPosition(npc, nearest, cfg.walkSpeed, cfg.workReach);
+            return;
+        }
+
+        npc.freeHands();
+        currentPlantTarget = null;
+        onMainWorkComplete(level, town);
     }
 
-    // Returns true if any woodSourceBuilding in the town currently contains at least one log block.
-    private boolean hasAvailableLogs(ServerLevel level, Town town, LumberjackConfigDataHandler.Config cfg) {
-        for (PlacedBuilding building : town.getBuildings()) {
-            if (!cfg.woodSourceBuildings.contains(building.defId)) continue;
-            if (building.bb == null) continue;
-            if (!scanLogs(level, building.bb).isEmpty()) return true;
+    private void onMainWorkComplete(ServerLevel level, Town town) {
+        assignedBuilding = null;
+        chopList.clear();
+        saplingMap = null;
+        currentChopTarget = null;
+        currentPlantTarget = null;
+        blockNav = null;
+        LumberjackJobController.dispatchForNpc(this, town, level);
+    }
+
+    public static boolean hasMatureLogs(ServerLevel level, PlacedBuilding building) {
+        BoundingBox bb = building.bb;
+        if (bb == null) return false;
+        for (BlockPos pos : BlockPos.betweenClosed(bb.minX(), bb.minY(), bb.minZ(), bb.maxX(), bb.maxY(), bb.maxZ())) {
+            if (level.getBlockState(pos).is(BlockTags.LOGS)) return true;
         }
         return false;
     }
 
-    // Returns all log blocks in BB + vertical extension, sorted Y descending (top to bottom).
+    static boolean hasLogInBounds(ServerLevel level, BoundingBox bb) {
+        for (int x = bb.minX(); x <= bb.maxX(); x++) {
+            for (int z = bb.minZ(); z <= bb.maxZ(); z++) {
+                for (int y = bb.minY(); y <= bb.maxY() + SCAN_Y_EXTENSION; y++) {
+                    if (level.getBlockState(new BlockPos(x, y, z)).is(BlockTags.LOGS)) return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private void populateChopList(ServerLevel level, PlacedBuilding building) {
+        if (building.bb == null) return;
+        List<BlockPos> logs = scanLogs(level, building.bb);
+        chopList.addAll(logs);
+    }
+
+    private static boolean isChoppable(BlockState state) {
+        return state.is(BlockTags.LOGS) || state.is(Blocks.BEE_NEST);
+    }
+
     private static List<BlockPos> scanLogs(ServerLevel level, BoundingBox bb) {
         List<BlockPos> logs = new ArrayList<>();
         for (int x = bb.minX(); x <= bb.maxX(); x++) {
             for (int z = bb.minZ(); z <= bb.maxZ(); z++) {
                 for (int y = bb.minY(); y <= bb.maxY() + SCAN_Y_EXTENSION; y++) {
                     BlockPos pos = new BlockPos(x, y, z);
-                    if (LOG_BLOCKS.contains(level.getBlockState(pos).getBlock())) {
+                    if (isChoppable(level.getBlockState(pos))) {
                         logs.add(pos);
                     }
                 }

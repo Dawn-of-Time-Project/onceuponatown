@@ -20,6 +20,9 @@ public class TownEraState {
     private int currentEra = 0;
     private String currentEraPath = "";
     private String currentOrientation = "";
+    // Root orientation (agricultural/pastoral/industrial). Set once at world gen and never changed
+    // when a fork transition fires, so the original root is always recoverable.
+    private String mainOrientation = "";
     // Cached namespace of the datapack that owns this village's culture. Derived once at world gen
     // and persisted so the village remains isolated even if the datapack is temporarily removed.
     private String cultureNamespace = "";
@@ -28,6 +31,7 @@ public class TownEraState {
     private int currentMaxWeight = 0;
     private int currentMaxUpgradeLevel = 2;
     private boolean autonomyEnabled = true;
+    private boolean autoUpgradeEnabled = true;
     private String autonomyChosenTransitionId = "";
 
     // -- Simple getters / setters --
@@ -38,6 +42,7 @@ public class TownEraState {
     public void setCurrentEraPath(String v)                 { this.currentEraPath = v; }
     public String getCurrentOrientation()                   { return currentOrientation; }
     public void setCurrentOrientation(String v)             { this.currentOrientation = v; }
+    public String getMainOrientation()                      { return mainOrientation; }
     public String getCultureNamespace()                      { return cultureNamespace; }
     public Set<String> getUnlockedBuildingIds()             { return Collections.unmodifiableSet(unlockedBuildingIds); }
     public void addUnlockedBuildingIds(Collection<String> ids) { unlockedBuildingIds.addAll(ids); }
@@ -50,6 +55,8 @@ public class TownEraState {
     public void setCurrentMaxUpgradeLevel(int v)            { this.currentMaxUpgradeLevel = v; }
     public boolean isAutonomyEnabled()                      { return autonomyEnabled; }
     public void setAutonomyEnabled(boolean v)               { this.autonomyEnabled = v; }
+    public boolean isAutoUpgradeEnabled()                   { return autoUpgradeEnabled; }
+    public void setAutoUpgradeEnabled(boolean v)            { this.autoUpgradeEnabled = v; }
     public String getAutonomyChosenTransitionId()           { return autonomyChosenTransitionId; }
     public void setAutonomyChosenTransitionId(String v)     { this.autonomyChosenTransitionId = v; }
 
@@ -67,6 +74,8 @@ public class TownEraState {
         cultureNamespace = BuildingDataHandler.get(def.starterBuildingId)
             .map(b -> b.namespace)
             .orElse("");
+        // Set once; never overwritten when a fork transition fires.
+        if (mainOrientation.isEmpty()) mainOrientation = currentOrientation;
     }
 
     public List<EraTransitionDef> getAvailableTransitions() {
@@ -87,6 +96,7 @@ public class TownEraState {
         tag.putInt("CurrentEra", currentEra);
         tag.putString("CurrentEraPath", currentEraPath);
         tag.putString("CurrentOrientation", currentOrientation);
+        tag.putString("MainOrientation", mainOrientation);
         tag.putString("CultureNamespace", cultureNamespace);
         ListTag unlockedTag = new ListTag();
         unlockedBuildingIds.forEach(id -> unlockedTag.add(StringTag.valueOf(id)));
@@ -95,6 +105,7 @@ public class TownEraState {
         tag.putInt("CurrentMaxWeight", currentMaxWeight);
         tag.putInt("CurrentMaxUpgradeLevel", currentMaxUpgradeLevel);
         tag.putBoolean("AutonomyEnabled", autonomyEnabled);
+        tag.putBoolean("AutoUpgradeEnabled", autoUpgradeEnabled);
         tag.putString("AutonomyChosenTransitionId", autonomyChosenTransitionId);
         return tag;
     }
@@ -104,6 +115,22 @@ public class TownEraState {
         state.currentEra = tag.getInt("CurrentEra");
         state.currentEraPath = tag.getString("CurrentEraPath");
         state.currentOrientation = tag.getString("CurrentOrientation");
+        // Migration: old saves lack MainOrientation — derive it from currentOrientation.
+        if (tag.contains("MainOrientation") && !tag.getString("MainOrientation").isEmpty()) {
+            state.mainOrientation = tag.getString("MainOrientation");
+        } else {
+            if (EraTransitionDataHandler.getEraDefByOrientation(state.currentOrientation) != null) {
+                state.mainOrientation = state.currentOrientation;
+            } else {
+                for (EraTransitionDef def : EraTransitionDataHandler.getAll()) {
+                    if (def.nextOrientation.equals(state.currentOrientation)) {
+                        state.mainOrientation = def.fromOrientation;
+                        break;
+                    }
+                }
+                if (state.mainOrientation.isEmpty()) state.mainOrientation = state.currentOrientation;
+            }
+        }
         // Migration: old saves lack CultureNamespace — derive it from the orientation on first load.
         if (tag.contains("CultureNamespace") && !tag.getString("CultureNamespace").isEmpty()) {
             state.cultureNamespace = tag.getString("CultureNamespace");
@@ -123,6 +150,7 @@ public class TownEraState {
         state.currentMaxWeight = tag.getInt("CurrentMaxWeight");
         state.currentMaxUpgradeLevel = tag.contains("CurrentMaxUpgradeLevel") ? tag.getInt("CurrentMaxUpgradeLevel") : 2;
         state.autonomyEnabled = tag.contains("AutonomyEnabled") && tag.getBoolean("AutonomyEnabled");
+        state.autoUpgradeEnabled = !tag.contains("AutoUpgradeEnabled") || tag.getBoolean("AutoUpgradeEnabled");
         state.autonomyChosenTransitionId = tag.getString("AutonomyChosenTransitionId");
         return state;
     }

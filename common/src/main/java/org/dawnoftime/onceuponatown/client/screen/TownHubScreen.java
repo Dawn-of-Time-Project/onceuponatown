@@ -29,8 +29,10 @@ import org.dawnoftime.onceuponatown.screen.TownHubMenu;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class TownHubScreen extends AbstractContainerScreen<TownHubMenu> {
 
@@ -98,6 +100,7 @@ public class TownHubScreen extends AbstractContainerScreen<TownHubMenu> {
     private int currentWeight = 0;
     private int maxWeight = 20;
     private int maxUpgradeLevel = 2;
+    private boolean autoUpgradeEnabled = true;
     private List<EraProgressDraggableWidget.EraPathOption> eraTransitions = new ArrayList<>();
     private int lastKnownEra = -1;
 
@@ -105,6 +108,7 @@ public class TownHubScreen extends AbstractContainerScreen<TownHubMenu> {
     private int activeTab = 0; // 0 = Stock, 1 = Construction, 2 = Upgrade
     private BlockPos anchorPos = BlockPos.ZERO;
     private final List<TownHubTypes.ClientQueueEntry> constructionQueueClient = new ArrayList<>();
+    private final Set<Long> activeEntryIds = new HashSet<>();
     private final Map<String, Integer> stockSnapshot = new HashMap<>();
     private final List<String> boostedBuildingIds = new ArrayList<>();
     private final ConstructionTab constructionTab = new ConstructionTab();
@@ -243,6 +247,7 @@ public class TownHubScreen extends AbstractContainerScreen<TownHubMenu> {
         currentWeight  = hub.getInt("CurrentWeight");
         maxWeight      = hub.getInt("MaxWeight");
         maxUpgradeLevel = hub.contains("MaxUpgradeLevel") ? hub.getInt("MaxUpgradeLevel") : 2;
+        autoUpgradeEnabled = !hub.contains("AutoUpgradeEnabled") || hub.getBoolean("AutoUpgradeEnabled");
         eraTransitions = parseEraTransitions(hub);
 
         constructionQueueClient.clear();
@@ -253,8 +258,11 @@ public class TownHubScreen extends AbstractContainerScreen<TownHubMenu> {
             long worldPos = ("upgrade".equals(type) || "repair".equals(type)) ? qt.getLong("BuildingWorldPos") : 0L;
             boolean locked        = qt.contains("Locked")        && qt.getBoolean("Locked");
             boolean residentTrack = qt.contains("ResidentTrack") && qt.getBoolean("ResidentTrack");
-            constructionQueueClient.add(new TownHubTypes.ClientQueueEntry(type, defId, worldPos, locked, residentTrack));
+            long entryId          = qt.contains("EntryId") ? qt.getLong("EntryId") : 0L;
+            constructionQueueClient.add(new TownHubTypes.ClientQueueEntry(type, defId, worldPos, locked, residentTrack, entryId));
         });
+        activeEntryIds.clear();
+        for (long id : hub.getLongArray("ActiveEntryIds")) activeEntryIds.add(id);
 
         constructionTab.parseCatalogFromHubData(hub);
         constructionTab.tickEraPathChange(ClientSessionState.selectedEraPathId, eraTransitions);
@@ -504,8 +512,11 @@ public class TownHubScreen extends AbstractContainerScreen<TownHubMenu> {
             long worldPos = ("upgrade".equals(type) || "repair".equals(type)) ? qt.getLong("BuildingWorldPos") : 0L;
             boolean locked        = qt.contains("Locked")        && qt.getBoolean("Locked");
             boolean residentTrack = qt.contains("ResidentTrack") && qt.getBoolean("ResidentTrack");
-            constructionQueueClient.add(new TownHubTypes.ClientQueueEntry(type, defId, worldPos, locked, residentTrack));
+            long entryId          = qt.contains("EntryId") ? qt.getLong("EntryId") : 0L;
+            constructionQueueClient.add(new TownHubTypes.ClientQueueEntry(type, defId, worldPos, locked, residentTrack, entryId));
         });
+        activeEntryIds.clear();
+        for (long id : data.getLongArray("ActiveEntryIds")) activeEntryIds.add(id);
 
         // Update upgrade buildings list
         upgradeBuildingsList.clear();
@@ -526,6 +537,7 @@ public class TownHubScreen extends AbstractContainerScreen<TownHubMenu> {
             maxWeight = data.getInt("MaxWeight");
             if (data.contains("MaxUpgradeLevel")) maxUpgradeLevel = data.getInt("MaxUpgradeLevel");
         }
+        if (data.contains("AutoUpgradeEnabled")) autoUpgradeEnabled = data.getBoolean("AutoUpgradeEnabled");
         if (data.contains("BuildingCounts")) {
             refreshEraWidgetFromBuildingCounts(data.getCompound("BuildingCounts"));
         }
@@ -552,6 +564,7 @@ public class TownHubScreen extends AbstractContainerScreen<TownHubMenu> {
         currentWeight  = data.getInt("CurrentWeight");
         maxWeight      = data.getInt("MaxWeight");
         if (data.contains("MaxUpgradeLevel")) maxUpgradeLevel = data.getInt("MaxUpgradeLevel");
+        if (data.contains("AutoUpgradeEnabled")) autoUpgradeEnabled = data.getBoolean("AutoUpgradeEnabled");
         eraTransitions = parseEraTransitions(data);
         if (data.contains("AutonomyChosenTransitionId")) {
             String id = data.getString("AutonomyChosenTransitionId");
@@ -1103,7 +1116,9 @@ public class TownHubScreen extends AbstractContainerScreen<TownHubMenu> {
             stockSnapshot, constructionQueueClient, upgradeBuildingsList,
             this.font, this.menu,
             constructionTab.getBuildingCatalog(),
-            maxUpgradeLevel
+            maxUpgradeLevel,
+            activeEntryIds,
+            autoUpgradeEnabled
         );
     }
 }

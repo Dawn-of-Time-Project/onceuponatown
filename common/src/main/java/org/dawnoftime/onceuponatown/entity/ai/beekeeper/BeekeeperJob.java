@@ -2,9 +2,7 @@ package org.dawnoftime.onceuponatown.entity.ai.beekeeper;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.BeehiveBlock;
@@ -14,38 +12,78 @@ import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import org.dawnoftime.onceuponatown.datapack.BeekeeperConfigDataHandler;
 import org.dawnoftime.onceuponatown.entity.Npc;
 import org.dawnoftime.onceuponatown.entity.ai.AbstractNpcJob;
+import org.dawnoftime.onceuponatown.entity.ai.ActivityDef;
 import org.dawnoftime.onceuponatown.entity.ai.shared.BuildingBlockController;
-import org.dawnoftime.onceuponatown.entity.ai.shared.NpcSleepController;
-import org.dawnoftime.onceuponatown.entity.ai.shared.SecondaryActivityController;
+import org.dawnoftime.onceuponatown.tick.BeekeeperJobController;
+import org.dawnoftime.onceuponatown.town.PlacedBuilding;
 import org.dawnoftime.onceuponatown.town.Town;
 
 public class BeekeeperJob extends AbstractNpcJob {
 
     private static final int MAX_HONEY_LEVEL = 5;
 
-    private enum State { IDLE, HARVESTING, SLEEPING, ACTIVITY, EATING }
+    private enum WorkState { HARVESTING }
 
-    private State current = State.IDLE;
+    private WorkState workState = WorkState.HARVESTING;
+    private PlacedBuilding assignedBuilding = null;
     private int harvestTickCounter = 0;
+    private int harvestTickTarget = 0;
 
     private final BuildingBlockController workController;
-    private final BuildingBlockController.BlockScanner workScanner;
-
 
     public BeekeeperJob(Npc npc) {
         super(npc);
-        this.workController = new BuildingBlockController(npc, 2.0);
-        // Scanner returns the first ripe hive found in the building; BBC navigates there.
-        this.workScanner = (level, building) -> {
-            BlockPos hive = scanFirstHive(level, building.bb);
-            if (hive == null) return null;
-            npc.holdInMainHand(new ItemStack(Items.GLASS_BOTTLE));
-            return hive;
-        };
+        this.workController = new BuildingBlockController(npc);
     }
 
     @Override
     public String getJobId() { return "beekeeper"; }
+
+    @Override
+    public java.util.List<String> getProductionBuildings() {
+        BeekeeperConfigDataHandler.Config cfg = BeekeeperConfigDataHandler.get();
+        return cfg == null ? java.util.List.of() : cfg.productionBuildings;
+    }
+
+    @Override
+    protected void dispatchFromController(ServerLevel level, Town town) {
+        BeekeeperJobController.dispatchForNpc(this, town, level);
+    }
+
+    @Override
+    public long getAssignedBuildingId() {
+        return assignedBuilding != null ? assignedBuilding.worldPos.asLong() : -1L;
+    }
+
+    @Override
+    protected void onControllerAssignSecondary(ActivityDef def, PlacedBuilding building, ServerLevel level, Town town) {
+        activityController.startWith(town, npc, def, building);
+    }
+
+    @Override
+    protected void onControllerAssignMain(PlacedBuilding building, ServerLevel level, Town town) {
+        assignedBuilding = building;
+        BlockPos firstHive = findFirstRipeHive(level, building);
+        if (firstHive == null) {
+            onMainWorkComplete(level, town);
+            return;
+        }
+        BeekeeperConfigDataHandler.Config cfg = BeekeeperConfigDataHandler.get();
+        if (cfg != null) {
+            workController.startFor(building, level, cfg.walkSpeed, firstHive);
+        } else {
+            workController.startFor(building, firstHive);
+        }
+        workState = WorkState.HARVESTING;
+    }
+
+    @Override
+    protected void onResetWork() {
+        assignedBuilding = null;
+        harvestTickCounter = 0;
+        harvestTickTarget = 0;
+        workController.reset();
+    }
 
     @Override
     public void tick() {
@@ -55,51 +93,23 @@ public class BeekeeperJob extends AbstractNpcJob {
         Town town = findTown(level, npc);
         if (town == null) return;
 
-        long dayTime = level.getDayTime() % 24000;
+        tickSharedPreamble(level, town, cfg);
 
-        NpcSleepController.SleepCheck sc = sleepController.checkTick(dayTime, cfg, current == State.SLEEPING);
-        if (sc == NpcSleepController.SleepCheck.RESYNC)  current = State.SLEEPING;
-        if (sc == NpcSleepController.SleepCheck.TRIGGER) enterSleep();
-
-        if (current != State.SLEEPING && current != State.EATING && town.isMealTimeFor(level.getGameTime(), timing.eatStartOffset, 0)) {
-            enterEating(town);
+        switch (baseState) {
+            case SLEEPING  -> tickSleepingBase(level, town, cfg);
+            case EATING    -> tickEatingBase(level, town);
+            case SECONDARY -> tickSecondaryBase(level, town, cfg);
+            case WANDER    -> maybeWander();
+            case MAIN      -> tickMain(level, town, cfg);
         }
+    }
 
-        npc.setSuppressLookAtPlayer(current != State.IDLE && current != State.SLEEPING && current != State.EATING);
-
-        switch (current) {
-            case EATING -> {
-                if (!town.isMealTimeFor(level.getGameTime(), 0, timing.eatEndOffset)) exitEating();
-                else { tryStartEatingAnimation(town); if (npc.isEating()) emitEatParticles(); }
-            }
-            case IDLE -> {
-                if (!hasAvailableHives(level, town, cfg)) {
-                    workController.reset();
-                    if (activityController.tryStart(town, npc, cfg.secondaryActivities)) {
-                        current = State.ACTIVITY;
-                    } else {
-                        maybeWander();
-                    }
-                    break;
-                }
-                BuildingBlockController.Result r = workController.tick(level, town, cfg, workScanner);
-                if (r == BuildingBlockController.Result.PERFORMING) {
-                    harvestTickCounter = 0;
-                    current = State.HARVESTING;
-                }
-                if (r == BuildingBlockController.Result.NOT_FOUND) maybeWander();
-            }
-            case HARVESTING -> tickHarvesting(level, town, cfg);
-            case SLEEPING   -> tickSleeping(level, town, cfg);
-            case ACTIVITY -> {
-                if (hasAvailableHives(level, town, cfg)) {
-                    activityController.cancel(npc);
-                    current = State.IDLE;
-                    break;
-                }
-                SecondaryActivityController.Result r = activityController.tick(level, town, npc, cfg.walkSpeed);
-                if (r == SecondaryActivityController.Result.NOT_FOUND) current = State.IDLE;
-            }
+    private void tickMain(ServerLevel level, Town town, BeekeeperConfigDataHandler.Config cfg) {
+        BuildingBlockController.Result result = workController.tick(level, town, cfg, (lvl, b) -> null);
+        switch (result) {
+            case SEARCHING  -> {}
+            case PERFORMING -> tickHarvesting(level, town, cfg);
+            case NOT_FOUND  -> onMainWorkComplete(level, town);
         }
     }
 
@@ -108,8 +118,14 @@ public class BeekeeperJob extends AbstractNpcJob {
         if (hivePos != null) {
             npc.getLookControl().setLookAt(hivePos.getX() + 0.5, hivePos.getY() + 0.5, hivePos.getZ() + 0.5, 10f, 10f);
         }
-        harvestTickCounter++;
-        if (harvestTickCounter < cfg.harvestDelayTicks) return;
+
+        if (harvestTickTarget == 0) {
+            npc.holdInMainHand(new ItemStack(Items.GLASS_BOTTLE));
+            harvestTickTarget = computeHarvestTarget(cfg);
+            return;
+        }
+
+        if (++harvestTickCounter < harvestTickTarget) return;
         harvestTickCounter = 0;
 
         if (hivePos != null) {
@@ -121,58 +137,49 @@ public class BeekeeperJob extends AbstractNpcJob {
             }
         }
         npc.freeHands();
-        workController.advanceCursor(town, cfg);
-        current = State.IDLE;
-    }
 
-    private boolean hasAvailableHives(ServerLevel level, Town town, BeekeeperConfigDataHandler.Config cfg) {
-        return town.getBuildings().stream()
-            .filter(b -> cfg.beeBuildings.contains(b.defId))
-            .anyMatch(b -> b.bb != null && scanFirstHive(level, b.bb) != null);
-    }
-
-    private void enterEating(Town town) {
-        if (current == State.ACTIVITY) activityController.cancel(npc);
-        npc.freeHands();
-        workController.reset();
-        navigateToMealSpot(town);
-        current = State.EATING;
-    }
-
-    private void exitEating() {
-        mealNavigating = false;
-        npc.setEating(false);
-        npc.freeHands();
-        current = State.IDLE;
-    }
-
-    private void enterSleep() {
-        if (current == State.ACTIVITY) activityController.cancel(npc);
-        npc.getNavigation().stop();
-        npc.freeHands();
-        workController.reset();
-        sleepController.reset();
-        current = State.SLEEPING;
-    }
-
-    private void tickSleeping(ServerLevel level, Town town, BeekeeperConfigDataHandler.Config cfg) {
-        if (!sleepController.tick(level, town, cfg)) {
-            current = State.IDLE;
+        workController.advanceCursor();
+        BlockPos next = findFirstRipeHive(level, assignedBuilding);
+        if (next != null) {
+            workController.startFor(assignedBuilding, next);
+            harvestTickTarget = 0;
+        } else {
+            onMainWorkComplete(level, town);
         }
     }
 
-    // Returns the first ripe hive in the bounding box, or null if none.
-    private static BlockPos scanFirstHive(ServerLevel level, BoundingBox bb) {
-        for (int x = bb.minX(); x <= bb.maxX(); x++) {
-            for (int y = bb.minY(); y <= bb.maxY(); y++) {
-                for (int z = bb.minZ(); z <= bb.maxZ(); z++) {
-                    BlockPos pos = new BlockPos(x, y, z);
-                    BlockState state = level.getBlockState(pos);
-                    if (state.getBlock() instanceof BeehiveBlock
-                        && state.getValue(BeehiveBlock.HONEY_LEVEL) >= MAX_HONEY_LEVEL) {
-                        return pos;
-                    }
-                }
+    private int computeHarvestTarget(BeekeeperConfigDataHandler.Config cfg) {
+        float speed = cfg.harvestSpeedMin + npc.getRandom().nextFloat() * (cfg.harvestSpeedMax - cfg.harvestSpeedMin);
+        return speedToTicks(speed);
+    }
+
+    private void onMainWorkComplete(ServerLevel level, Town town) {
+        assignedBuilding = null;
+        harvestTickCounter = 0;
+        workController.reset();
+        BeekeeperJobController.dispatchForNpc(this, town, level);
+    }
+
+    public static boolean hasRipeHives(ServerLevel level, PlacedBuilding building) {
+        BoundingBox bb = building.bb;
+        if (bb == null) return false;
+        for (BlockPos pos : BlockPos.betweenClosed(bb.minX(), bb.minY(), bb.minZ(), bb.maxX(), bb.maxY(), bb.maxZ())) {
+            BlockState state = level.getBlockState(pos);
+            if (state.getBlock() instanceof BeehiveBlock && state.getValue(BeehiveBlock.HONEY_LEVEL) >= MAX_HONEY_LEVEL) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private BlockPos findFirstRipeHive(ServerLevel level, PlacedBuilding building) {
+        if (building == null) return null;
+        BoundingBox bb = building.bb;
+        if (bb == null) return null;
+        for (BlockPos pos : BlockPos.betweenClosed(bb.minX(), bb.minY(), bb.minZ(), bb.maxX(), bb.maxY(), bb.maxZ())) {
+            BlockState state = level.getBlockState(pos);
+            if (state.getBlock() instanceof BeehiveBlock && state.getValue(BeehiveBlock.HONEY_LEVEL) >= MAX_HONEY_LEVEL) {
+                return pos.immutable();
             }
         }
         return null;

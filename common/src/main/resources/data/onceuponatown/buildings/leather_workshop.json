@@ -10,31 +10,26 @@
   "required_buildings": [
     { "defId": "cow_field", "count": 2 }
   ],
+
   "construction_cost": [
-    {
-      "item": "minecraft:oak_log",
-      "amount": 25
-    },
-    {
-      "item": "minecraft:cobblestone",
-      "amount": 5
-    },
-    {
-      "item": "minecraft:white_bed",
-      "amount": 1
-    }
+    { "item": "minecraft:oak_log",     "amount": 25 },
+    { "item": "minecraft:cobblestone", "amount": 5 },
+    { "item": "minecraft:white_bed",   "amount": 1 }
   ],
+
   "transform_input_ratio": 0.1,
   "transform_every_ticks": 1600,
+
   "transformations": [
     {
       "inputs": [
-        { "item": "minecraft:stick", "amount": 8 },
+        { "item": "minecraft:stick",   "amount": 8 },
         { "item": "minecraft:leather", "amount": 1 }
       ],
       "output": "minecraft:item_frame",
       "output_amount": 1,
-      "output_capacity_stacks": 1
+      "output_slots": 1,
+      "output_slot_size": 64
     },
     {
       "inputs": [
@@ -42,8 +37,8 @@
       ],
       "output": "minecraft:leather_helmet",
       "output_amount": 1,
-      "output_capacity_stacks": 1,
-      "output_capacity_units": 1
+      "output_slots": 1,
+      "output_slot_size": 1
     },
     {
       "inputs": [
@@ -51,8 +46,8 @@
       ],
       "output": "minecraft:leather_chestplate",
       "output_amount": 1,
-      "output_capacity_stacks": 1,
-      "output_capacity_units": 1
+      "output_slots": 1,
+      "output_slot_size": 1
     },
     {
       "inputs": [
@@ -60,8 +55,8 @@
       ],
       "output": "minecraft:leather_leggings",
       "output_amount": 1,
-      "output_capacity_stacks": 1,
-      "output_capacity_units": 1
+      "output_slots": 1,
+      "output_slot_size": 1
     },
     {
       "inputs": [
@@ -69,8 +64,8 @@
       ],
       "output": "minecraft:leather_boots",
       "output_amount": 1,
-      "output_capacity_stacks": 1,
-      "output_capacity_units": 1
+      "output_slots": 1,
+      "output_slot_size": 1
     },
     {
       "inputs": [
@@ -78,9 +73,9 @@
       ],
       "output": "minecraft:leather_horse_armor",
       "output_amount": 1,
-      "output_capacity_stacks": 1,
       "unlock_at_level": 1,
-      "output_capacity_units": 1
+      "output_slots": 1,
+      "output_slot_size": 1
     },
     {
       "inputs": [
@@ -88,9 +83,9 @@
       ],
       "output": "minecraft:saddle",
       "output_amount": 1,
-      "output_capacity_stacks": 1,
-      "output_capacity_units": 1,
-      "unlock_at_level": 1
+      "unlock_at_level": 1,
+      "output_slots": 1,
+      "output_slot_size": 1
     },
     {
       "inputs": [
@@ -98,30 +93,45 @@
       ],
       "output": "minecraft:name_tag",
       "output_amount": 1,
-      "output_capacity_stacks": 1,
-      "unlock_at_level": 3
+      "unlock_at_level": 3,
+      "output_slots": 1,
+      "output_slot_size": 64
     }
   ],
+
   "upgrades": [
     {
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 20 }]
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 20 }
+      ]
     },
     {
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 30 }]
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 30 }
+      ]
     },
     {
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 40 }]
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 40 }
+      ]
     },
     {
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 60 }]
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 60 }
+      ]
     },
     {
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 80 }]
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 80 }
+      ]
     },
     {
-      "upgrade_cost": [{ "item": "minecraft:oak_log", "amount": 100 }]
+      "upgrade_cost": [
+        { "item": "minecraft:oak_log", "amount": 100 }
+      ]
     }
   ],
+
   "nbt_levels": [
     "onceuponatown:plains/jobs/leather_workshop_lvl1",
     "onceuponatown:plains/jobs/leather_workshop_lvl2",

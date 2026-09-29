@@ -1,36 +1,46 @@
 {
   "walk_speed": 0.6,
-  "breed_delay_ticks": 40,
-  "pig_buildings": ["pig_field", "pig_farm"],
+
+  "work_buildings": ["pig_field", "pig_farm"],
+  "work_reach": 2.0,
+  "animal_type": "minecraft:pig",
+  "breeding_food": "minecraft:carrot",
+  "breed_speed": [1.5, 2.5],
+  "can_shear": false,
+
   "rest_buildings": ["pig_farm"],
   "bedtime": 13000,
   "wakeup_time": 1000,
+
+  "production_buildings": ["pig_field", "pig_farm"],
 
   "secondary_activities": [
     {
       "requiredBuilding": "pig_farm",
       "heldItem": "minecraft:porkchop",
       "animationType": "SMELT",
-      "target_block": "minecraft:furnace"
+      "target_block": "minecraft:furnace",
+      "work_reach": 2.0
     },
     {
       "requiredBuilding": "pig_farm",
       "heldItem": "minecraft:porkchop",
       "animationType": "SMELT",
-      "target_block": "minecraft:smoker"
+      "target_block": "minecraft:smoker",
+      "work_reach": 2.0
     },
     {
       "requiredBuilding": "oven",
       "heldItem": "minecraft:porkchop",
       "animationType": "SMELT",
-      "target_block": "minecraft:furnace"
+      "target_block": "minecraft:furnace",
+      "work_reach": 2.0
     },
     {
       "requiredBuilding": "market",
       "heldItem": "minecraft:air",
       "animationType": "SELL",
-      "target_block": "minecraft:crafting_table",
-      "productionBuildings": ["pig_field","pig_farm"]
+      "stand_type": "sell_swineherd"
     }
   ]
 }

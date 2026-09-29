@@ -17,6 +17,7 @@ import org.dawnoftime.onceuponatown.building.schematic.PlacementStep;
 import org.dawnoftime.onceuponatown.building.schematic.SchematicBlock;
 import org.dawnoftime.onceuponatown.building.schematic.SchematicEntity;
 import org.dawnoftime.onceuponatown.building.schematic.SchematicReader;
+import org.dawnoftime.onceuponatown.town.PlacedBuilding;
 import org.dawnoftime.onceuponatown.building.terrain.TerrainCarver;
 import org.dawnoftime.onceuponatown.datapack.BuilderConfigDataHandler;
 import org.dawnoftime.onceuponatown.entity.Npc;
@@ -51,6 +52,8 @@ public class NewBuildAction implements BuilderAction {
     boolean skipInitialReading = false;
     // Populated by executeInstant for terrain-matched placements; forwarded to PlacedBuilding.
     private List<BlockPos> obstaclePositions = List.of();
+    // World-space barrier marker positions read from the NBT; forwarded to PlacedBuilding.discoverStands().
+    private List<BlockPos> pendingMarkerPositions = List.of();
 
     public NewBuildAction(BuildingDef def, ConnectionPoint usedConnection,
                           BlockPos finalPlacementPos, Rotation rotation,
@@ -66,7 +69,7 @@ public class NewBuildAction implements BuilderAction {
     }
 
     @Override
-    public BlockPos getTargetPos() { return usedConnection.pos(); }
+    public BlockPos getTargetPos() { return entryConnectorWorldPos.above(); }
 
     @Override
     public BlockPos getOrigin() { return finalPlacementPos; }
@@ -86,7 +89,8 @@ public class NewBuildAction implements BuilderAction {
     public void onArrived(Npc npc) {
         if (!def.terrainMatching && !skipInitialReading) {
             BuilderConfigDataHandler.Config cfg = BuilderConfigDataHandler.get();
-            npc.startReading(cfg.planReadMinTicks + npc.getRandom().nextInt(cfg.planReadMaxTicks - cfg.planReadMinTicks + 1));
+            float pause = cfg.planReadPauseMin + npc.getRandom().nextFloat() * (cfg.planReadPauseMax - cfg.planReadPauseMin);
+            npc.startReading(Math.max(1, (int)(pause * 20)));
         }
     }
 
@@ -117,15 +121,34 @@ public class NewBuildAction implements BuilderAction {
             return buildStepList(result, template);
         }
 
+        // Determine the jigsaw's local Y so the surface/underground split is always correct.
+        // For legacy buildings the jigsaw is at localY=0; for mines it sits higher (e.g. localY=7).
+        int jigsawLocalY = TerrainCarver.readJigsawFloorY(template);
+
+        // Read full block list and marker positions. Only markers at or above the jigsaw layer are
+        // relevant for stand discovery; underground barriers mark corridors, not entity positions.
+        SchematicReader.SchematicReadResult readResult = SchematicReader.readSortedBlocks(template, rotation);
+        pendingMarkerPositions = readResult.markerPositions().stream()
+            .filter(p -> p.getY() >= jigsawLocalY)
+            .map(finalPlacementPos::offset).toList();
+
         if (skipTerrainPrep) {
-            // Resume: skip terrain carving and return only blocks not yet in the world.
-            return buildStepList(SchematicPlacer.computeRemainingBlocks(level, finalPlacementPos, def.nbt, rotation), template);
+            // Resume: underground blocks were placed at initial build time; only remaining surface blocks needed.
+            List<SchematicBlock> surfaceRemaining = SchematicPlacer
+                .computeRemainingBlocks(level, finalPlacementPos, def.nbt, rotation).stream()
+                .filter(b -> b.localPos().getY() >= jigsawLocalY)
+                .toList();
+            return buildStepList(surfaceRemaining, template);
         }
 
-        TerrainCarver.prePlace(level, finalPlacementPos, template, rotation);
-        TerrainCarver.postPlace(level, finalPlacementPos, template, rotation);
+        TerrainCarver.prePlace(level, finalPlacementPos, template, rotation, jigsawLocalY);
+        TerrainCarver.postPlace(level, finalPlacementPos, template, rotation, def.undergroundFoundation, jigsawLocalY);
+        TerrainCarver.placeUnderground(level, finalPlacementPos, template, rotation, def.undergroundFoundation, jigsawLocalY);
 
-        return buildStepList(SchematicReader.readSortedBlocks(template, rotation), template);
+        List<SchematicBlock> surfaceBlocks = readResult.blocks().stream()
+            .filter(b -> b.localPos().getY() >= jigsawLocalY)
+            .toList();
+        return buildStepList(surfaceBlocks, template);
     }
 
     // Converts a raw SchematicBlock list into the unified ordered PlacementStep list:
@@ -173,7 +196,11 @@ public class NewBuildAction implements BuilderAction {
                 .orElseGet(() -> new BoundingBox(
                     finalPlacementPos.getX(), finalPlacementPos.getY(), finalPlacementPos.getZ(),
                     finalPlacementPos.getX(), finalPlacementPos.getY(), finalPlacementPos.getZ()));
-        town.registerBuilding(finalPlacementPos, def.id, connections, bb, rotation, obstaclePositions, usedConnection.pos());
+        PlacedBuilding placed = town.registerBuilding(finalPlacementPos, def.id, connections, bb, rotation, obstaclePositions, usedConnection.pos());
+        if (!pendingMarkerPositions.isEmpty()) {
+            placed.setBarrierPositions(pendingMarkerPositions);
+            placed.discoverStands(level, def);
+        }
         if (def.spawnsNpcJob != null) {
             town.incrementTargetNpcCount(def.spawnsNpcJob);
         }

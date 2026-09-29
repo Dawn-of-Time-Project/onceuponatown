@@ -2,19 +2,17 @@ package org.dawnoftime.onceuponatown.datapack;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.JsonElement;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.resources.ResourceLocation;
 import org.dawnoftime.onceuponatown.Ouat;
 import org.dawnoftime.onceuponatown.entity.ai.ActivityDef;
-import org.dawnoftime.onceuponatown.entity.ai.AnimationType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.InputStreamReader;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import org.dawnoftime.onceuponatown.entity.ai.shared.SleepConfig;
@@ -26,46 +24,42 @@ public class BuilderConfigDataHandler {
     public static final class Config implements SleepConfig {
         public final double walkSpeed;
         public final double blockReachDistance;
-        public final int blockDelayTicks;
-        public final int burstPauseMinTicks;
-        public final int burstPauseMaxTicks;
-        public final int maxBurstExtraBlocks;
+        public final float blockSpeedMin;
+        public final float blockSpeedMax;
         public final float planReadChance;
-        public final int planReadMinTicks;
-        public final int planReadMaxTicks;
+        public final float planReadPauseMin;
+        public final float planReadPauseMax;
         public final List<ActivityDef> secondaryActivities;
         public final int bedtime;
         public final int wakeupTime;
         public final List<String> restBuildings;
 
-        public Config(double walkSpeed, double blockReachDistance, int blockDelayTicks,
-                      int burstPauseMinTicks, int burstPauseMaxTicks, int maxBurstExtraBlocks,
-                      float planReadChance, int planReadMinTicks, int planReadMaxTicks,
+        public Config(double walkSpeed, double blockReachDistance,
+                      float blockSpeedMin, float blockSpeedMax,
+                      float planReadChance, float planReadPauseMin, float planReadPauseMax,
                       List<ActivityDef> secondaryActivities,
                       int bedtime, int wakeupTime, List<String> restBuildings) {
             this.walkSpeed = walkSpeed;
             this.blockReachDistance = blockReachDistance;
-            this.blockDelayTicks = blockDelayTicks;
-            this.burstPauseMinTicks = burstPauseMinTicks;
-            this.burstPauseMaxTicks = burstPauseMaxTicks;
-            this.maxBurstExtraBlocks = maxBurstExtraBlocks;
+            this.blockSpeedMin = blockSpeedMin;
+            this.blockSpeedMax = blockSpeedMax;
             this.planReadChance = planReadChance;
-            this.planReadMinTicks = planReadMinTicks;
-            this.planReadMaxTicks = planReadMaxTicks;
+            this.planReadPauseMin = planReadPauseMin;
+            this.planReadPauseMax = planReadPauseMax;
             this.secondaryActivities = secondaryActivities;
             this.bedtime = bedtime;
             this.wakeupTime = wakeupTime;
             this.restBuildings = restBuildings;
         }
 
-        @Override public int getBedtime()               { return bedtime; }
-        @Override public int getWakeupTime()            { return wakeupTime; }
-        @Override public List<String> getRestBuildings(){ return restBuildings; }
-        @Override public double getWalkSpeed()          { return walkSpeed; }
+        @Override public int getBedtime()                { return bedtime; }
+        @Override public int getWakeupTime()             { return wakeupTime; }
+        @Override public List<String> getRestBuildings() { return restBuildings; }
+        @Override public double getWalkSpeed()           { return walkSpeed; }
     }
 
     private static final Config DEFAULTS = new Config(
-        0.6, 6.0, 4, 10, 18, 2, 0.05f, 15, 35, List.of(), -1, -1, List.of()
+        0.6, 6.0, 0.1f, 0.9f, 0.05f, 0.75f, 1.75f, List.of(), -1, -1, List.of()
     );
 
     private static Config loaded = DEFAULTS;
@@ -81,38 +75,36 @@ public class BuilderConfigDataHandler {
         }
         try (InputStreamReader reader = new InputStreamReader(resource.get().open())) {
             JsonObject json = GSON.fromJson(reader, JsonObject.class);
-            List<ActivityDef> activities = new ArrayList<>();
-            if (json.has("secondary_activities")) {
-                for (JsonElement el : json.getAsJsonArray("secondary_activities")) {
-                    JsonObject obj = el.getAsJsonObject();
-                    activities.add(new ActivityDef(
-                        obj.get("requiredBuilding").getAsString(),
-                        obj.get("heldItem").getAsString(),
-                        AnimationType.valueOf(obj.get("animationType").getAsString()),
-                        obj.has("target_block") ? obj.get("target_block").getAsString() : null,
-                        JobConfigParser.parseStringList(obj, "productionBuildings")
-                    ));
-                }
-            }
-            List<String> restBuildings = new ArrayList<>();
-            if (json.has("rest_buildings")) {
-                json.getAsJsonArray("rest_buildings")
-                    .forEach(e -> restBuildings.add(e.getAsString()));
+            List<ActivityDef> activities = JobConfigParser.parseSecondaryActivities(json);
+            List<String> restBuildings = JobConfigParser.parseStringList(json, "rest_buildings");
+
+            int bedtime    = json.has("bedtime")     ? json.get("bedtime").getAsInt()     : -1;
+            int wakeupTime = json.has("wakeup_time") ? json.get("wakeup_time").getAsInt() : -1;
+
+            float blockSpeedMin = DEFAULTS.blockSpeedMin;
+            float blockSpeedMax = DEFAULTS.blockSpeedMax;
+            if (json.has("block_speed")) {
+                JsonArray arr = json.getAsJsonArray("block_speed");
+                blockSpeedMin = arr.get(0).getAsFloat();
+                blockSpeedMax = arr.get(1).getAsFloat();
             }
 
-            int bedtime    = json.has("bedtime")      ? json.get("bedtime").getAsInt()      : -1;
-            int wakeupTime = json.has("wakeup_time")  ? json.get("wakeup_time").getAsInt()  : -1;
+            float planReadPauseMin = DEFAULTS.planReadPauseMin;
+            float planReadPauseMax = DEFAULTS.planReadPauseMax;
+            if (json.has("plan_read_pause")) {
+                JsonArray arr = json.getAsJsonArray("plan_read_pause");
+                planReadPauseMin = arr.get(0).getAsFloat();
+                planReadPauseMax = arr.get(1).getAsFloat();
+            }
 
             loaded = new Config(
-                getDbl(json, "walk_speed",                     DEFAULTS.walkSpeed),
-                getDbl(json, "block_reach_distance",           DEFAULTS.blockReachDistance),
-                getInt(json, "block_delay_ticks",              DEFAULTS.blockDelayTicks),
-                getInt(json, "burst_pause_min_ticks",          DEFAULTS.burstPauseMinTicks),
-                getInt(json, "burst_pause_max_ticks",          DEFAULTS.burstPauseMaxTicks),
-                getInt(json, "max_burst_extra_blocks",         DEFAULTS.maxBurstExtraBlocks),
-                getFlt(json, "plan_read_chance",               DEFAULTS.planReadChance),
-                getInt(json, "plan_read_min_ticks",            DEFAULTS.planReadMinTicks),
-                getInt(json, "plan_read_max_ticks",            DEFAULTS.planReadMaxTicks),
+                getDbl(json, "walk_speed",         DEFAULTS.walkSpeed),
+                getDbl(json, "work_reach",          DEFAULTS.blockReachDistance),
+                blockSpeedMin,
+                blockSpeedMax,
+                getFlt(json, "plan_read_chance",   DEFAULTS.planReadChance),
+                planReadPauseMin,
+                planReadPauseMax,
                 activities,
                 bedtime,
                 wakeupTime,
@@ -122,10 +114,6 @@ public class BuilderConfigDataHandler {
             LOGGER.error("[OUAT] Failed to load builder config {}: {} -- using defaults", location, e.getMessage());
             loaded = DEFAULTS;
         }
-    }
-
-    private static int getInt(JsonObject json, String key, int def) {
-        return json.has(key) ? json.get(key).getAsInt() : def;
     }
 
     private static double getDbl(JsonObject json, String key, double def) {

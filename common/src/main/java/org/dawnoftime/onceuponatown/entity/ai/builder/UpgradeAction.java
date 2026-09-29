@@ -7,6 +7,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Blocks;
 import org.dawnoftime.onceuponatown.building.schematic.BlockStep;
 import org.dawnoftime.onceuponatown.building.schematic.ConnectorReader;
+import org.dawnoftime.onceuponatown.entity.ai.shared.BuildingEntryNav;
 import org.dawnoftime.onceuponatown.building.schematic.SchematicConstants;
 import org.dawnoftime.onceuponatown.building.schematic.SchematicDiffer;
 import org.dawnoftime.onceuponatown.building.schematic.EntityStep;
@@ -39,22 +40,33 @@ public class UpgradeAction implements BuilderAction {
     // Blocks deeper than the base template the target NBT level extends underground.
     // Shifts the placement origin down so underground galleries land at the correct Y.
     private final int undergroundDepth;
+    // Walk target resolved at construction time: entryPos for NPC-built, primary jigsaw for worldgen starters.
+    private final BlockPos targetPos;
     // Set true on resume (server restart or sleep) to filter steps already applied in the world.
     boolean skipDiff = false;
+    // World-space barrier marker positions from the toNbt template; forwarded to PlacedBuilding.discoverStands().
+    private List<BlockPos> pendingMarkerPositions = List.of();
 
-    public UpgradeAction(PlacedBuilding building, BuildingDef def, int fromLevel, Town town) {
+    public UpgradeAction(PlacedBuilding building, BuildingDef def, int fromLevel, Town town, ServerLevel level) {
         this.building = building;
         this.def = def;
         this.fromLevel = fromLevel;
         this.town = town;
         this.undergroundDepth = (fromLevel < def.nbtLevels.size())
             ? def.nbtLevels.get(fromLevel).undergroundDepth() : 0;
+        this.targetPos = resolveTargetPos(level, building, def, fromLevel);
         town.addUnderUpgrade(building.worldPos);
+    }
+
+    private static BlockPos resolveTargetPos(ServerLevel level, PlacedBuilding building, BuildingDef def, int fromLevel) {
+        ResourceLocation nbt = (fromLevel == 0) ? def.nbt
+            : (fromLevel - 1 < def.nbtLevels.size() ? def.nbtLevels.get(fromLevel - 1).nbt() : def.nbt);
+        return BuildingEntryNav.resolveEntryPos(level, building, nbt, building.rotation);
     }
 
     @Override
     public BlockPos getTargetPos() {
-        return building.entryPos != null ? building.entryPos : building.worldPos;
+        return targetPos;
     }
 
     @Override
@@ -81,6 +93,8 @@ public class UpgradeAction implements BuilderAction {
         if (fromNbt == null || toNbt == null) return List.of();
 
         SchematicDiffer.DiffResult diff = SchematicDiffer.computeDiff(level, fromNbt, toNbt, building.rotation, undergroundDepth);
+        pendingMarkerPositions = diff.toMarkerPositions().stream()
+            .map(pos -> getOrigin().offset(pos)).toList();
 
         List<PlacementStep> steps = new ArrayList<>(diff.toRemove().size() + diff.toAdd().size());
 
@@ -136,6 +150,10 @@ public class UpgradeAction implements BuilderAction {
                 def.id, fromLevel, building.getUpgradeLevel());
         } else {
             building.setUpgradeLevel(newLevel);
+        }
+        if (!pendingMarkerPositions.isEmpty()) {
+            building.setBarrierPositions(pendingMarkerPositions);
+            building.discoverStands(level, def);
         }
 
         if (newLevel <= def.nbtLevels.size()) {

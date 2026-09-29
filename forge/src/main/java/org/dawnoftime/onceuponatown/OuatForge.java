@@ -30,6 +30,7 @@ import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
 import net.minecraftforge.server.ServerLifecycleHooks;
+import org.dawnoftime.onceuponatown.building.schematic.ConnectorReader;
 import org.dawnoftime.onceuponatown.block.TownAnchorBlock;
 import org.dawnoftime.onceuponatown.blockentity.TownAnchorBlockEntity;
 import org.dawnoftime.onceuponatown.command.TownCommand;
@@ -39,9 +40,9 @@ import org.dawnoftime.onceuponatown.datapack.BuilderConfigDataHandler;
 import org.dawnoftime.onceuponatown.datapack.BuildingDataHandler;
 import org.dawnoftime.onceuponatown.datapack.LumberjackConfigDataHandler;
 import org.dawnoftime.onceuponatown.datapack.MinerConfigDataHandler;
-import org.dawnoftime.onceuponatown.datapack.CowHerdConfigDataHandler;
-import org.dawnoftime.onceuponatown.datapack.ShepherdConfigDataHandler;
-import org.dawnoftime.onceuponatown.datapack.SwineherdConfigDataHandler;
+import org.dawnoftime.onceuponatown.datapack.ToolsmithConfigDataHandler;
+import org.dawnoftime.onceuponatown.datapack.BreederConfigDataHandler;
+import org.dawnoftime.onceuponatown.datapack.FarmerConfigDataHandler;
 import org.dawnoftime.onceuponatown.datapack.BuildingListDataHandler;
 import org.dawnoftime.onceuponatown.datapack.EraTransitionDataHandler;
 import org.dawnoftime.onceuponatown.datapack.FoodListDataHandler;
@@ -60,6 +61,7 @@ import org.dawnoftime.onceuponatown.network.C2SRemoveQueuedBuildingPacket;
 import org.dawnoftime.onceuponatown.network.C2SRequestNbtPacket;
 import org.dawnoftime.onceuponatown.network.C2SRequestStockPacket;
 import org.dawnoftime.onceuponatown.network.C2SToggleChatBroadcastPacket;
+import org.dawnoftime.onceuponatown.network.C2SToggleAutoUpgradePacket;
 import org.dawnoftime.onceuponatown.network.C2SUpgradeBuildingPacket;
 import org.dawnoftime.onceuponatown.network.C2SClaimMedalPacket;
 import org.dawnoftime.onceuponatown.network.C2SRepairBuildingPacket;
@@ -107,6 +109,13 @@ public class OuatForge {
     private static final DeferredRegister<Item> ITEMS =
         DeferredRegister.create(ForgeRegistries.ITEMS, Constants.MOD_ID);
 
+    private static final DeferredRegister<net.minecraft.world.item.crafting.RecipeSerializer<?>> RECIPE_SERIALIZERS =
+        DeferredRegister.create(ForgeRegistries.RECIPE_SERIALIZERS, Constants.MOD_ID);
+
+    private static final RegistryObject<net.minecraft.world.item.crafting.RecipeSerializer<?>> VILLAGE_BANNER_RECIPE_OBJ =
+        RECIPE_SERIALIZERS.register("village_banner_crafting",
+            () -> org.dawnoftime.onceuponatown.recipe.VillageBannerRecipe.SERIALIZER);
+
     private static final RegistryObject<Block> TOWN_ANCHOR_OBJ =
         BLOCKS.register("town_anchor",
             () -> new TownAnchorBlock(TownAnchorBlock.defaultProperties()));
@@ -142,6 +151,10 @@ public class OuatForge {
         ITEMS.register("recognition_medal",
             () -> new org.dawnoftime.onceuponatown.item.RecognitionMedalItem(new Item.Properties().stacksTo(1)));
 
+    private static final RegistryObject<Item> VILLAGE_BANNER_ITEM_OBJ =
+        ITEMS.register("village_banner",
+            () -> new org.dawnoftime.onceuponatown.item.VillageBannerItem(new Item.Properties().stacksTo(1)));
+
     public OuatForge() {
         IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
 
@@ -150,6 +163,7 @@ public class OuatForge {
         ENTITY_TYPES.register(modBus);
         MENU_TYPES.register(modBus);
         ITEMS.register(modBus);
+        RECIPE_SERIALIZERS.register(modBus);
 
         modBus.addListener(this::onCommonSetup);
         modBus.addListener(this::onEntityAttributes);
@@ -170,6 +184,7 @@ public class OuatForge {
         ItemRegistry.TOWN_ANCHOR = TOWN_ANCHOR_ITEM_OBJ.get();
         ItemRegistry.COMMERCE_CONTRACT = COMMERCE_CONTRACT_ITEM_OBJ.get();
         ItemRegistry.RECOGNITION_MEDAL = RECOGNITION_MEDAL_ITEM_OBJ.get();
+        ItemRegistry.VILLAGE_BANNER = VILLAGE_BANNER_ITEM_OBJ.get();
 
         CHANNEL.registerMessage(1,
             S2CTownHubPacket.class,
@@ -449,6 +464,17 @@ public class OuatForge {
             },
             Optional.of(NetworkDirection.PLAY_TO_SERVER)
         );
+        CHANNEL.registerMessage(26,
+            C2SToggleAutoUpgradePacket.class,
+            C2SToggleAutoUpgradePacket::encode,
+            C2SToggleAutoUpgradePacket::decode,
+            (msg, ctx) -> {
+                ctx.get().enqueueWork(() ->
+                    C2SToggleAutoUpgradePacket.Handler.handle(msg, ctx.get().getSender()));
+                ctx.get().setPacketHandled(true);
+            },
+            Optional.of(NetworkDirection.PLAY_TO_SERVER)
+        );
         CHANNEL.registerMessage(25,
             C2SClaimMedalPacket.class,
             C2SClaimMedalPacket::encode,
@@ -475,6 +501,12 @@ public class OuatForge {
     static void wireToggleChatBroadcastPacket() {
         NetworkHelper.sendToggleChatBroadcastPacket = pos ->
             CHANNEL.sendToServer(new C2SToggleChatBroadcastPacket(pos));
+    }
+
+    // Called from OuatForgeClient to wire the auto-upgrade toggle packet sender
+    static void wireToggleAutoUpgradePacket() {
+        NetworkHelper.sendToggleAutoUpgradePacket = pos ->
+            CHANNEL.sendToServer(new C2SToggleAutoUpgradePacket(pos));
     }
 
     // Called from OuatForgeClient to wire the buy packet sender
@@ -517,14 +549,18 @@ public class OuatForge {
     }
 
     private void onServerStarting(ServerStartingEvent event) {
+        ConnectorReader.clearCache();
         BeekeeperConfigDataHandler.reload(event.getServer());
         MerchantConfigDataHandler.reload(event.getServer());
         BuilderConfigDataHandler.reload(event.getServer());
-        CowHerdConfigDataHandler.reload(event.getServer());
+        BreederConfigDataHandler.reload(event.getServer(), "cowherd");
         LumberjackConfigDataHandler.reload(event.getServer());
         MinerConfigDataHandler.reload(event.getServer());
-        ShepherdConfigDataHandler.reload(event.getServer());
-        SwineherdConfigDataHandler.reload(event.getServer());
+        ToolsmithConfigDataHandler.reload(event.getServer());
+        BreederConfigDataHandler.reload(event.getServer(), "shepherd");
+        BreederConfigDataHandler.reload(event.getServer(), "swineherd");
+        FarmerConfigDataHandler.reload(event.getServer(), "wheat_farmer");
+        FarmerConfigDataHandler.reload(event.getServer(), "potato_farmer");
         BuildingDataHandler.reload(event.getServer());
         BuildingListDataHandler.reload(event.getServer());
         EraTransitionDataHandler.reload(event.getServer());

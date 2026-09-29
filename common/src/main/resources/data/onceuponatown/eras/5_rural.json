@@ -16,6 +16,7 @@
   "required_residents": 10,
 
   "auto_upgrade_ids": ["settlement_3"],
+  "auto_build_sequence": ["barn"],
 
   "next_orientation": "rural"
 }
