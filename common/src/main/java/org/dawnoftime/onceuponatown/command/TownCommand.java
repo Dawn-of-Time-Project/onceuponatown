@@ -9,6 +9,7 @@ import net.minecraft.commands.Commands;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import org.dawnoftime.onceuponatown.entity.ai.builder.BuilderDebug;
 import org.dawnoftime.onceuponatown.tick.FoodManager;
 import org.dawnoftime.onceuponatown.town.ConnectionPoint;
 import org.dawnoftime.onceuponatown.town.LevelTowns;
@@ -35,7 +36,14 @@ public class TownCommand {
                         .then(Commands.literal("disable")
                             .executes(ctx -> autonomySet(ctx, false)))
                         .then(Commands.literal("status")
-                            .executes(TownCommand::autonomyStatus))))
+                            .executes(TownCommand::autonomyStatus)))
+                    .then(Commands.literal("debug")
+                        .requires(src -> src.hasPermission(2))
+                        .then(Commands.literal("builder")
+                            .then(Commands.literal("enable")
+                                .executes(ctx -> builderDebugSet(ctx, true)))
+                            .then(Commands.literal("disable")
+                                .executes(ctx -> builderDebugSet(ctx, false))))))
         );
     }
 
@@ -102,6 +110,13 @@ public class TownCommand {
         LevelTowns.get(level).markDirty();
         String state = enable ? "enabled" : "disabled";
         ctx.getSource().sendSuccess(() -> Component.literal("[OUAT] Village autonomy " + state), true);
+        return 1;
+    }
+
+    private static int builderDebugSet(CommandContext<CommandSourceStack> ctx, boolean enable) {
+        BuilderDebug.ENABLED = enable;
+        String state = enable ? "enabled" : "disabled";
+        ctx.getSource().sendSuccess(() -> Component.literal("[OUAT] Builder particle debug " + state), true);
         return 1;
     }
 

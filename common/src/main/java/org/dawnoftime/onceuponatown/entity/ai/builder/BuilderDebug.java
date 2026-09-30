@@ -12,7 +12,7 @@ import org.joml.Vector3f;
 // Set ENABLED = false (or delete this file + the call in BuildGoal) when done debugging.
 public class BuilderDebug {
 
-    public static final boolean ENABLED = true;
+    public static boolean ENABLED = false;
 
     private static final DustParticleOptions RED    = new DustParticleOptions(new Vector3f(1f, 0.1f, 0.1f), 2.0f);
     private static final DustParticleOptions YELLOW = new DustParticleOptions(new Vector3f(1f, 1f, 0f), 1.5f);
